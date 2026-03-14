@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Allow: /browse
+Allow: /stores/
+Disallow: /admin
+Disallow: /vendor
+Disallow: /profile
+Disallow: /cart
+Disallow: /receipts
+
+Sitemap: https://bellbasket.com/sitemap.xml

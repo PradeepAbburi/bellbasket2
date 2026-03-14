@@ -1,0 +1,26 @@
+{
+  "documents": [
+    {
+      "name": "projects/transform-a96c8/databases/(default)/documents/coupons/WKY74T1BM1RJ4tEzQ7iU",
+      "fields": {
+        "code": {
+          "stringValue": "4690TV5O"
+        },
+        "createdAt": {
+          "stringValue": "2026-02-24T05:33:57.508Z"
+        },
+        "months": {
+          "integerValue": "1"
+        },
+        "plan": {
+          "stringValue": "pro"
+        },
+        "isUsed": {
+          "booleanValue": false
+        }
+      },
+      "createTime": "2026-02-24T05:33:58.481461Z",
+      "updateTime": "2026-02-24T05:33:58.481461Z"
+    }
+  ]
+}
