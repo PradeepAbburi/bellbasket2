@@ -1,6 +1,6 @@
-import Razorpay from 'razorpay';
+const Razorpay = require('razorpay');
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
     // CORS configuration
     res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -53,7 +53,7 @@ export default async function handler(req, res) {
             plan_id: razorpayPlanId,
             customer_notify: 1,
             total_count: isMonthly ? 60 : 1, // Only monthly plan auto-renews (total 5 years). Others stop after 1 cycle.
-            expire_by: Math.floor(new Date().setFullYear(new Date().getFullYear() + 5) / 1000), 
+            expire_by: Math.floor(new Date().setFullYear(new Date().getFullYear() + 5) / 1000),
             notes: {
                 vendor_email: email,
                 vendor_phone: phone,

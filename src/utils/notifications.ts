@@ -57,7 +57,7 @@ export const initAudio = async () => {
         source.buffer = silentBuf;
         source.connect(sharedAudioCtx.destination);
         source.start(0);
-        
+
         console.log('🔊 [Audio] Primed and Ready. Status:', sharedAudioCtx.state);
         notifyListeners();
     } catch (e) {
@@ -72,21 +72,21 @@ export const initAudio = async () => {
 export const playBellSound = async (forceSound = false) => {
     try {
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-        
+
         console.log(`🔔 [Notifications] Triggering bell sound (Force: ${forceSound})`);
-        
+
         // 📳 Haptic feedback for mobile - do this immediately
         if ('vibrate' in navigator) {
-            navigator.vibrate([100, 50, 100]); 
+            navigator.vibrate([100, 50, 100]);
         }
 
         // Re-init if missing
         if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') {
             await initAudio();
         }
-        
+
         const ctx = sharedAudioCtx!;
-        
+
         // 🔄 Aggressive Context Management:
         // Attempt to resume if suspended - many browsers block this unless it's a direct user action,
         // but we've added global listeners to App.tsx to prime this.
@@ -101,7 +101,7 @@ export const playBellSound = async (forceSound = false) => {
         }
 
         const now = ctx.currentTime;
-        
+
         // Define frequency based on priority
         const freq1 = forceSound ? 1046.50 : 880.00; // C6 or A5
         const freq2 = forceSound ? 830.61 : 659.25;  // Ab5 or E5
@@ -119,7 +119,7 @@ export const playBellSound = async (forceSound = false) => {
             const osc = ctx.createOscillator();
             osc.type = 'triangle';
             osc.frequency.setValueAtTime(freq, startTime);
-            
+
             const overtone = ctx.createOscillator();
             overtone.type = 'sine';
             overtone.frequency.setValueAtTime(freq * 2.1, startTime);
@@ -138,7 +138,7 @@ export const playBellSound = async (forceSound = false) => {
         };
 
         // Standard "Ding-Dong" pattern
-        playChime(freq1, now + 0.05, 1.2, 0.8); 
+        playChime(freq1, now + 0.05, 1.2, 0.8);
         playChime(freq2, now + 0.5, 1.5, 0.9);
 
         console.log('✅ [Notifications] Sound dispatched');
@@ -160,6 +160,9 @@ export const sendInAppNotification = async (
         url?: string;
         type?: 'order' | 'booking' | 'system' | 'review';
         id?: string;
+        orderId?: string;
+        orderStatus?: 'pending' | 'accepted' | 'packed' | 'completed' | 'rejected';
+        storeName?: string;
     }
 ) => {
     try {
@@ -176,16 +179,34 @@ export const sendInAppNotification = async (
         console.log(`[Notification] In-app alert queued for user ${targetUserId}`);
 
         // Also trigger Push Notification (FCM) via backend
-        fetch('/api/notify', {
+        const isOrderType = notification.type === 'order';
+        const endpoint = isOrderType ? '/api/notify-order' : '/api/notify';
+        const payload = isOrderType
+          ? {
+              userId: targetUserId,
+              orderId: notification.orderId || notification.id || '',
+              orderStatus: notification.orderStatus || '',
+              storeName: notification.storeName || '',
+              title: notification.title,
+              body: notification.body,
+              url: notification.url,
+              type: notification.type || 'order',
+              id: notification.id,
+              sendInApp: false,
+            }
+          : {
+              vendorId: targetUserId,
+              title: notification.title,
+              body: notification.body,
+              url: notification.url,
+              orderId: notification.id,
+              type: notification.type || 'system',
+            };
+
+        fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                vendorId: targetUserId,
-                title: notification.title,
-                body: notification.body,
-                url: notification.url,
-                orderId: notification.id
-            })
+            body: JSON.stringify(payload)
         }).then(async (res) => {
             if (!res.ok) {
                 const errData = await res.json().catch(() => ({ error: 'Unknown Error' }));

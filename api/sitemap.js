@@ -2,24 +2,13 @@ const express = require('express');
 const cors = require('cors');
 const { SitemapStream, streamToPromise } = require('sitemap');
 const { Readable } = require('stream');
-
-// Initialize Firebase Admin (must set env variables in Vercel!)
-const admin = require('firebase-admin');
-if (!admin.apps.length) {
-    admin.initializeApp({
-        credential: admin.credential.cert({
-            projectId: process.env.FIREBASE_PROJECT_ID,
-            clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-            privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-        }),
-    });
-}
-const db = admin.firestore();
+const { getAdmin } = require('./_push');
 
 const app = express();
 app.use(cors());
 
 app.get('/api/sitemap', async (req, res) => {
+    const { db } = getAdmin();
     try {
         // Basic static pages
         const links = [

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
 import { User, CartItem, Order, Store, Product, PlanTier, ServiceBooking } from '@/types';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -13,6 +13,10 @@ import { messaging } from '@/lib/firebase';
 
 import { cleanObject } from '@/utils/firebase';
 import { initAudio } from '@/utils/notifications';
+
+const DELIVERY_ACK_SOURCE = 'web_app';
+const NOTIFICATION_DEDUPE_TTL_MS = 45000;
+const SEEN_NOTIFICATIONS_STORAGE_KEY = 'bellbasket_seen_notifications';
 
 interface AppState {
   user: User | null;
@@ -314,12 +318,104 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
 
   const seenNotificationIds = React.useRef(new Set<string>());
+  const dedupeEventMap = React.useRef<Map<string, number>>(new Map());
+
+  const rememberSeenNotification = useCallback((notificationId: string) => {
+    seenNotificationIds.current.add(notificationId);
+    if (typeof window === 'undefined') return;
+
+    try {
+      const existing = JSON.parse(sessionStorage.getItem(SEEN_NOTIFICATIONS_STORAGE_KEY) || '[]');
+      const merged = Array.from(new Set([...existing, notificationId])).slice(-200);
+      sessionStorage.setItem(SEEN_NOTIFICATIONS_STORAGE_KEY, JSON.stringify(merged));
+    } catch {
+      // no-op
+    }
+  }, []);
+
+  const shouldSkipDuplicateEvent = useCallback((eventKey?: string) => {
+    if (!eventKey) return false;
+
+    const now = Date.now();
+    const map = dedupeEventMap.current;
+
+    for (const [key, timestamp] of map.entries()) {
+      if ((now - timestamp) > NOTIFICATION_DEDUPE_TTL_MS) {
+        map.delete(key);
+      }
+    }
+
+    if (map.has(eventKey)) {
+      return true;
+    }
+
+    map.set(eventKey, now);
+    return false;
+  }, []);
+
+  const presentRealtimeNotification = useCallback((payload: {
+    id?: string;
+    title?: string;
+    body?: string;
+    url?: string;
+    type?: string;
+    source?: 'fcm' | 'firestore';
+    forceSound?: boolean;
+  }) => {
+    const title = payload.title || 'BellBasket Update';
+    const body = payload.body || 'You have a new alert.';
+    const targetUrl = payload.url || '/vendor/orders';
+
+    toast(title, {
+      description: body,
+      duration: 10000,
+      action: {
+        label: 'View',
+        onClick: () => {
+          window.location.href = targetUrl;
+        }
+      }
+    });
+
+    if ('Notification' in window && Notification.permission === 'granted') {
+      const browserNotification = new Notification(title, {
+        body,
+        icon: '/pwa-icon.png',
+        badge: '/pwa-icon.png',
+        tag: payload.id || `notif-${Date.now()}`,
+        data: { url: targetUrl }
+      });
+
+      browserNotification.onclick = () => {
+        window.focus();
+        window.location.href = targetUrl;
+        browserNotification.close();
+      };
+    }
+
+    const isServiceStore = user?.role === 'vendor' && stores?.find((store) => store.vendorId === user.id)?.storeType === 'service';
+    const isPriority = payload.forceSound || payload.type === 'booking' || payload.type === 'order' || isServiceStore;
+    playBellSound(Boolean(isPriority));
+  }, [stores, user?.id, user?.role]);
 
   // Listen for in-app notifications from Firestore
   useEffect(() => {
     if (!user?.id) return;
 
     seenNotificationIds.current.clear();
+    dedupeEventMap.current.clear();
+
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = JSON.parse(sessionStorage.getItem(SEEN_NOTIFICATIONS_STORAGE_KEY) || '[]');
+        if (Array.isArray(cached)) {
+          seenNotificationIds.current = new Set(cached);
+        }
+      } catch {
+        seenNotificationIds.current = new Set();
+      }
+    }
+
     let isInitialLoadWindow = true;
     const initialLoadTimer = setTimeout(() => {
       isInitialLoadWindow = false;
@@ -334,8 +430,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const newNotifications: any[] = [];
-      let hasNewUnread = false;
-      let hasPriorityAlert = false;
 
       snapshot.docChanges().forEach((change) => {
         if (change.type === 'added') {
@@ -352,40 +446,29 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           }
 
           if (isInitialLoadWindow && !isFresh) {
-            seenNotificationIds.current.add(docId);
+            rememberSeenNotification(docId);
           } else {
             if (!seenNotificationIds.current.has(docId)) {
               if (!data.read) {
-                seenNotificationIds.current.add(docId);
-                hasNewUnread = true;
-                
-                // Track if this is a high-priority sound trigger (Bookings or Service Vendors)
-                const isServiceStore = user?.role === 'vendor' && stores?.find(s => s.vendorId === user.id)?.storeType === 'service';
-                if (data.type === 'booking' || isServiceStore) {
-                  hasPriorityAlert = true;
+                rememberSeenNotification(docId);
+                const dedupeKey = data.messageId || data.id || data.orderId || docId;
+
+                if (!shouldSkipDuplicateEvent(String(dedupeKey))) {
+                  presentRealtimeNotification({
+                    id: docId,
+                    title: data.title,
+                    body: data.body,
+                    url: data.url,
+                    type: data.type,
+                    source: 'firestore',
+                  });
                 }
 
-                toast(data.title, {
-                  description: data.body,
-                  action: data.url ? {
-                    label: 'View',
-                    onClick: () => window.location.href = data.url
-                  } : undefined
-                });
-
-                // Show browser/system banner if permission is granted
-                if ("Notification" in window && Notification.permission === 'granted') {
-                  const notification = new Notification(data.title, {
-                    body: data.body,
-                    icon: '/logo.png', // Fallback to logo if available
-                    badge: '/logo.png',
-                    tag: docId, // Prevent duplicate banners for same ID
-                  });
-                  notification.onclick = () => {
-                    window.focus();
-                    if (data.url) window.location.href = data.url;
-                    notification.close();
-                  };
+                if (!data.deliveredAt) {
+                  updateDoc(doc(db, 'notifications', docId), {
+                    deliveredAt: new Date().toISOString(),
+                    deliveredVia: DELIVERY_ACK_SOURCE,
+                  }).catch(() => undefined);
                 }
               }
             }
@@ -398,39 +481,15 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       });
 
       setNotifications(newNotifications);
-
-      // 🔔 Sound Logic
-      if (hasNewUnread) {
-        // Play sound for new notifications
-        // Orders and Bookings are always considered priority for sound
-        const isPriorityEvent = newNotifications.some(n =>
-          !n.read && (n.type === 'order' || n.type === 'booking' || (user?.role === 'vendor' && stores?.find(s => s.vendorId === user.id)?.storeType === 'service'))
-        );
-
-        console.log(`🔔 [AppContext] Triggering bell (Priority: ${isPriorityEvent})`);
-        playBellSound(isPriorityEvent);
-      }
     }, (err) => {
       console.error("Notifications listener failed:", err);
     });
 
-    // Also listen for foreground FCM messages for double reliability
-    let unsubscribeFCM: (() => void) | null = null;
-    if (messaging) {
-      unsubscribeFCM = onMessage(messaging, (payload) => {
-        console.log("🔔 [FCM] Foreground push received:", payload);
-        const isServiceStore = user?.role === 'vendor' && stores?.find(s => s.vendorId === user.id)?.storeType === 'service';
-        const isBooking = payload.data?.type === 'booking';
-        playBellSound(isBooking || isServiceStore);
-      });
-    }
-
     return () => {
       clearTimeout(initialLoadTimer);
       unsubscribe();
-      if (unsubscribeFCM) unsubscribeFCM();
     };
-  }, [user?.id]);
+  }, [presentRealtimeNotification, rememberSeenNotification, shouldSkipDuplicateEvent, user?.id]);
 
 
 
@@ -446,7 +505,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     if (unread.length === 0) return;
 
     try {
-      const promises = unread.map(n => updateDoc(doc(db, 'notifications', n.id), { read: true }));
+      const readAt = new Date().toISOString();
+      const promises = unread.map(n => updateDoc(doc(db, 'notifications', n.id), { read: true, readAt }));
       await Promise.all(promises);
     } catch (e) {
       console.error("Error marking notifications as read", e);
@@ -456,7 +516,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const markNotificationAsRead = async (id: string) => {
     if (id === 'welcome') return;
     try {
-      await updateDoc(doc(db, 'notifications', id), { read: true });
+      await updateDoc(doc(db, 'notifications', id), { read: true, readAt: new Date().toISOString() });
     } catch (e) {
       console.error("Error marking notification as read", e);
     }
@@ -527,13 +587,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         snapshot.docChanges().forEach((change) => {
           if (change.type === 'added' || change.type === 'modified') {
             const data = change.doc.data() as Order;
-            
+
             // Only play sounds for events that happen AFTER the app is loaded and synced
             if (!isFirstLoad.current && !snapshot.metadata.hasPendingWrites) {
                // 1. If I am the vendor and a NEW order arrived
                if (change.type === 'added' && data.storeId === uid) {
                  console.log("🔔 [AppContext] New Order arrived - playing sound");
-                 playBellSound(true); 
+                 playBellSound(true);
                }
 
                // 2. If an order STATUS changed (for anyone)
@@ -546,7 +606,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
                  }
                }
             }
-            
+
             // Always update the status map
             prevOrdersMap.current[data.id] = data.status;
           }
@@ -693,7 +753,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           body: `${itemSummary}${cart.length > 2 ? ` +${cart.length - 2} more` : ''} — ₹${newOrder.total}`,
           url: '/vendor/orders',
           type: 'order',
-          id: orderId
+          id: orderId,
+          orderId,
+          orderStatus: 'pending',
+          storeName: newOrder.storeName,
         });
 
         setCart([]);
@@ -763,7 +826,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         }
 
         await updateDoc(userRef, cleanObject(updateData));
-        
+
         // Also update the store document if it exists to keep plan in sync for visibility filtering
         try {
           const storeRef = doc(db, 'stores', user.id);
@@ -793,6 +856,68 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       }
     };
 
+    const syncPushToken = useCallback(async () => {
+      if (!messaging || !user) {
+        return null;
+      }
+
+      const serviceWorkerRegistration = await navigator.serviceWorker.ready;
+      const token = await getToken(messaging, {
+        vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
+        serviceWorkerRegistration,
+      });
+
+      if (!token) {
+        return null;
+      }
+
+      const userRef = doc(db, 'users', user.id);
+      const userSnap = await getDoc(userRef);
+      const userData = userSnap.data();
+
+      let tokens = Array.isArray(userData?.fcmTokens) ? userData.fcmTokens : [];
+      if (!tokens.includes(token)) {
+        tokens.push(token);
+      }
+      if (tokens.length > 5) tokens = tokens.slice(-5);
+
+      await updateDoc(userRef, {
+        fcmToken: token,
+        fcmTokens: tokens,
+        lastTokenRefresh: new Date().toISOString()
+      });
+
+      return token;
+    }, [user?.id, messaging]);
+
+    useEffect(() => {
+      if (!user?.id || !messaging || typeof window === 'undefined') {
+        return;
+      }
+
+      if (!('Notification' in window) || Notification.permission !== 'granted') {
+        return;
+      }
+
+      let cancelled = false;
+
+      syncPushToken()
+        .then((token) => {
+          if (!cancelled && token) {
+            console.log('🔔 Existing push permission detected. Token synced.');
+          }
+        })
+        .catch((error) => {
+          if (!cancelled) {
+            console.warn('Push token auto-sync skipped:', error?.message || error);
+          }
+        });
+
+      return () => {
+        cancelled = true;
+      };
+    }, [user?.id, messaging, syncPushToken]);
+
     const requestPushNotifications = async () => {
       // 1. Basic Support Check
       if (!("Notification" in window)) {
@@ -806,7 +931,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         toast.error("User not logged in or Firebase not initialized");
         return;
       }
-      
+
       console.log("🔔 Current Notification Permission:", Notification.permission);
 
       // 2. Handle 'Denied' state proactively
@@ -821,35 +946,16 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
       try {
         // 3. Request Permission (if not already granted)
-        const permission = Notification.permission === 'granted' 
-          ? 'granted' 
+        const permission = Notification.permission === 'granted'
+          ? 'granted'
           : await Notification.requestPermission();
 
         if (permission === 'granted') {
           const toastId = toast.loading("Connecting your device to cloud messaging...");
-          const token = await getToken(messaging, {
-            vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY
-          });
-          
+          const token = await syncPushToken();
+
           if (token) {
             console.log('✅ FCM Connection Successful');
-            
-            const userRef = doc(db, 'users', user.id);
-            const userSnap = await getDoc(userRef);
-            const userData = userSnap.data();
-            
-            let tokens = userData?.fcmTokens || [];
-            if (!tokens.includes(token)) {
-              tokens.push(token);
-            }
-            if (tokens.length > 5) tokens = tokens.slice(-5);
-
-            await updateDoc(userRef, { 
-              fcmToken: token,
-              fcmTokens: tokens,
-              lastTokenRefresh: new Date().toISOString()
-            });
-            
             toast.success('Push notifications enabled!', { id: toastId });
           } else {
             toast.error("Could not retrieve notification token.", { id: toastId });
@@ -863,23 +969,57 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       }
     };
 
-    // Foreground listener
+    // Unified foreground push listener
     useEffect(() => {
       if (!messaging) return;
+
       const unsubscribe = onMessage(messaging, (payload) => {
         console.log('Foreground Message:', payload);
-        toast(payload.notification?.title || 'New Alert', {
-          description: payload.notification?.body,
-          duration: 10000,
-          action: {
-            label: 'View',
-            onClick: () => window.location.href = payload.data?.url || '/vendor/orders'
-          }
+
+        const messageId = payload.messageId || payload.data?.messageId || payload.data?.id || payload.data?.orderId;
+        const dedupeKey = messageId ? `fcm:${messageId}` : undefined;
+        if (shouldSkipDuplicateEvent(dedupeKey)) {
+          return;
+        }
+
+        const title = payload.notification?.title || payload.data?.title || 'BellBasket Update';
+        const body = payload.notification?.body || payload.data?.body || 'You have a new alert.';
+        const targetUrl = payload.data?.url || '/vendor/orders';
+        const notificationType = payload.data?.type;
+        const localId = messageId ? String(messageId) : `fcm-${Date.now()}`;
+
+        presentRealtimeNotification({
+          id: localId,
+          title,
+          body,
+          url: targetUrl,
+          type: notificationType,
+          source: 'fcm',
         });
-        playBellSound();
+
+        setNotifications((prev) => {
+          const alreadyExists = prev.some((item) => item.id === localId);
+          if (alreadyExists) return prev;
+
+          const liveNotification = {
+            id: localId,
+            title,
+            body,
+            url: targetUrl,
+            type: notificationType || 'general',
+            read: false,
+            createdAt: new Date().toISOString(),
+            liveOnly: true,
+          };
+
+          return [liveNotification, ...prev].slice(0, 20);
+        });
+
+        rememberSeenNotification(localId);
       });
+
       return () => unsubscribe();
-    }, []);
+    }, [presentRealtimeNotification, rememberSeenNotification, shouldSkipDuplicateEvent]);
 
   return (
     <AppContext.Provider value={{

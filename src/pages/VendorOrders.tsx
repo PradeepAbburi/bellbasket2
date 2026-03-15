@@ -17,7 +17,7 @@ const VendorOrders = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { user, orders: allOrders } = useApp();
-  const [customerData, setCustomerData] = useState<Record<string, any>>({});
+  const [customerData, setCustomerData] = useState<Record<string, { name?: string; phone?: string }>>({});
   const [view, setView] = useState<'active' | 'past'>('active');
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
 
@@ -40,7 +40,7 @@ const VendorOrders = () => {
   useEffect(() => {
     const fetchCustomers = async () => {
       const uids = [...new Set(orders.map(o => o.userId).filter(Boolean))];
-      const data: Record<string, any> = {};
+      const data: Record<string, { name?: string; phone?: string }> = {};
 
       for (const uid of uids) {
         if (!uid || typeof uid !== 'string') continue;
@@ -61,7 +61,7 @@ const VendorOrders = () => {
     const order = orders.find(o => o.id === orderId);
     if (!order) return;
 
-    const idx = statusFlow.indexOf(order.status as any);
+    const idx = statusFlow.indexOf(order.status as (typeof statusFlow)[number]);
     if (idx < statusFlow.length - 1) {
       const next = statusFlow[idx + 1];
 
@@ -72,17 +72,20 @@ const VendorOrders = () => {
         // 🔔 Push notification to the customer
         if (order.userId) {
           const statusMessages: Record<string, string> = {
-            accepted: `✅ Your order from ${order.storeName} has been accepted!`,
-            packed: `📦 Your order from ${order.storeName} is being packed.`,
-            completed: `🎉 Your order from ${order.storeName} is ready for pickup!`,
+            accepted: `✅ ${order.storeName} accepted your order. We'll update you as it is prepared.`,
+            packed: `📦 Your order from ${order.storeName} is packed and ready for pickup.`,
+            completed: `🎉 Your order from ${order.storeName} is completed. Thanks for shopping with BellBasket!`,
           };
           const body = statusMessages[next] || `Your order status updated to: ${next}`;
-          sendInAppNotification(order.userId, {
+          await sendInAppNotification(order.userId, {
             title: 'BellBasket Order Update',
             body,
             url: '/receipts',
             type: 'order',
-            id: orderId
+            id: `${orderId}-${next}`,
+            orderId,
+            orderStatus: next,
+            storeName: order.storeName,
           });
         }
 
@@ -112,12 +115,15 @@ const VendorOrders = () => {
 
         // 🔔 Push notification to the customer
         if (orderData?.userId) {
-          sendInAppNotification(orderData.userId, {
+          await sendInAppNotification(orderData.userId, {
             title: '❌ Order Cancelled',
             body: `Your order from ${orderData.storeName} has been cancelled by the vendor.`,
             url: '/receipts',
             type: 'order',
-            id: orderId
+            id: `${orderId}-rejected`,
+            orderId,
+            orderStatus: 'rejected',
+            storeName: orderData.storeName,
           });
         }
 

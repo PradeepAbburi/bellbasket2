@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -42,6 +42,15 @@ import Leadership from "./pages/Leadership";
 import BottomNav from "./components/BottomNav";
 import OnlineStatusProvider from "./components/OnlineStatusProvider";
 import Onboarding from "./components/Onboarding";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const queryClient = new QueryClient();
 
@@ -85,11 +94,88 @@ const VendorProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 const AppContent = () => {
-  const { user } = useApp();
+  const { user, requestPushNotifications, installPrompt, installPWA } = useApp();
+  const [showPushPrompt, setShowPushPrompt] = useState(false);
+  const [showInstallPrompt, setShowInstallPrompt] = useState(false);
+  const userId = user?.id;
+
+  useEffect(() => {
+    if (!userId || typeof window === 'undefined' || !("Notification" in window)) {
+      setShowPushPrompt(false);
+      return;
+    }
+
+    const isSecure = window.isSecureContext || window.location.hostname === 'localhost';
+    if (!isSecure) {
+      setShowPushPrompt(false);
+      return;
+    }
+
+    const shouldShow = Notification.permission === 'default';
+    setShowPushPrompt(shouldShow);
+  }, [userId]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!installPrompt) {
+      setShowInstallPrompt(false);
+      return;
+    }
+
+    const dismissed = localStorage.getItem('bellbasket_install_prompt_dismissed') === '1';
+    setShowInstallPrompt(!dismissed);
+  }, [installPrompt]);
+
+  const handleEnableNotifications = async () => {
+    await requestPushNotifications();
+    setShowPushPrompt(false);
+  };
+
+  const handleMaybeLater = () => {
+    setShowPushPrompt(false);
+  };
+
+  const handleInstallNow = async () => {
+    await installPWA();
+    setShowInstallPrompt(false);
+  };
+
+  const handleInstallLater = () => {
+    localStorage.setItem('bellbasket_install_prompt_dismissed', '1');
+    setShowInstallPrompt(false);
+  };
 
   return (
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <div className="flex flex-col min-h-screen">
+        <Dialog open={showPushPrompt} onOpenChange={setShowPushPrompt}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Enable notifications</DialogTitle>
+              <DialogDescription>
+                Turn on notifications to get live order updates, booking alerts, and important announcements.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={handleMaybeLater}>Later</Button>
+              <Button onClick={handleEnableNotifications}>Enable</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <div className="fixed bottom-20 right-4 z-50 flex flex-col gap-2 w-72">
+          {showInstallPrompt && (
+            <div className="rounded-lg border bg-background p-4 shadow-lg">
+              <p className="text-sm text-foreground mb-3">
+                Install BellBasket for a faster, app-like experience.
+              </p>
+              <div className="flex items-center justify-end gap-2">
+                <Button variant="outline" size="sm" onClick={handleInstallLater}>Later</Button>
+                <Button size="sm" onClick={handleInstallNow}>Install app</Button>
+              </div>
+            </div>
+          )}
+        </div>
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/about" element={<About />} />
@@ -146,11 +232,11 @@ const App = () => {
     const handleInteraction = () => {
       initAudio();
     };
-    
+
     // Listen for any interaction to unlock/resume audio
     window.addEventListener('click', handleInteraction);
     window.addEventListener('touchstart', handleInteraction);
-    
+
     return () => {
       window.removeEventListener('click', handleInteraction);
       window.removeEventListener('touchstart', handleInteraction);

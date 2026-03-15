@@ -23,6 +23,24 @@ setPersistence(auth, browserSessionPersistence).catch(console.error);
 
 export const db = getFirestore(app);
 export const storage = getStorage(app);
-export const analytics = typeof window !== 'undefined' ? getAnalytics(app) : null;
-export const messaging = typeof window !== 'undefined' ? getMessaging(app) : null;
+
+let analyticsInstance: ReturnType<typeof getAnalytics> | null = null;
+if (typeof window !== 'undefined') {
+    try {
+        analyticsInstance = getAnalytics(app);
+    } catch (error) {
+        console.warn('Analytics unavailable in this environment:', (error as Error).message);
+    }
+}
+export const analytics = analyticsInstance;
+
+let messagingInstance: ReturnType<typeof getMessaging> | null = null;
+if (typeof window !== 'undefined') {
+    try {
+        messagingInstance = getMessaging(app);
+    } catch (error) {
+        console.warn('Firebase Messaging unavailable in this browser:', (error as Error).message);
+    }
+}
+export const messaging = messagingInstance;
 export default app;
