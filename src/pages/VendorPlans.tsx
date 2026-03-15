@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Crown, Check, ArrowRight, Star, ShieldCheck, Zap, Sparkles, Building2, CreditCard, Lock, Loader2, X, Shield, Ticket, Calendar, Gift } from 'lucide-react';
 import Header from '@/components/Header';
-import { useApp } from '@/context/AppContext';
+import { useApp } from '@/context/appStore';
+
 import { toast } from 'sonner';
 import { db, auth } from '@/lib/firebase';
 import { collection, query, where, getDocs, doc, updateDoc, getDoc } from 'firebase/firestore';
@@ -206,8 +207,8 @@ const VendorPlans = () => {
 
         try {
             const inputCode = couponCode.trim().toUpperCase();
-            let q = query(collection(db, "coupons"), where("code", "==", inputCode));
-            let querySnapshot = await getDocs(q);
+            const q = query(collection(db, "coupons"), where("code", "==", inputCode));
+            const querySnapshot = await getDocs(q);
 
             if (querySnapshot.empty) {
                 toast.error("Invalid Coupon Code");

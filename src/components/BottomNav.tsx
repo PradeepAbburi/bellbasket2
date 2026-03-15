@@ -1,4 +1,4 @@
-import { useApp } from '@/context/AppContext';
+import { useApp } from '@/context/appStore';
 import { NavLink, useLocation } from 'react-router-dom';
 import { Search, ShoppingBag, ShoppingCart, User, ChevronRight, LayoutDashboard, Package, Home } from 'lucide-react';
 import { useTranslation } from 'react-i18next';

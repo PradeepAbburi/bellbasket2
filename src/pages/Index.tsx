@@ -2,7 +2,8 @@ import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { Bell, MapPin, ShoppingCart, Store, ArrowRight, Sparkles, Smartphone, ChevronRight } from 'lucide-react';
 import heroBg from '@/assets/hero-bg.jpg';
-import { useApp } from '@/context/AppContext';
+import { useApp } from '@/context/appStore';
+
 import QRCodeWithLogo from '@/components/ui/qr-code-with-logo';
 
 import { useEffect } from 'react';

@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, UserCircle, Store, ArrowRight, CheckCircle2, Loader2, Lock, Phone, Zap, Shield, Eye, EyeOff } from 'lucide-react';
 import { Helmet } from 'react-helmet';
-import { useApp } from '@/context/AppContext';
+import { useApp } from '@/context/appStore';
+
 import { toast } from 'sonner';
 import { auth, db } from '@/lib/firebase';
 import {
@@ -168,7 +169,7 @@ const Auth = () => {
         }
       } else {
         // Sign up logic for Google
-        let hasSetupStore = false;
+        const hasSetupStore = false;
 
         const newUser = {
           id: user.uid,

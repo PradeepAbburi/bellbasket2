@@ -7,7 +7,8 @@ import { useTranslation } from 'react-i18next';
 import QRCodeWithLogo from '@/components/ui/qr-code-with-logo';
 import Header from '@/components/Header';
 import ReviewModal from '@/components/ReviewModal';
-import { useApp } from '@/context/AppContext';
+import { useApp } from '@/context/appStore';
+
 import { toast } from 'sonner';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, doc, getDoc, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
@@ -39,7 +40,7 @@ const StoreDetail = () => {
   const [bookingData, setBookingData] = useState({ name: '', phone: '', location: '', description: '', date: '', timeSlot: '' });
   const [isBooking, setIsBooking] = useState(false);
   const { user } = useApp();
-  
+
   // 0. Immediate Visibility Check (for stores already in context)
   useEffect(() => {
     if (store) {
@@ -257,12 +258,12 @@ const StoreDetail = () => {
 
   const serviceTimeSlots = useMemo(() => {
     if (!bookingService?.availability) return store?.availableTimeSlots || [];
-    
+
     const { startTime, endTime } = bookingService.availability;
     const slots = [];
-    let current = new Date(`2000-01-01T${startTime}`);
+    const current = new Date(`2000-01-01T${startTime}`);
     const end = new Date(`2000-01-01T${endTime}`);
-    
+
     while (current < end) {
       const time = current.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
       slots.push(time);
@@ -308,7 +309,7 @@ const StoreDetail = () => {
       const cleanedData = cleanObject(serviceData);
       console.log("Submitting booking:", cleanedData);
       await addDoc(collection(db, 'serviceBookings'), cleanedData);
-      
+
       // Dispatch notifications to the vendor
       await sendInAppNotification(store.vendorId, {
         title: 'New Service Booking!',

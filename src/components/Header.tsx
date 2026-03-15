@@ -1,4 +1,5 @@
-import { useApp } from '@/context/AppContext';
+import { useApp } from '@/context/appStore';
+
 import { NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
 import { ShoppingCart, Bell, User, LogOut, Store, Menu, X, Search, ShoppingBag, Package, TrendingUp, Crown, Smartphone, Shield } from 'lucide-react';
 import { useState, useEffect } from 'react';
@@ -48,12 +49,12 @@ const Header = () => {
   useEffect(() => {
     // Sync with audio context state
     const unsub = onAudioStatusChange(setAudioStatus);
-    
+
     // Attempt auto-resume
     if (audioStatus === 'suspended') {
       initAudio();
     }
-    
+
     return unsub;
   }, [audioStatus]);
 
@@ -64,13 +65,13 @@ const Header = () => {
         {/* Audio Muted Alert Banner (Only for Vendors/Admins who need real-time alerts) */}
         <AnimatePresence>
           {(isVendorView || isAdminView) && audioStatus !== 'running' && (
-            <motion.div 
-              initial={{ height: 0, opacity: 0 }} 
-              animate={{ height: 'auto', opacity: 1 }} 
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
               className="bg-amber-500 overflow-hidden"
             >
-              <button 
+              <button
                 onClick={() => { initAudio(); playBellSound(); }}
                 className="w-full py-1 text-[10px] font-black uppercase tracking-widest text-white flex items-center justify-center gap-2 hover:bg-amber-600 transition-colors"
                 title="Browser prevents sound alerts until you click once."

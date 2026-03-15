@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useApp } from '@/context/AppContext';
+import { useApp } from '@/context/appStore';
+
 import {
     Globe,
     Search,

@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Star, ArrowLeft, Send, MessageSquare, Crown, Store as StoreIcon, Search, Filter, TrendingUp, Users, ThumbsUp, Trash2 } from 'lucide-react';
 import Header from '@/components/Header';
-import { useApp } from '@/context/AppContext';
+import { useApp } from '@/context/appStore';
+
 import { toast } from 'sonner';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';

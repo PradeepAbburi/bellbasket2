@@ -5,7 +5,7 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
  * Global audio context to be reused and unlocked via user interaction
  */
 let sharedAudioCtx: AudioContext | null = null;
-let isAudioPrimed = false;
+const isAudioPrimed = false;
 let audioStatusListeners: ((status: 'running' | 'suspended' | 'closed' | 'non-interactive') => void)[] = [];
 
 /**

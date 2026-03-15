@@ -4,7 +4,8 @@ import { ArrowLeft, Check, Calendar, Phone, MapPin, X, Loader2, KeyRound, Naviga
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import { toast } from 'sonner';
-import { useApp } from '@/context/AppContext';
+import { useApp } from '@/context/appStore';
+
 import { db } from '@/lib/firebase';
 import { doc, updateDoc, collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
 import { useTranslation } from 'react-i18next';

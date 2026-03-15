@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Pencil, Trash2, X, ArrowLeft, Package, Upload, Camera, Loader2, Image as ImageIcon, RotateCcw, AlertCircle, PackageX, ChevronDown, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
-import { useApp } from '@/context/AppContext';
+import { useApp } from '@/context/appStore';
+
 import { Product } from '@/types';
 import { CATEGORY_METADATA } from '@/constants/categories';
 import { toast } from 'sonner';
@@ -187,14 +188,14 @@ const VendorProducts = () => {
     }
 
     setEditProduct(null);
-    setForm({ 
-      name: '', 
-      price: '', 
-      category: '', 
-      description: '', 
-      image: '', 
-      discountedPrice: '', 
-      quantityValue: '', 
+    setForm({
+      name: '',
+      price: '',
+      category: '',
+      description: '',
+      image: '',
+      discountedPrice: '',
+      quantityValue: '',
       quantityUnit: '',
       startTime: '09:00',
       endTime: '21:00',
@@ -735,22 +736,22 @@ const VendorProducts = () => {
                         <label className="text-[10px] font-black uppercase tracking-widest text-primary ml-1 flex items-center gap-2">
                           <Clock className="w-3 h-3" /> Service Availability
                         </label>
-                        
+
                         <div className="grid grid-cols-2 gap-3">
                           <div className="space-y-1.5">
                             <label className="text-[9px] font-bold text-muted-foreground uppercase ml-1">Daily Start Time</label>
-                            <input 
-                              type="time" 
-                              value={form.startTime} 
+                            <input
+                              type="time"
+                              value={form.startTime}
                               onChange={e => setForm(f => ({ ...f, startTime: e.target.value }))}
                               className="w-full px-4 py-3 rounded-xl bg-secondary text-foreground text-sm outline-none focus:ring-2 focus:ring-primary/30"
                             />
                           </div>
                           <div className="space-y-1.5">
                             <label className="text-[9px] font-bold text-muted-foreground uppercase ml-1">Daily End Time</label>
-                            <input 
-                              type="time" 
-                              value={form.endTime} 
+                            <input
+                              type="time"
+                              value={form.endTime}
                               onChange={e => setForm(f => ({ ...f, endTime: e.target.value }))}
                               className="w-full px-4 py-3 rounded-xl bg-secondary text-foreground text-sm outline-none focus:ring-2 focus:ring-primary/30"
                             />
@@ -767,7 +768,7 @@ const VendorProducts = () => {
                                   key={day}
                                   type="button"
                                   onClick={() => {
-                                    const newDays = isSelected 
+                                    const newDays = isSelected
                                       ? form.availableDays.filter(d => d !== idx)
                                       : [...form.availableDays, idx].sort();
                                     setForm(f => ({ ...f, availableDays: newDays }));

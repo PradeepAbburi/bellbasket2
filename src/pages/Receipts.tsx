@@ -5,7 +5,8 @@ import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import MapView from '@/components/MapView';
 import { Helmet } from 'react-helmet';
-import { useApp } from '@/context/AppContext';
+import { useApp } from '@/context/appStore';
+
 import { doc, updateDoc, arrayUnion, setDoc, getDoc, deleteDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { useTranslation } from 'react-i18next';
 import { ServiceBooking, Store, Order } from '@/types';
@@ -131,9 +132,9 @@ const RenderBookingCard = ({
       {/* Pending Banner On Top */}
       {booking.status === 'pending' && store?.image && (
         <div className="-mx-5 -mt-5 mb-4 h-32 relative group overflow-hidden">
-          <img 
-            src={store.image} 
-            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
+          <img
+            src={store.image}
+            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
             alt={store.name}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-4">
@@ -178,9 +179,9 @@ const RenderBookingCard = ({
         </div>
         <div className="flex flex-col items-end gap-2">
            <span className={`text-[10px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest shadow-sm ring-1 ring-inset ${
-             booking.status === 'completed' ? 'bg-green-100 text-green-700 ring-green-200' : 
-             booking.status === 'accepted' ? 'bg-amber-100 text-amber-700 ring-amber-200' : 
-             booking.status === 'rejected' ? 'bg-destructive/10 text-destructive ring-destructive/20' : 
+             booking.status === 'completed' ? 'bg-green-100 text-green-700 ring-green-200' :
+             booking.status === 'accepted' ? 'bg-amber-100 text-amber-700 ring-amber-200' :
+             booking.status === 'rejected' ? 'bg-destructive/10 text-destructive ring-destructive/20' :
              'bg-orange-100 text-orange-700 ring-orange-200'
            }`}>
              {t(`common.order_status.${booking.status}`, { defaultValue: booking.status.toUpperCase() })}
@@ -233,7 +234,7 @@ const RenderBookingCard = ({
               {t('common.receipts.acceptance_note')}
             </button>
           ) : (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               className="bg-amber-500/5 rounded-2xl p-4 border border-amber-500/20"
@@ -506,9 +507,9 @@ const RenderOrderCard = ({
       {/* Pending Banner On Top */}
       {order.status === 'pending' && store?.image && (
         <div className="-mx-5 -mt-5 mb-4 h-32 relative group overflow-hidden">
-          <img 
-            src={store.image} 
-            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
+          <img
+            src={store.image}
+            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
             alt={store.name}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-4">
@@ -603,7 +604,7 @@ const RenderOrderCard = ({
               {t('common.receipts.acceptance_note')}
             </button>
           ) : (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               className="bg-amber-500/5 rounded-2xl p-4 border border-amber-500/20"
@@ -872,7 +873,7 @@ const Receipts = () => {
 
       for (const item of missing) {
         if (!item.storeId || newInfo[item.storeId]) continue;
-        
+
         try {
           let phone = '';
           let name = '';
@@ -1215,9 +1216,9 @@ const Receipts = () => {
                         i={i}
                         review={reviews[order.id] || (order.review ? { rating: order.review.rating, text: order.review.text, submitted: true, isAnonymous: order.review.isAnonymous || false } : { rating: 0, text: '', submitted: false, isAnonymous: false })}
                         onRate={(star) => handleRating(order.id, star)}
-                        onReviewChange={(text) => setReviews(prev => ({ 
-                          ...prev, 
-                          [order.id]: { ...(prev[order.id] || { rating: order.review?.rating || 0, submitted: !!order.review, isAnonymous: order.review?.isAnonymous || false }), text } 
+                        onReviewChange={(text) => setReviews(prev => ({
+                          ...prev,
+                          [order.id]: { ...(prev[order.id] || { rating: order.review?.rating || 0, submitted: !!order.review, isAnonymous: order.review?.isAnonymous || false }), text }
                         }))}
                         onAnonymous={(anon) => handleAnonymous(order.id, anon)}
                         onSubmit={() => handleReviewSubmit(order.id, 'order')}
@@ -1378,7 +1379,7 @@ const Receipts = () => {
                   </div>
                 </div>
               </div>
-              
+
               {/* Decorative Receipt Bottom Edge */}
               <div className="pt-20 pb-10 flex flex-col items-center gap-4 opacity-30">
                 <div className="w-16 h-1 bg-gradient-to-r from-transparent via-border to-transparent rounded-full" />

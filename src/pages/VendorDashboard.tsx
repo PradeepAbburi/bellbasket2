@@ -4,7 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { Store as StoreIcon, Power, PowerOff, Package, TrendingUp, ShoppingCart, Crown, Check, Star, MessageSquare, Send, Zap, Building2, BarChart3, Clock, Scissors, Settings, MessageCircle, ArrowRight, Image as ImageIcon, Lock, Save, Mail, XCircle, Share2, Phone, ShoppingBasket, Camera, Upload, MapPin, Search, Navigation, X, KeyRound, ShieldAlert } from 'lucide-react';
 import Loader from '@/components/ui/loader-animation';
 import Header from '@/components/Header';
-import { useApp } from '@/context/AppContext';
+import { useApp } from '@/context/appStore';
+
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { db, auth } from '@/lib/firebase';
@@ -609,7 +610,7 @@ const VendorDashboard = () => {
             </motion.button>
           </div>
         </div>
-        
+
         {/* Blocked Account Alert */}
         {user?.isBlocked && (
           <motion.div

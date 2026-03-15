@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MapPin, Search, Loader2, Navigation, CheckCircle2, ArrowRight, Store, Upload, Camera, X, Ticket } from 'lucide-react';
-import { useApp } from '@/context/AppContext';
+import { useApp } from '@/context/appStore';
+
 import MapView from '@/components/MapView';
 import { toast } from 'sonner';
 import { db } from '@/lib/firebase';

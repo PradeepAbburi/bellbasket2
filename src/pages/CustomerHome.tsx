@@ -7,7 +7,8 @@ import Header from '@/components/Header';
 import { Store, Product } from '@/types';
 import { CATEGORY_METADATA } from '@/constants/categories';
 import { toast } from 'sonner';
-import { useApp } from '@/context/AppContext';
+import { useApp } from '@/context/appStore';
+
 import MapView from '@/components/MapView';
 import { Helmet } from 'react-helmet';
 import { useTranslation } from 'react-i18next';
@@ -725,7 +726,7 @@ const CustomerHome = () => {
                 >
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
                     <h2 className="text-xl font-black text-foreground tracking-tight">{t('home.shop_by_category')}</h2>
-                    
+
                     <div className="flex items-center gap-3">
                       <div className="flex bg-secondary p-1 rounded-xl items-center gap-1 border border-border shadow-inner w-fit">
                         <button
@@ -741,7 +742,7 @@ const CustomerHome = () => {
                           Services
                         </button>
                       </div>
-                      
+
                       {selectedCategory && (
                         <button
                           onClick={() => setSelectedCategory(null)}
