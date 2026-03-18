@@ -1,0 +1,112 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // --- HELPER FUNCTIONS ---
+    
+    function isAuth() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuth() && request.auth.uid == userId;
+    }
+    
+    function hasRole(role) {
+      return isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
+    }
+
+    function isAdmin() {
+      return isAuth() && (
+        request.auth.token.email == 'contact.bellbasket1@gmail.com' || 
+        request.auth.token.email == 'contact.belllbasket1@gmail.com' ||
+        hasRole('admin')
+      );
+    }
+
+    // --- COLLECTION RULES ---
+
+    match /{document=**} {
+      allow read, write: if isAdmin();
+    }
+
+    match /users/{userId} {
+      allow read: if true;
+      allow write: if isOwner(userId);
+    }
+
+    match /stores/{storeId} {
+      allow read: if true;
+      allow create, delete: if isOwner(storeId);
+      allow update: if isOwner(storeId) || (
+        isAuth() && 
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reviews', 'rating'])
+      );
+    }
+
+    match /products/{productId} {
+      allow read: if true;
+      allow create: if isAuth() && (request.resource.data.vendorId == request.auth.uid || hasRole('vendor'));
+      allow update, delete: if isAuth() && resource.data.vendorId == request.auth.uid;
+    }
+
+    match /orders/{orderId} {
+      allow read: if isAuth() && (
+        resource.data.userId == request.auth.uid || 
+        resource.data.storeId == request.auth.uid
+      );
+      allow create: if isAuth();
+      allow update, delete: if isAuth() && (
+        resource.data.userId == request.auth.uid || 
+        resource.data.storeId == request.auth.uid
+      );
+    }
+
+    match /serviceBookings/{bookingId} {
+      allow read: if isAuth() && (
+        resource.data.userId == request.auth.uid || 
+        resource.data.vendorId == request.auth.uid
+      );
+      allow create: if true;
+      allow update, delete: if isAuth() && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.vendorId == request.auth.uid
+      );
+    }
+
+    match /coupons/{couponId} {
+      allow read: if true;
+      allow update: if isAdmin() || (isAuth() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isUsed', 'usedBy', 'usedAt']) && request.resource.data.isUsed == true);
+      allow create, delete: if isAdmin();
+    }
+
+    match /support_requests/{requestId} {
+      allow read, update: if isAuth() && resource.data.userId == request.auth.uid;
+      allow create: if isAuth();
+    }
+
+    match /referrals/{referralId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /notifications/{notifId} {
+      allow read: if isAuth() && resource.data.userId == request.auth.uid;
+      allow create: if isAuth();
+      allow update, delete: if isAuth() && resource.data.userId == request.auth.uid;
+    }
+
+    match /store_visits/{docId} {
+      allow create: if true;
+      allow read: if isAuth() && (resource.data.storeId == request.auth.uid || isAdmin());
+      allow update, delete: if isAdmin();
+    }
+
+    match /config/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    }
+  }
+}
