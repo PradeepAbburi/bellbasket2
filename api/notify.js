@@ -1,50 +1,48 @@
-const admin = require('firebase-admin');
+import admin from 'firebase-admin';
 
 // Validate environment variables early
 const projectId = process.env.FIREBASE_PROJECT_ID;
 const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
 const privateKey = process.env.FIREBASE_PRIVATE_KEY;
 
-if (!admin.apps.length) {
-  if (!projectId || !clientEmail || !privateKey) {
-    console.error('❌ [API/Notify] Missing Firebase Admin credentials in environment variables.');
-  } else {
-    try {
-      // Robust key formatting to handle Vercel's various escape behaviors
-      let formattedKey = privateKey;
-      
-      // If the key is wrapped in quotes, remove them
-      if (formattedKey.startsWith('"') && formattedKey.endsWith('"')) {
-        formattedKey = formattedKey.slice(1, -1);
-      }
-      
-      // Replace literal \n with actual newlines
-      formattedKey = formattedKey.replace(/\\n/g, '\n');
-      
-      // Ensure it starts with the header
-      if (!formattedKey.includes('---BEGIN PRIVATE KEY---')) {
-        console.error('❌ [API/Notify] Private key is missing the standard PEM header.');
-      }
+export default async function handler(req, res) {
+  if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
 
-      admin.initializeApp({
-        credential: admin.credential.cert({
-          projectId,
-          clientEmail,
-          privateKey: formattedKey,
-        }),
-      });
-      console.log('✅ [API/Notify] Firebase Admin Initialized for project:', projectId);
-    } catch (e) {
-      console.error('❌ [API/Notify] Firebase Admin Initialization Failed:', e.message);
+  // Robust key formatting to handle Vercel's various escape behaviors
+  let formattedKey = privateKey;
+  if (formattedKey && formattedKey.startsWith('"') && formattedKey.endsWith('"')) {
+    formattedKey = formattedKey.slice(1, -1);
+  }
+  if (formattedKey) {
+    // Both standard newline and literal \n should be handled
+    formattedKey = formattedKey.replace(/\\n/g, '\n');
+  }
+
+  if (!admin.apps.length) {
+    if (!projectId || !clientEmail || !privateKey) {
+      console.error('❌ [API/Notify] Missing Firebase Admin credentials in environment variables.');
+    } else {
+      try {
+        admin.initializeApp({
+          credential: admin.credential.cert({
+            projectId,
+            clientEmail,
+            privateKey: formattedKey,
+          }),
+        });
+        console.log('✅ [API/Notify] Firebase Admin Initialized for project:', projectId);
+      } catch (e) {
+        console.error('❌ [API/Notify] Firebase Admin Initialization Failed:', e.message);
+      }
     }
   }
-}
 
-const db = admin.firestore();
-const fcm = admin.messaging();
+  if (!admin.apps.length) {
+    console.error('❌ [API/Notify] Critical: Firebase Admin not initialized.');
+    return res.status(500).json({ error: 'Firebase Admin not initialized properly (Missing Config)' });
+  }
 
-module.exports = async (req, res) => {
-  if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
+  const db = admin.firestore();
 
   try {
     const { vendorId, title, body, url, orderId, id, type } = req.body;
@@ -55,8 +53,7 @@ module.exports = async (req, res) => {
       return res.status(400).json({ error: 'Missing vendorId in request body' });
     }
 
-    // ... (Lookup vendor tokens shortened for context) ...
-    // 1. Get vendor's FCM token from Firestore
+    // 1. Get user's push tokens from Firestore (stored in fcmTokens field)
     const userDoc = await db.collection('users').doc(vendorId).get();
     if (!userDoc.exists) {
       console.warn(`⚠️ [API/Notify] User ${vendorId} not found in Firestore`);
@@ -66,81 +63,108 @@ module.exports = async (req, res) => {
     const userData = userDoc.data();
     const tokens = userData.fcmTokens || (userData.fcmToken ? [userData.fcmToken] : []);
 
-    if (!tokens || tokens.length === 0) {
-      console.log(`ℹ️ [API/Notify] No FCM tokens found for user ${vendorId}`);
-      return res.status(200).json({ success: false, message: 'No FCM tokens for user' });
+    // Filter tokens: Strictly only valid OneSignal player/subscription IDs (UUID format)
+    // Filter tokens: Strictly only valid OneSignal player/subscription IDs (UUID format)
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const validOneSignalIds = [...new Set(tokens)]
+      .map(t => typeof t === 'string' ? t.trim() : t)
+      .filter(t => typeof t === 'string' && uuidRegex.test(t));
+
+    console.log(`🔍 [OneSignal] Scanning tokens for ${vendorId}: Found ${tokens.length} total, ${validOneSignalIds.length} valid UUIDs.`);
+
+    if (validOneSignalIds.length === 0) {
+      console.log(`ℹ️ [OneSignal] No valid UUIDs found for user ${vendorId}. Skipping push. Found ${tokens.length} total raw tokens.`);
+      return res.status(200).json({ 
+        success: true, 
+        message: 'No valid OneSignal IDs for user (Zero UUIDs found)',
+        recipientCount: 0,
+        debugTokens: tokens.length,
+        skipped: true 
+      });
     }
 
-    // 2. Send Multicast Notification to all devices
-    const multicastMessage = {
-      tokens: [...new Set(tokens)].filter(t => typeof t === 'string' && t.length > 10),
-      notification: {
-        title: title || (notificationType === 'booking' ? 'New Booking!' : 'New Order!'),
-        body: body || 'You have a new update on BellBasket.',
+    // 2. Send via OneSignal REST API
+    const appId = (process.env.ONESIGNAL_APP_ID || "").trim();
+    const apiKey = (process.env.ONESIGNAL_REST_API_KEY || "").trim();
+
+    if (!appId || !apiKey) {
+      console.error('❌ [OneSignal] Missing credentials in environment variables.');
+      return res.status(500).json({ error: 'OneSignal credentials missing on server.' });
+    }
+
+    const dataUrl = url || (userData.role === 'vendor' ? '/vendor/orders' : '/receipts');
+    const authHeader = apiKey.startsWith('os_v2_') ? `Key ${apiKey}` : `Basic ${apiKey}`;
+
+    const protocol = req.headers['x-forwarded-proto'] || 'https';
+    const host = req.headers.host;
+    const absoluteBase = `${protocol}://${host}`;
+    const fullWebUrl = dataUrl.startsWith('http') ? dataUrl : `${absoluteBase}${dataUrl}`;
+
+    const notificationPayload = {
+      app_id: appId,
+      // Target by both specific subscription IDs and the user's unique Firestore ID (External ID)
+      // This provides a robust fallback if the subscription ID has changed in the browser.
+      include_subscription_ids: validOneSignalIds,
+      include_player_ids: validOneSignalIds, 
+      include_external_user_ids: [vendorId], 
+      headings: { 
+        en: title || (notificationType === 'booking' ? 'New Booking!' : 'New Order!') 
       },
-      android: {
-        priority: 'high',
-        ttl: 86400000, 
-        notification: {
-          icon: 'stock_ticker_update',
-          color: '#ff4f00',
-          sound: 'default',
-          tag: notificationId,
-          channelId: 'orders_channel'
-        },
-      },
-      apns: {
-        payload: {
-          aps: {
-            sound: 'default',
-            badge: 1,
-            contentAvailable: true,
-          },
-        },
-      },
-      webpush: {
-        headers: {
-          Urgency: 'high'
-        },
-        notification: {
-          title: title || 'BellBasket Update',
-          body: body || 'You have a new alert.',
-          icon: '/pwa-icon.png',
-          badge: '/pwa-icon.png',
-          tag: notificationId,
-          requireInteraction: true,
-          vibrate: [200, 100, 200],
-          data: {
-            url: url || '/vendor',
-            id: notificationId,
-            type: notificationType
-          }
-        },
-        fcmOptions: {
-          link: url || '/vendor'
-        }
+      contents: { 
+        en: body || 'You have a new update on BellBasket.' 
       },
       data: {
-        url: url || '/vendor',
+        url: dataUrl,
         id: notificationId,
         type: notificationType,
-        click_action: 'FLUTTER_NOTIFICATION_CLICK',
-        sound: 'default',
-        notification_foreground: 'true'
-      }
+        orderId: orderId || id
+      },
+      web_url: fullWebUrl,
+      chrome_web_badge: '/pwa-icon.png',
+      chrome_web_icon: '/pwa-icon.png',
+      ios_sound: 'default',
+      android_sound: 'default'
     };
 
-    if (multicastMessage.tokens.length === 0) {
-      return res.status(200).json({ success: false, message: 'No valid FCM tokens found' });
+    console.log(`🚀 [OneSignal] Posting notification to user ${vendorId} (${validOneSignalIds.length} IDs)`);
+
+    const response = await fetch('https://onesignal.com/api/v1/notifications', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Authorization': authHeader
+      },
+      body: JSON.stringify(notificationPayload)
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      console.error('❌ [OneSignal] API Error Response:', result);
+      return res.status(response.status).json({ 
+        success: false, 
+        error: result,
+        status: response.status,
+        debug: {
+          appIdUsed: appId.substring(0, 8) + '...',
+          authType: authHeader.split(' ')[0],
+          tokenCount: validOneSignalIds.length
+        }
+      });
     }
 
-    const response = await fcm.sendEachForMulticast(multicastMessage);
-    console.log(`🚀 [API/Notify] Sent ${response.successCount} messages; ${response.failureCount} failed for user ${vendorId}`);
-
+    // result.recipients = number of successfully matched recipients
+    // result.id = notification ID
+    console.log('✅ [OneSignal] Success:', result);
     return res.status(200).json({ 
       success: true, 
-      successCount: response.successCount, 
-      failureCount: response.failureCount 
+      recipientCount: result.recipients || 0,
+      notificationId: result.id,
+      errors: result.errors,
+      debug: {
+        validIdsSent: validOneSignalIds.length,
+        totalTokensChecked: tokens.length
+      }
     });
 
   } catch (error) {
@@ -151,4 +175,4 @@ module.exports = async (req, res) => {
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
-};
+}

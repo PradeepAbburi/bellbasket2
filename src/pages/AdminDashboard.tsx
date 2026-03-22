@@ -33,6 +33,7 @@ const AdminDashboard = () => {
     const [newCouponMonths, setNewCouponMonths] = useState(1);
     const [newCouponPlan, setNewCouponPlan] = useState<PlanTier>('pro');
     const [isGenerating, setIsGenerating] = useState(false);
+    const [newCouponUsageType, setNewCouponUsageType] = useState<'single' | 'multiple'>('single');
     const [isSyncingSlugs, setIsSyncingSlugs] = useState(false);
     const [globalSettings, setGlobalSettings] = useState<{ disableCoupons?: boolean }>({});
     const [isUpdatingSettings, setIsUpdatingSettings] = useState(false);
@@ -42,6 +43,8 @@ const AdminDashboard = () => {
     const [newReferralId, setNewReferralId] = useState("");
     const [newLoginId, setNewLoginId] = useState("");
     const [newPassword, setNewPassword] = useState("");
+    const [newStaffEmail, setNewStaffEmail] = useState("");
+    const [newStaffPhone, setNewStaffPhone] = useState("");
     const [showPartnerPassword, setShowPartnerPassword] = useState(false);
     const [newBankName, setNewBankName] = useState("");
     const [newAccountName, setNewAccountName] = useState("");
@@ -50,6 +53,9 @@ const AdminDashboard = () => {
     const [payingPartnerId, setPayingPartnerId] = useState<string | null>(null);
     const [paymentAmount, setPaymentAmount] = useState<number>(0);
     const [isCreatingReferral, setIsCreatingReferral] = useState(false);
+    const [employeeImage, setEmployeeImage] = useState<string | null>(null);
+    const [staffSearchQuery, setStaffSearchQuery] = useState("");
+    const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
 
     const handleDeleteCoupon = async (couponId: string) => {
         if (!window.confirm("Are you sure you want to delete this coupon?")) return;
@@ -81,6 +87,12 @@ const AdminDashboard = () => {
             setIsUpdatingSettings(false);
         }
     };
+
+    useEffect(() => {
+        if (user?.role === 'hr') {
+            navigate('/hr');
+        }
+    }, [user, navigate]);
 
     useEffect(() => {
         const fetchGlobalSettings = async () => {
@@ -157,13 +169,15 @@ const AdminDashboard = () => {
     };
 
     useEffect(() => {
-        if (!loading && (!user?.id || user?.role !== 'admin')) {
+        if (!loading && (!user?.id || (user?.role !== 'admin' && user?.role !== 'hr'))) {
             navigate('/auth');
+        } else if (user?.role === 'hr') {
+            setActiveTab('referrals');
         }
     }, [user?.id, user?.role, loading, navigate]);
 
     const fetchData = async () => {
-        if (!user || user.role !== 'admin') return;
+        if (!user || (user.role !== 'admin' && user.role !== 'hr')) return;
         setIsLoadingData(true);
         try {
             // Manual fetch for absolute accuracy
@@ -200,7 +214,27 @@ const AdminDashboard = () => {
     };
 
     useEffect(() => {
-        if (!user || user.role !== 'admin') return;
+        if (!user || (user.role !== 'admin' && user.role !== 'hr')) return;
+        
+        // Auto-increment Staff ID logic
+        if (referralList.length > 0) {
+            const numericalIds = referralList
+                .map(r => {
+                    const idStr = r.referralId || '';
+                    const match = idStr.match(/\d+/);
+                    return match ? parseInt(match[0]) : NaN;
+                })
+                .filter(id => !isNaN(id));
+            
+            const nextId = numericalIds.length > 0 ? Math.max(...numericalIds) + 1 : 1;
+            setNewReferralId(nextId.toString());
+        } else {
+            setNewReferralId("1");
+        }
+    }, [referralList, user?.role]);
+
+    useEffect(() => {
+        if (!user || (user.role !== 'admin' && user.role !== 'hr')) return;
         setIsLoadingData(true);
 
         const unsubscribes: (() => void)[] = [];
@@ -366,6 +400,9 @@ const AdminDashboard = () => {
                 code,
                 plan: newCouponPlan,
                 months: months,
+                usageType: newCouponUsageType,
+                redemptionCount: 0,
+                usedByList: [],
                 isUsed: false,
                 createdAt: new Date().toISOString()
             };
@@ -418,7 +455,7 @@ const AdminDashboard = () => {
         }
     };
 
-    const handleCreateReferral = async () => {
+    const handleSaveStaff = async () => {
         if (!newAgentName.trim() || !newReferralId.trim() || !newLoginId.trim() || !newPassword.trim()) {
             toast.error("Please fill in all fields (Name, Referral ID, Login ID, Password)");
             return;
@@ -427,41 +464,81 @@ const AdminDashboard = () => {
         setIsCreatingReferral(true);
         try {
             const rid = newReferralId.toUpperCase().trim();
-            // Check if ID already exists
-            const existing = referralList.find(r => r.referralId === rid);
-            if (existing) {
-                toast.error("Referral ID already exists");
-                setIsCreatingReferral(false);
-                return;
+            
+            // If creating new, check if ID already exists
+            if (!editingStaffId) {
+                const existing = referralList.find(r => r.referralId === rid);
+                if (existing) {
+                    toast.error("Referral ID already exists");
+                    setIsCreatingReferral(false);
+                    return;
+                }
             }
 
-            await addDoc(collection(db, "referrals"), {
+            const staffData = {
                 agentName: newAgentName.trim(),
                 referralId: rid,
                 loginId: newLoginId.trim(),
                 password: newPassword.trim(),
+                email: newStaffEmail.trim(),
+                phone: newStaffPhone.trim(),
+                image: employeeImage,
                 bankName: newBankName.trim(),
                 accountName: newAccountName.trim(),
                 accountNumber: newAccountNumber.trim(),
                 ifsc: newIfsc.trim().toUpperCase(),
-                totalPaid: 0,
-                createdAt: new Date().toISOString()
-            });
+                updatedAt: new Date().toISOString()
+            };
 
-            toast.success("Referral created successfully");
+            if (editingStaffId) {
+                await updateDoc(doc(db, "referrals", editingStaffId), staffData);
+                toast.success("Staff profile updated successfully");
+            } else {
+                await addDoc(collection(db, "referrals"), {
+                    ...staffData,
+                    totalPaid: 0,
+                    createdAt: new Date().toISOString()
+                });
+                toast.success("Staff member created successfully");
+            }
+
+            // Reset form
             setNewAgentName("");
             setNewReferralId("");
             setNewLoginId("");
             setNewPassword("");
+            setNewStaffEmail("");
+            setNewStaffPhone("");
+            setEmployeeImage(null);
             setNewBankName("");
             setNewAccountName("");
             setNewAccountNumber("");
             setNewIfsc("");
+            setEditingStaffId(null);
         } catch (e: any) {
-            toast.error("Failed to create referral");
+            toast.error(editingStaffId ? "Update failed" : "Creation failed");
         } finally {
             setIsCreatingReferral(false);
         }
+    };
+
+    const handleEditStaff = (staff: any) => {
+        setEditingStaffId(staff.id);
+        setNewAgentName(staff.agentName || "");
+        setNewReferralId(staff.referralId || "");
+        setNewLoginId(staff.loginId || "");
+        setNewPassword(staff.password || "");
+        setNewStaffEmail(staff.email || "");
+        setNewStaffPhone(staff.phone || "");
+        setEmployeeImage(staff.image || null);
+        setNewBankName(staff.bankName || "");
+        setNewAccountName(staff.accountName || "");
+        setNewAccountNumber(staff.accountNumber || "");
+        setNewIfsc(staff.ifsc || "");
+        
+        // Scroll to form
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        toast.info(`Editing ${staff.agentName}`);
     };
 
     const handleRecordPayment = async (id: string, currentTotalPaid: number) => {
@@ -516,6 +593,14 @@ const AdminDashboard = () => {
 
     const unknownReferralsCount = userList.filter(u => u.role === 'vendor' && u.referralCode && !referralList.some(r => r.referralId === u.referralCode)).length;
 
+    const filteredStaff = leaderboard.filter(item => 
+        (item.agentName?.toLowerCase() || "").includes(staffSearchQuery.toLowerCase()) ||
+        (item.referralId?.toLowerCase() || "").includes(staffSearchQuery.toLowerCase()) ||
+        (item.loginId?.toLowerCase() || "").includes(staffSearchQuery.toLowerCase()) ||
+        (item.email?.toLowerCase() || "").includes(staffSearchQuery.toLowerCase()) ||
+        (item.phone?.toLowerCase() || "").includes(staffSearchQuery.toLowerCase())
+    );
+
     if (loading || isLoadingData) {
         return (
             <div className="min-h-screen gradient-warm flex items-center justify-center">
@@ -569,10 +654,10 @@ const AdminDashboard = () => {
                             </div>
                         )}
                         <div className="hidden sm:flex items-center gap-3 bg-secondary/50 rounded-2xl p-2 pr-6">
-                            <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center font-bold text-white shadow-lg shrink-0">A</div>
+                            <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center font-bold text-white shadow-lg shrink-0">{user?.role === 'hr' ? 'H' : 'A'}</div>
                             <div className="hidden xl:block">
                                 <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Logged in as</p>
-                                <p className="font-bold text-foreground">Super Admin</p>
+                                <p className="font-bold text-foreground">{user?.role === 'hr' ? 'HR Manager' : 'Super Admin'}</p>
                             </div>
                         </div>
                     </div>
@@ -593,10 +678,10 @@ const AdminDashboard = () => {
                         <Zap className={`w-4 h-4 ${isSyncingSlugs ? 'animate-spin' : ''}`} /> Sync SEO Slugs
                     </button>
                     <button onClick={() => navigate('/admin/payments')} className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-primary/10 border border-primary/20 text-primary font-black text-xs uppercase tracking-widest hover:bg-primary hover:text-white transition-all">
-                        <TrendingUp className="w-4 h-4" /> Partner Payments
+                        <TrendingUp className="w-4 h-4" /> Staff Payments
                     </button>
                     <button onClick={() => navigate('/admin/partner-bank')} className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-primary/10 border border-primary/20 text-primary font-black text-xs uppercase tracking-widest hover:bg-primary hover:text-white transition-all">
-                        <TrendingUp className="w-4 h-4" /> Partner Bank
+                        <TrendingUp className="w-4 h-4" /> Staff Bank
                     </button>
                 </div>
 
@@ -610,7 +695,7 @@ const AdminDashboard = () => {
                         { label: 'Completed', value: allOrders.filter(o => o.status === 'completed').length, icon: CheckCircle2, color: 'text-green-500', bg: 'bg-green-500/10' },
                         { label: 'Revenue/Fees', value: '₹' + Math.floor(allOrders.filter(o => o.status === 'completed').reduce((sum, o) => sum + (o.total || 0), 0) * 0.05).toLocaleString(), icon: Crown, color: 'text-purple-500', bg: 'bg-purple-500/10' },
                         { label: 'Active Coupons', value: couponList.filter(c => !c.isUsed).length, icon: Ticket, color: 'text-amber-500', bg: 'bg-amber-500/10' },
-                        { label: 'Total Redeemed', value: couponList.filter(c => c.isUsed).length, icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
+                        { label: 'Total Redeemed', value: couponList.reduce((sum, c) => sum + (c.redemptionCount || 0), 0), icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
                     ].map((stat, i) => (
                         <motion.div key={stat.label + i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }} className="glass rounded-2xl p-5 flex items-center gap-4 hover:shadow-lg transition-all">
                             <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${stat.bg} ${stat.color}`}><stat.icon className="w-6 h-6" /></div>
@@ -631,9 +716,9 @@ const AdminDashboard = () => {
                             { id: 'reports', label: 'Reports', icon: FileText },
                             { id: 'support', label: 'Support', icon: MessageCircle },
                             { id: 'coupons', label: 'Coupons', icon: Ticket },
-                            { id: 'referrals', label: 'Referrals', icon: UserCircle },
+                            { id: 'referrals', label: 'Staff', icon: UserCircle },
                             { id: 'analytics', label: 'Analytics', icon: BarChart2 },
-                        ].map((tab) => (
+                        ].filter(tab => user?.role === 'admin' || tab.id === 'referrals').map((tab) => (
                             <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all whitespace-nowrap ${activeTab === tab.id ? 'bg-white text-primary shadow-lg scale-105' : 'text-muted-foreground hover:text-foreground hover:bg-white/50'}`}>
                                 <tab.icon className="w-4 h-4" /> {tab.label}
                             </button>
@@ -810,6 +895,10 @@ const AdminDashboard = () => {
                                         <option value="growth">Growth Plan</option>
                                         <option value="pro">Pro Merchant</option>
                                     </select>
+                                    <select value={newCouponUsageType} onChange={(e) => setNewCouponUsageType(e.target.value as 'single' | 'multiple')} className="bg-white px-4 py-2.5 rounded-xl text-sm font-bold border-0 outline-none shadow-sm">
+                                        <option value="single">Single Use</option>
+                                        <option value="multiple">Multi Vendor</option>
+                                    </select>
                                     <input type="number" value={newCouponMonths} onChange={(e) => setNewCouponMonths(parseInt(e.target.value))} min="1" max="24" className="bg-white px-4 py-2.5 rounded-xl text-sm font-bold w-20 border-0 outline-none shadow-sm" />
                                     <button onClick={handleGenerateCoupon} disabled={isGenerating} className="px-8 py-2.5 rounded-xl gradient-primary text-white font-black text-xs uppercase tracking-widest shadow-lg hover:scale-105 transition-all disabled:opacity-50">
                                         {isGenerating ? "Wait..." : "Create Code"}
@@ -829,7 +918,7 @@ const AdminDashboard = () => {
                                                     <p className="text-lg font-black tracking-widest text-foreground">{c.code}</p>
                                                     <span className="text-xs text-muted-foreground group-hover:text-primary transition-colors">📋 Copy</span>
                                                 </div>
-                                                <p className="text-[10px] font-bold text-muted-foreground uppercase">{c.plan} • {c.months} Months</p>
+                                                <p className="text-[10px] font-bold text-muted-foreground uppercase">{c.plan} • {c.months} Months • <span className="text-primary">{c.usageType || 'single'}</span></p>
                                                 {c.isUsed && (
                                                     <p className="text-[9px] font-medium text-destructive mt-1 italic">
                                                         Redeemed by: {c.usedBy || 'Unknown User'} • {c.usedAt ? new Date(c.usedAt).toLocaleDateString() : 'Date missing'}
@@ -843,7 +932,7 @@ const AdminDashboard = () => {
                                                     {c.isUsed ? 'Redeemed' : 'Live'}
                                                 </span>
                                                 <p className="text-[10px] font-black text-muted-foreground tracking-tighter uppercase">
-                                                    {c.isUsed ? '1 Redeemed' : '0 Redeemed'}
+                                                    {c.redemptionCount || 0} Redeemed
                                                 </p>
                                             </div>
                                             <button
@@ -865,10 +954,39 @@ const AdminDashboard = () => {
                                 {/* Create Section */}
                                 <div className="lg:col-span-1 space-y-6">
                                     <div className="p-6 bg-secondary/30 rounded-3xl border border-border/50">
-                                        <h3 className="text-xl font-black text-foreground mb-4">Create Partner ID</h3>
+                                        <h3 className="text-xl font-black text-foreground mb-4">Create Staff Profile</h3>
                                         <div className="space-y-4">
+                                            <div className="flex flex-col items-center gap-4 p-4 rounded-2xl bg-white/50 border border-dashed border-primary/20 mb-2">
+                                                {employeeImage ? (
+                                                    <img src={employeeImage} alt="Preview" className="w-20 h-20 rounded-2xl object-cover shadow-lg" />
+                                                ) : (
+                                                    <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+                                                        <UserCircle className="w-10 h-10" />
+                                                    </div>
+                                                )}
+                                                <label className="px-4 py-2 rounded-xl bg-primary text-white text-[10px] font-black uppercase tracking-widest cursor-pointer hover:scale-105 transition-all">
+                                                    Upload Image
+                                                    <input 
+                                                        type="file" 
+                                                        className="hidden" 
+                                                        accept="image/*" 
+                                                        onChange={(e) => {
+                                                            const file = e.target.files?.[0];
+                                                            if (file) {
+                                                                if (file.size > 200 * 1024) {
+                                                                    toast.error("Image too large", { description: "Max size 200KB" });
+                                                                    return;
+                                                                }
+                                                                const reader = new FileReader();
+                                                                reader.onloadend = () => setEmployeeImage(reader.result as string);
+                                                                reader.readAsDataURL(file);
+                                                            }
+                                                        }}
+                                                    />
+                                                </label>
+                                            </div>
                                             <div>
-                                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Partner Name</label>
+                                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Staff Name</label>
                                                 <input
                                                     type="text"
                                                     value={newAgentName}
@@ -878,12 +996,12 @@ const AdminDashboard = () => {
                                                 />
                                             </div>
                                             <div>
-                                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Partner ID</label>
+                                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Staff ID</label>
                                                 <input
                                                     type="text"
                                                     value={newReferralId}
                                                     onChange={(e) => setNewReferralId(e.target.value.toUpperCase())}
-                                                    placeholder="e.g. PARTNER001"
+                                                    placeholder="e.g. STAFF001"
                                                     className="w-full px-4 py-3 rounded-xl bg-white border-0 outline-none shadow-sm text-sm font-bold mt-1"
                                                 />
                                             </div>
@@ -893,7 +1011,7 @@ const AdminDashboard = () => {
                                                     type="text"
                                                     value={newLoginId}
                                                     onChange={(e) => setNewLoginId(e.target.value)}
-                                                    placeholder="e.g. partner_rahul"
+                                                    placeholder="e.g. staff_rahul"
                                                     className="w-full px-4 py-3 rounded-xl bg-white border-0 outline-none shadow-sm text-sm font-bold mt-1"
                                                 />
                                             </div>
@@ -916,7 +1034,13 @@ const AdminDashboard = () => {
                                             </div>
 
                                             <div className="pt-4 mt-4 border-t border-border/50">
-                                                <h4 className="text-[10px] font-black uppercase tracking-widest text-primary mb-3">Bank Details</h4>
+                                                <h4 className="text-[10px] font-black uppercase tracking-widest text-primary mb-3">Personal & Bank Details</h4>
+                                                <div className="space-y-3 mb-4">
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                        <input type="email" value={newStaffEmail} onChange={(e) => setNewStaffEmail(e.target.value)} placeholder="Email Address" className="w-full px-4 py-3 rounded-xl bg-white border-0 outline-none shadow-sm text-sm font-bold" />
+                                                        <input type="tel" value={newStaffPhone} onChange={(e) => setNewStaffPhone(e.target.value)} placeholder="Phone Number" className="w-full px-4 py-3 rounded-xl bg-white border-0 outline-none shadow-sm text-sm font-bold" />
+                                                    </div>
+                                                </div>
                                                 <div className="space-y-3">
                                                     <input type="text" value={newBankName} onChange={(e) => setNewBankName(e.target.value)} placeholder="Bank Name" className="w-full px-4 py-3 rounded-xl bg-white border-0 outline-none shadow-sm text-sm font-bold" />
                                                     <input type="text" value={newAccountName} onChange={(e) => setNewAccountName(e.target.value)} placeholder="Account Holder Name" className="w-full px-4 py-3 rounded-xl bg-white border-0 outline-none shadow-sm text-sm font-bold" />
@@ -925,21 +1049,44 @@ const AdminDashboard = () => {
                                                 </div>
                                             </div>
 
-                                            <button
-                                                onClick={handleCreateReferral}
-                                                disabled={isCreatingReferral}
-                                                className="w-full py-3 rounded-xl gradient-primary text-white font-black text-xs uppercase tracking-widest shadow-lg hover:scale-105 transition-all disabled:opacity-50 mt-2"
-                                            >
-                                                {isCreatingReferral ? "Creating..." : "Generate ID"}
-                                            </button>
+                                            <div className="flex gap-3 mt-2">
+                                                <button
+                                                    onClick={handleSaveStaff}
+                                                    disabled={isCreatingReferral}
+                                                    className="flex-1 py-3 rounded-xl gradient-primary text-white font-black text-xs uppercase tracking-widest shadow-lg hover:scale-105 transition-all disabled:opacity-50"
+                                                >
+                                                    {isCreatingReferral ? (editingStaffId ? "Updating..." : "Creating...") : (editingStaffId ? "Update Profile" : "Generate Profile")}
+                                                </button>
+                                                {editingStaffId && (
+                                                    <button
+                                                        onClick={() => {
+                                                            setEditingStaffId(null);
+                                                            setNewAgentName("");
+                                                            setNewReferralId("");
+                                                            setNewLoginId("");
+                                                            setNewPassword("");
+                                                            setNewStaffEmail("");
+                                                            setNewStaffPhone("");
+                                                            setEmployeeImage(null);
+                                                            setNewBankName("");
+                                                            setNewAccountName("");
+                                                            setNewAccountNumber("");
+                                                            setNewIfsc("");
+                                                        }}
+                                                        className="px-6 py-3 rounded-xl bg-secondary text-foreground font-black text-xs uppercase tracking-widest hover:bg-secondary/80 transition-all border border-border"
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
 
                                     <div className="p-6 bg-primary/5 rounded-3xl border border-primary/10">
-                                        <h4 className="text-xs font-black uppercase tracking-widest text-primary mb-2">Referral Stats</h4>
+                                        <h4 className="text-xs font-black uppercase tracking-widest text-primary mb-2">Staff Stats</h4>
                                         <div className="space-y-2">
                                             <div className="flex justify-between items-center">
-                                                <span className="text-xs font-bold text-muted-foreground">Tracked Partners:</span>
+                                                <span className="text-xs font-bold text-muted-foreground">Active Staff:</span>
                                                 <span className="text-sm font-black text-foreground">{referralList.length}</span>
                                             </div>
                                             <div className="flex justify-between items-center">
@@ -956,38 +1103,65 @@ const AdminDashboard = () => {
                                     </div>
                                 </div>
 
-                                {/* Leaderboard Section */}
+                                {/* Directory Section */}
                                 <div className="lg:col-span-2">
-                                    <div className="flex items-center justify-between mb-6">
+                                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
                                         <h3 className="text-xl font-black text-foreground flex items-center gap-2">
                                             <TrendingUp className="w-5 h-5 text-primary" />
-                                            Onboarding Leaderboard
+                                            Staff Directory
                                         </h3>
+                                        <div className="relative w-full sm:w-64">
+                                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                            <input 
+                                                type="text" 
+                                                placeholder="Search staff..." 
+                                                value={staffSearchQuery}
+                                                onChange={(e) => setStaffSearchQuery(e.target.value)}
+                                                className="w-full pl-12 pr-4 py-2.5 rounded-xl bg-white border-0 outline-none shadow-sm text-sm font-medium" 
+                                            />
+                                        </div>
                                     </div>
 
                                     <div className="space-y-3">
-                                        {leaderboard.length === 0 ? (
+                                        {filteredStaff.length === 0 ? (
                                             <div className="p-10 text-center glass rounded-3xl border-dashed border-2">
-                                                <p className="text-muted-foreground font-bold italic">No partners created yet.</p>
+                                                <p className="text-muted-foreground font-bold italic">No staff members match your search.</p>
                                             </div>
                                         ) : (
-                                            leaderboard.map((item, index) => (
+                                            filteredStaff.map((item, index) => (
                                                 <div key={item.id} className="p-4 rounded-2xl bg-white border border-border shadow-sm flex flex-col gap-4 group hover:shadow-md transition-all">
                                                     <div className="flex items-center justify-between">
                                                         <div className="flex items-center gap-4">
-                                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm ${index === 0 ? 'bg-amber-100 text-amber-600' : index === 1 ? 'bg-slate-100 text-slate-500' : index === 2 ? 'bg-orange-100 text-orange-600' : 'bg-secondary text-muted-foreground'}`}>
-                                                                #{index + 1}
+                                                            <div className="relative">
+                                                                {item.image ? (
+                                                                    <img src={item.image} alt="" className="w-12 h-12 rounded-xl object-cover shadow-md" />
+                                                                ) : (
+                                                                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-sm ${index === 0 ? 'bg-amber-100 text-amber-600' : index === 1 ? 'bg-slate-100 text-slate-500' : index === 2 ? 'bg-orange-100 text-orange-600' : 'bg-secondary text-muted-foreground'}`}>
+                                                                        #{index + 1}
+                                                                    </div>
+                                                                )}
+                                                                {item.image && (
+                                                                    <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-primary text-white text-[8px] flex items-center justify-center font-bold border-2 border-white">
+                                                                        #{index + 1}
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                             <div>
                                                                 <div className="flex items-center gap-2">
                                                                     <p className="font-black text-foreground text-sm">{item.agentName}</p>
                                                                     <span className="px-1.5 py-0.5 rounded-md bg-primary/5 text-primary text-[9px] font-black tracking-tighter border border-primary/10">{item.referralId}</span>
                                                                 </div>
-                                                                <div className="flex items-center gap-4 mt-0.5">
-                                                                    <p className="text-[10px] font-bold text-muted-foreground uppercase">{item.createdAt ? new Date(item.createdAt).toLocaleDateString() : 'N/A'}</p>
+                                                                <div className="flex flex-col gap-0.5 mt-1">
                                                                     <div className="flex items-center gap-2">
-                                                                        <span className="text-[9px] font-black text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100 uppercase tracking-tighter">ID: {item.loginId}</span>
-                                                                        <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 uppercase tracking-tighter">PW: {item.password}</span>
+                                                                        <p className="text-[10px] font-bold text-muted-foreground uppercase">{item.createdAt ? new Date(item.createdAt).toLocaleDateString() : 'N/A'}</p>
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span className="text-[9px] font-black text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100 uppercase tracking-tighter">ID: {item.loginId}</span>
+                                                                            <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 uppercase tracking-tighter">PW: {item.password}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
+                                                                        {item.email && <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5"><Search className="w-2.5 h-2.5 opacity-40" /> {item.email}</span>}
+                                                                        {item.phone && <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5"><Activity className="w-2.5 h-2.5 opacity-40" /> {item.phone}</span>}
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -1001,12 +1175,22 @@ const AdminDashboard = () => {
                                                                 <p className="text-xl font-black text-primary">₹{item.earnings?.toFixed(0)}</p>
                                                                 <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Earnings</p>
                                                             </div>
-                                                            <button
-                                                                onClick={() => handleDeleteReferral(item.id)}
-                                                                className="p-2 rounded-xl bg-destructive/5 text-destructive hover:bg-destructive hover:text-white transition-all opacity-0 group-hover:opacity-100"
-                                                            >
-                                                                <Trash2 className="w-4 h-4" />
-                                                            </button>
+                                                            <div className="flex items-center gap-2">
+                                                                <button
+                                                                    onClick={() => handleEditStaff(item)}
+                                                                    className="p-2 rounded-xl bg-primary/5 text-primary hover:bg-primary hover:text-white transition-all opacity-0 group-hover:opacity-100"
+                                                                    title="Edit Profile"
+                                                                >
+                                                                    <Plus className="w-4 h-4 rotate-45" /> 
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleDeleteReferral(item.id)}
+                                                                    className="p-2 rounded-xl bg-destructive/5 text-destructive hover:bg-destructive hover:text-white transition-all opacity-0 group-hover:opacity-100"
+                                                                    title="Delete Profile"
+                                                                >
+                                                                    <Trash2 className="w-4 h-4" />
+                                                                </button>
+                                                            </div>
                                                         </div>
                                                     </div>
 

@@ -35,13 +35,23 @@ const TeamLeadLogin = () => {
         try {
             console.log("Team Lead Login Attempt:", trimmedLoginId);
 
-            // 1. Direct Query
-            const q = query(
+            // 1. Direct Query (Check Login ID first)
+            let q = query(
                 collection(db, "referrals"),
                 where("loginId", "==", trimmedLoginId),
                 where("password", "==", trimmedPassword)
             );
-            const snap = await getDocs(q);
+            let snap = await getDocs(q);
+
+            if (snap.empty) {
+                // Try Staff ID query
+                q = query(
+                    collection(db, "referrals"),
+                    where("referralId", "==", trimmedLoginId.toUpperCase()),
+                    where("password", "==", trimmedPassword)
+                );
+                snap = await getDocs(q);
+            }
 
             let matchedData = null;
 
@@ -49,12 +59,14 @@ const TeamLeadLogin = () => {
                 matchedData = { id: snap.docs[0].id, ...snap.docs[0].data() };
             } else {
                 // 2. Manual Fallback (Case Insensitive for ID, Exact for Password)
-                console.log("Direct query failed, checking all referrals...");
+                console.log("Direct queries failed, checking all referrals...");
                 const allSnap = await getDocs(collection(db, "referrals"));
                 const match = allSnap.docs.find(doc => {
                     const d = doc.data();
-                    // Allow Login ID to be case insensitive for user convenience
-                    return d.loginId?.toLowerCase() === trimmedLoginId.toLowerCase() && d.password === trimmedPassword;
+                    // Allow Login ID or Staff ID to be case insensitive for user convenience
+                    const isIdMatch = d.loginId?.toLowerCase() === trimmedLoginId.toLowerCase() || 
+                                     d.referralId?.toLowerCase() === trimmedLoginId.toLowerCase();
+                    return isIdMatch && d.password === trimmedPassword;
                 });
 
                 if (match) {
@@ -67,6 +79,19 @@ const TeamLeadLogin = () => {
                 toast.success(`Welcome, ${matchedData.agentName}!`);
                 navigate("/team-lead");
             } else {
+                // Check if they are trying to use Admin credentials on the Staff page
+                const isAdminCreds = (trimmedLoginId.toLowerCase() === 'ceo@bellbasket.com' && trimmedPassword === 'Pradeep@123') ||
+                                     (trimmedLoginId.toLowerCase() === 'hr@bellbasket.com' && trimmedPassword === 'Vortex@hr') ||
+                                     ((trimmedLoginId.toLowerCase() === 'contact.bellbasket1@gmail.com' || trimmedLoginId.toLowerCase() === 'contact.belllbasket1@gmail.com') && trimmedPassword === 'admin123');
+
+                if (isAdminCreds) {
+                    toast.error("Administrative Login Detected", {
+                        description: "You are attempting to use Admin credentials on the Staff page. Please use the main Administrative Login."
+                    });
+                    setTimeout(() => navigate('/auth'), 2000);
+                    return;
+                }
+
                 console.warn("Login failed for:", trimmedLoginId);
                 toast.error("Invalid Login ID or Password", {
                     description: "Double check your credentials and try again."
@@ -99,8 +124,8 @@ const TeamLeadLogin = () => {
                         <button onClick={() => navigate("/")} className="mb-6 flex items-center gap-2 text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors">
                             <ArrowLeft className="w-3 h-3" /> Back to Home
                         </button>
-                        <h1 className="text-4xl font-black text-foreground mb-3">Partner Login</h1>
-                        <p className="text-muted-foreground font-bold uppercase tracking-[0.2em] text-xs">Partner Management Portal</p>
+                        <h1 className="text-4xl font-black text-foreground mb-3">Staff Login</h1>
+                        <p className="text-muted-foreground font-bold uppercase tracking-[0.2em] text-xs">Staff Management Portal</p>
                     </div>
 
                     <form onSubmit={handleLogin} className="space-y-6">

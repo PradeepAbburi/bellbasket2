@@ -54,8 +54,8 @@ const Index = () => {
           })}
         </script>
       </Helmet>
-      <header className="sr-only">
-        <h1>BellBasket - Find It. Grab It.</h1>
+      <header className="absolute top-24 left-0 right-0 z-0 text-center opacity-0 pointer-events-none">
+        <h1>BellBasket - Hyper-local Marketplace for Neighborhood Stores | Grocery Delivery & Pick-up</h1>
       </header>
 
       {/* Hero */}
@@ -72,6 +72,9 @@ const Index = () => {
               <span className="text-xl font-black text-foreground tracking-tighter">BellBasket</span>
             </div>
             <div className="flex items-center gap-3">
+              <Link to="/careers" className="text-sm font-bold text-primary hover:text-primary/80 transition-colors glass px-4 py-2 rounded-full border border-primary/20">
+                Careers
+              </Link>
               <Link to="/about" className="text-sm font-bold text-foreground/80 hover:text-foreground transition-colors glass px-4 py-2 rounded-full border border-white/20">
                 About
               </Link>
@@ -89,13 +92,18 @@ const Index = () => {
             transition={{ duration: 0.8 }}
             className="max-w-2xl"
           >
-            <div className="inline-flex items-center gap-2 glass rounded-full px-4 py-2 mb-6 border border-white/20">
-              <span className="text-xs font-bold text-primary uppercase tracking-widest">Find It. Grab It.</span>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="inline-flex items-center gap-2 glass rounded-full px-4 py-2 border border-white/20">
+                <span className="text-xs font-bold text-primary uppercase tracking-widest">Find It. Grab It.</span>
+              </div>
+              <Link to="/careers" className="hidden sm:inline-flex items-center gap-2 bg-primary/10 text-primary rounded-full px-4 py-2 border border-primary/20 hover:bg-primary/20 transition-all border-dashed">
+                <span className="text-[10px] font-black uppercase tracking-widest">We're Hiring!</span>
+              </Link>
             </div>
-            <h2 className="text-5xl md:text-7xl font-extrabold text-foreground leading-tight mb-6">
+            <h1 className="text-5xl md:text-7xl font-extrabold text-foreground leading-tight mb-6">
               Shop from<br />
               <span className="text-gradient">your neighborhood</span>
-            </h2>
+            </h1>
             <p className="text-lg text-muted-foreground mb-8 max-w-lg">
               Discover local stores near you. Support your community vendors and get fresh products delivered or ready for pickup.
             </p>
@@ -199,13 +207,77 @@ const Index = () => {
         </div>
       </section>
 
+      {/* Marketplace Backlinks Section - Discover Stores */}
+      <section className="py-20 px-4 bg-primary/5">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16 space-y-4">
+            <h2 className="text-3xl md:text-4xl font-black text-foreground">Discover Our Partner Stores</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">Supporting local entrepreneurs and neighborhood kirana stores. Explore the best vendors in your community.</p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="glass p-8 rounded-[2.5rem] border border-primary/10 space-y-4 hover:shadow-xl transition-all group">
+              <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+                <ShoppingCart className="w-6 h-6" />
+              </div>
+              <h3 className="text-xl font-bold">Groceries & Essentials</h3>
+              <p className="text-sm text-muted-foreground">Fresh daily needs, dairy, and snacks from your trusted local kiranas.</p>
+              <Link to="/browse?q=grocery" className="inline-flex items-center gap-2 text-primary font-bold text-sm hover:underline pt-2">
+                Explore Grocery Stores <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+            <div className="glass p-8 rounded-[2.5rem] border border-blue-500/10 space-y-4 hover:shadow-xl transition-all group">
+              <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-500 group-hover:scale-110 transition-transform">
+                <Sparkles className="w-6 h-6" />
+              </div>
+              <h3 className="text-xl font-bold">Bakery & Sweets</h3>
+              <p className="text-sm text-muted-foreground">Freshly baked bread, cakes, and traditional sweets from neighborhood bakeries.</p>
+              <Link to="/browse?q=bakery" className="inline-flex items-center gap-2 text-blue-500 font-bold text-sm hover:underline pt-2">
+                Explore Bakeries <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+            <div className="glass p-8 rounded-[2.5rem] border border-green-500/10 space-y-4 hover:shadow-xl transition-all group">
+              <div className="w-12 h-12 rounded-2xl bg-green-500/10 flex items-center justify-center text-green-500 group-hover:scale-110 transition-transform">
+                <MapPin className="w-6 h-6" />
+              </div>
+              <h3 className="text-xl font-bold">Fruits & Vegetables</h3>
+              <p className="text-sm text-muted-foreground">Farm fresh organic produce delivered directly to your kitchen.</p>
+              <Link to="/browse?q=vegetables" className="inline-flex items-center gap-2 text-green-500 font-bold text-sm hover:underline pt-2">
+                Explore Fresh Markets <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+          </div>
+          
+          <div className="mt-16 bg-white/40 dark:bg-slate-900/40 rounded-[3rem] p-8 md:p-12 border border-white/50 text-center">
+            <h3 className="text-2xl font-black mb-6">Popular Localities in India</h3>
+            <div className="flex flex-wrap justify-center gap-3">
+              {["Visakhapatnam", "Hyderabad", "Bengaluru", "Chennai", "Kochi", "Vijayawada", "Guntur", "Warangal", "Mumbai", "Delhi"].map(city => (
+                <button 
+                  key={city}
+                  onClick={() => {
+                    localStorage.setItem('user_location_name', city);
+                    navigate('/browse');
+                  }}
+                  className="px-6 py-2 rounded-full glass border border-border/10 text-sm font-bold hover:bg-primary hover:text-white transition-all"
+                >
+                  {city}
+                </button>
+              ))}
+            </div>
+            <p className="mt-8 text-sm text-muted-foreground leading-relaxed max-w-3xl mx-auto">
+              BellBasket is expanding across India to help local vendors reach customers digitally. We are currently live in the states of Andhra Pradesh, Telangana, Karnataka, and Tamil Nadu. Our platform bridges the gap between traditional kirana stores and the modern online shopper, ensuring <strong>fast delivery</strong> and <strong>secure payments</strong>.
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* Local Markets Section */}
       <section className="py-20 px-4">
         <div className="max-w-6xl mx-auto">
           <div className="flex flex-col md:flex-row items-end justify-between mb-12 gap-6">
             <div className="max-w-xl">
-              <h2 className="text-3xl md:text-4xl font-black text-foreground mb-4">Explore Local Markets</h2>
-              <p className="text-muted-foreground">Quickly find the best groceries and essentials in these popular local areas.</p>
+              <h2 className="text-3xl md:text-4xl font-black text-foreground mb-4">Shop by Area</h2>
+              <p className="text-muted-foreground">Quickly find the best groceries and essentials in these popular local areas across South India and major metros.</p>
             </div>
             <Link to="/browse" className="text-primary font-bold flex items-center gap-2 hover:underline">
               View all stores <ArrowRight className="w-4 h-4" />
@@ -296,7 +368,7 @@ const Index = () => {
         </div>
       </section>
 
-      <footer className="py-12 md:py-20 px-4 border-t border-border bg-white/5">
+      <footer className="py-12 md:py-20 px-4 border-t border-border bg-transparent">
         <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-12 mb-12">
           <div className="col-span-2 md:col-span-1 space-y-4">
             <span className="font-extrabold text-2xl text-foreground tracking-tighter">BellBasket</span>
@@ -305,12 +377,18 @@ const Index = () => {
             </p>
           </div>
           <div>
-            <h4 className="font-bold text-foreground mb-4">Categories</h4>
+            <h4 className="font-bold text-foreground mb-4">Top Stores & Areas</h4>
             <ul className="space-y-2">
-              {["Grocery", "Bakery", "Fruits & Vegetables", "Organic", "Meat & Fish"].map(cat => (
-                <li key={cat}>
-                  <Link to={`/browse?q=${cat}`} className="text-sm text-muted-foreground hover:text-primary transition-colors">
-                    {cat}
+              {[
+                { name: "SVR Supermarket, VSP", path: "/browse?q=SVR" },
+                { name: "Heritage Fresh, HYD", path: "/browse?q=Heritage" },
+                { name: "Nilgiris, BLR", path: "/browse?q=Nilgiris" },
+                { name: "Ratnadeep, HYD", path: "/browse?q=Ratnadeep" },
+                { name: "Big Bazaar, VJW", path: "/browse?q=Bazaar" }
+              ].map(store => (
+                <li key={store.name}>
+                  <Link to={store.path} className="text-sm text-muted-foreground hover:text-primary transition-colors">
+                    {store.name}
                   </Link>
                 </li>
               ))}
@@ -321,6 +399,7 @@ const Index = () => {
             <ul className="space-y-2">
               <li><Link to="/about" className="text-sm text-muted-foreground hover:text-primary transition-colors">About Us</Link></li>
               <li><Link to="/leadership" className="text-sm text-muted-foreground hover:text-primary transition-colors">Leadership</Link></li>
+              <li><Link to="/careers" className="text-sm text-muted-foreground hover:text-primary transition-colors">Careers</Link></li>
               <li><Link to="/privacy" className="text-sm text-muted-foreground hover:text-primary transition-colors">Privacy Policy</Link></li>
               <li><Link to="/terms" className="text-sm text-muted-foreground hover:text-primary transition-colors">Terms & Conditions</Link></li>
               <li><Link to="/auth" className="text-sm text-muted-foreground hover:text-primary transition-colors">Sign In</Link></li>

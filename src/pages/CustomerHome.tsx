@@ -1,9 +1,21 @@
 import { useState, useEffect, useMemo, useRef, useCallback, startTransition } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
-import { MapPin, Star, Search, Navigation, Loader2, History, X, Store as StoreIcon, Plus, ChevronLeft, ChevronRight, Clock, Tag, ShoppingBasket, Sparkles } from 'lucide-react';
+import { MapPin, Star, Search, Navigation, Loader2, History, X, Store as StoreIcon, Plus, ChevronLeft, ChevronRight, Clock, Tag, ShoppingBasket, Sparkles, Filter, ChevronDown, ArrowUpDown } from 'lucide-react';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger, 
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem
+} from '@/components/ui/dropdown-menu';
+import SortOptions from '@/components/SortOptions';
 import Loader from '@/components/ui/loader-animation';
 import Header from '@/components/Header';
+import PullToRefresh from '@/components/ui/PullToRefresh';
 import { Store, Product } from '@/types';
 import { CATEGORY_METADATA } from '@/constants/categories';
 import { toast } from 'sonner';
@@ -35,7 +47,7 @@ function getDistanceKm(lat1: number, lng1: number, lat2: number, lng2: number): 
 
 
 const CustomerHome = () => {
-  const { user, loading, stores: allStores, allProducts, addToCart, orders } = useApp();
+  const { user, loading, stores: allStores, allProducts, addToCart, orders, refreshData } = useApp();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -62,6 +74,8 @@ const CustomerHome = () => {
   const [showAllCategories, setShowAllCategories] = useState(false);
   const [mobileCategoryPage, setMobileCategoryPage] = useState(0);
   const [activeMode, setActiveMode] = useState<'product' | 'service'>(() => (localStorage.getItem('active_mode') as 'product' | 'service') || 'product');
+  const [priceSort, setPriceSort] = useState<'none' | 'low-high' | 'high-low'>('none');
+  const [ratingSort, setRatingSort] = useState<'none' | 'top-rated' | 'low-rated'>('none');
 
   const searchSuggestions = useMemo(() => {
     if (!search.trim() || isSearching || activeSearch === search) return [];
@@ -347,6 +361,22 @@ const CustomerHome = () => {
       .sort((a, b) => b.storeCount - a.storeCount);
   }, [activeMode, allStores]);
 
+  // Pre-calculate minimum price for each store for sorting
+  const storeMinPrices = useMemo(() => {
+    const prices: Record<string, number> = {};
+    allProducts.forEach(p => {
+      const sid = p.vendorId;
+      if (sid) {
+        const currentMin = prices[sid] ?? Infinity;
+        const productPrice = p.discountedPrice && p.discountedPrice < p.price ? p.discountedPrice : p.price;
+        if (productPrice < currentMin) {
+          prices[sid] = productPrice;
+        }
+      }
+    });
+    return prices;
+  }, [allProducts]);
+
   // Unified Search Results
   const { filteredStores, storeMatchingProducts } = useMemo(() => {
     const query = activeSearch.toLowerCase();
@@ -423,8 +453,32 @@ const CustomerHome = () => {
     const sortedStores = filtered
       .map(s => ({ ...s, distance: getDistanceKm(userLat, userLng, s.lat, s.lng) }))
       .sort((a, b) => {
+        // First priority: Search Relevance / Plan Weight (unless explicit sort is set)
         const weightA = getPlanWeight(a.plan);
         const weightB = getPlanWeight(b.plan);
+
+        if (ratingSort !== 'none') {
+          const rA = a.rating || 0;
+          const rB = b.rating || 0;
+          if (ratingSort === 'top-rated') {
+            if (rB !== rA) return rB - rA;
+          } else {
+            if (rA !== rB) return rA - rB;
+          }
+        }
+
+        if (priceSort !== 'none') {
+          const pA = storeMinPrices[a.id] ?? Infinity;
+          const pB = storeMinPrices[b.id] ?? Infinity;
+          if (priceSort === 'low-high') {
+            if (pA !== pB) return pA - pB;
+          } else {
+            // high-low: put stores without products at the end
+            const pA_val = pA === Infinity ? -1 : pA;
+            const pB_val = pB === Infinity ? -1 : pB;
+            if (pB_val !== pA_val) return pB_val - pA_val;
+          }
+        }
 
         if (weightA !== weightB) return weightB - weightA;
         return (a.distance || 0) - (b.distance || 0);
@@ -473,12 +527,12 @@ const CustomerHome = () => {
         <link rel="canonical" href="https://bellbasket.com/browse" />
       </Helmet>
       <Header />
-      <div className="pt-20 pb-32 px-4 max-w-4xl mx-auto space-y-6">
+      <PullToRefresh onRefresh={refreshData} className="pt-16 sm:pt-18 pb-32 px-4 max-w-4xl mx-auto space-y-6">
         {/* Main Content Area - Hidden while searching */}
         {!isSearching && (
           <div className="space-y-6">
             {/* Location bar */}
-            <div className="glass rounded-2xl p-4 flex items-center justify-between gap-3">
+            <div className="glass rounded-2xl p-3.5 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center flex-shrink-0">
                   <MapPin className="w-4 h-4 text-primary-foreground" />
@@ -629,7 +683,7 @@ const CustomerHome = () => {
         )}
 
         {/* Search */}
-        <div className="sticky top-16 z-30 py-3 -mx-4 px-4 bg-white/95 backdrop-blur-md border-b border-border/10 shadow-sm">
+        <div className="sticky top-16 z-30 py-2 -mx-4 px-4 bg-white/95 dark:bg-[#202020]/95 backdrop-blur-md border-b border-border/10 shadow-sm mt-3">
           <div className="relative flex gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -639,7 +693,7 @@ const CustomerHome = () => {
                 onChange={e => setSearch(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleSearchTrigger()}
                 placeholder={activeMode === 'product' ? t('home.search_placeholder_product') : t('home.search_placeholder_service')}
-                className="w-full pl-11 pr-4 py-3 rounded-xl bg-white border border-border/50 shadow-md text-foreground text-sm outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
+                className="w-full pl-11 pr-4 py-2.5 rounded-xl bg-white dark:bg-[#202020] border border-border/50 shadow-md text-foreground text-sm outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
               />
               {search && (
                 <button
@@ -660,7 +714,7 @@ const CustomerHome = () => {
                     initial={{ opacity: 0, y: -10, scaleY: 0.95 }}
                     animate={{ opacity: 1, y: 0, scaleY: 1 }}
                     exit={{ opacity: 0, y: -10, scaleY: 0.95 }}
-                    className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-border/50 overflow-hidden z-50 origin-top"
+                    className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-[#202020] rounded-xl shadow-xl border border-border/50 overflow-hidden z-50 origin-top"
                   >
                     <ul>
                       {searchSuggestions.map((suggestion, idx) => (
@@ -713,7 +767,7 @@ const CustomerHome = () => {
 
         {/* Results Area - Hidden while searching */}
         {!isSearching && (
-          <div className="space-y-6">
+          <div className="mt-6 space-y-6">
             {/* Categories Section */}
             <AnimatePresence>
               {!activeSearch && (
@@ -723,20 +777,20 @@ const CustomerHome = () => {
                   exit={{ opacity: 0, height: 0 }}
                   className="space-y-4 overflow-hidden"
                 >
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-                    <h2 className="text-xl font-black text-foreground tracking-tight">{t('home.shop_by_category')}</h2>
+                  <div className="flex items-center justify-between gap-2 mb-6">
+                    <h2 className="text-lg md:text-xl font-black text-foreground tracking-tight shrink-0">{t('home.shop_by_category')}</h2>
                     
-                    <div className="flex items-center gap-3">
-                      <div className="flex bg-secondary p-1 rounded-xl items-center gap-1 border border-border shadow-inner w-fit">
+                    <div className="flex items-center gap-2">
+                      <div className="flex bg-secondary/80 backdrop-blur-sm p-1 rounded-xl items-center gap-1 border border-border shadow-inner w-fit">
                         <button
                           onClick={() => handleModeChange('product')}
-                          className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${activeMode === 'product' ? 'bg-primary text-white shadow-md scale-105' : 'text-muted-foreground hover:text-foreground'}`}
+                          className={`px-3 md:px-4 py-1.5 rounded-lg text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${activeMode === 'product' ? 'bg-primary text-white shadow-md scale-105' : 'text-muted-foreground hover:text-foreground'}`}
                         >
                           Products
                         </button>
                         <button
                           onClick={() => handleModeChange('service')}
-                          className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${activeMode === 'service' ? 'bg-primary text-white shadow-md scale-105' : 'text-muted-foreground hover:text-foreground'}`}
+                          className={`px-3 md:px-4 py-1.5 rounded-lg text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${activeMode === 'service' ? 'bg-primary text-white shadow-md scale-105' : 'text-muted-foreground hover:text-foreground'}`}
                         >
                           Services
                         </button>
@@ -808,13 +862,13 @@ const CustomerHome = () => {
                                     onClick={() => setSelectedCategory(selectedCategory === cat?.name ? null : cat?.name)}
                                     className="flex flex-col items-center gap-2 group transition-all"
                                   >
-                                    <div className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-sm border relative overflow-hidden ${selectedCategory === cat?.name ? 'bg-primary border-primary ring-4 ring-primary/20 scale-105 shadow-lg shadow-primary/10' : 'bg-white border-border group-hover:border-primary/30 group-hover:shadow-md'}`}>
+                                    <div className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-sm border relative overflow-hidden ${selectedCategory === cat?.name ? 'border-primary ring-4 ring-primary/20 scale-105 shadow-lg shadow-primary/10' : 'bg-white dark:bg-[#202020] border-border group-hover:border-primary/30 group-hover:shadow-md'}`} style={selectedCategory === cat?.name ? { backgroundColor: cat?.color } : {}}>
                                       <div className={`absolute inset-0 opacity-10 bg-gradient-to-br ${cat?.gradient}`} />
-                                      <div className={`relative z-10 transition-all duration-300 ${selectedCategory === cat?.name ? 'text-primary-foreground scale-110' : 'text-muted-foreground group-hover:text-primary'}`}>
+                                      <div className={`relative z-10 transition-all duration-300 ${selectedCategory === cat?.name ? 'text-white scale-110' : ''}`} style={selectedCategory !== cat?.name ? { color: cat?.color } : {}}>
                                         {Icon && <Icon className="w-7 h-7" />}
                                       </div>
                                     </div>
-                                    <span className={`text-[9px] font-black uppercase tracking-wider text-center leading-tight transition-colors line-clamp-2 max-w-[70px] ${selectedCategory === cat?.name ? 'text-primary' : 'text-muted-foreground group-hover:text-primary'}`}>
+                                    <span className={`text-[9px] font-black uppercase tracking-wider text-center leading-tight transition-colors line-clamp-2 max-w-[70px] ${selectedCategory === cat?.name ? 'text-primary' : 'text-muted-foreground'}`} style={selectedCategory !== cat?.name ? {} : { color: cat?.color }}>
                                       {t(`categories.${cat?.name}`, { defaultValue: cat?.name.split(' & ')[0] })}
                                     </span>
                                   </motion.button>
@@ -889,13 +943,13 @@ const CustomerHome = () => {
                                     onClick={() => setSelectedCategory(selectedCategory === cat?.name ? null : cat?.name)}
                                     className="flex flex-col items-center gap-2 group transition-all"
                                   >
-                                    <div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-sm border relative overflow-hidden ${selectedCategory === cat?.name ? 'bg-primary border-primary ring-4 ring-primary/20 scale-105 shadow-lg shadow-primary/10' : 'bg-white border-border group-hover:border-primary/30 group-hover:shadow-md'}`}>
+                                    <div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-sm border relative overflow-hidden ${selectedCategory === cat?.name ? 'border-primary ring-4 ring-primary/20 scale-105 shadow-lg shadow-primary/10' : 'bg-white dark:bg-[#202020] border-border group-hover:border-primary/30 group-hover:shadow-md'}`} style={selectedCategory === cat?.name ? { backgroundColor: cat?.color } : {}}>
                                       <div className={`absolute inset-0 opacity-10 bg-gradient-to-br ${cat?.gradient}`} />
-                                      <div className={`relative z-10 transition-all duration-300 ${selectedCategory === cat?.name ? 'text-primary-foreground scale-110' : 'text-muted-foreground group-hover:text-primary'}`}>
+                                      <div className={`relative z-10 transition-all duration-300 ${selectedCategory === cat?.name ? 'text-white scale-110' : ''}`} style={selectedCategory !== cat?.name ? { color: cat?.color } : {}}>
                                         {Icon && <Icon className="w-6 h-6 sm:w-7 sm:h-7" />}
                                       </div>
                                     </div>
-                                    <span className={`text-[9px] font-black uppercase tracking-wider text-center leading-tight transition-colors line-clamp-2 max-w-[70px] ${selectedCategory === cat?.name ? 'text-primary' : 'text-muted-foreground group-hover:text-primary'}`}>
+                                    <span className={`text-[9px] font-black uppercase tracking-wider text-center leading-tight transition-colors line-clamp-2 max-w-[70px] ${selectedCategory === cat?.name ? 'text-primary' : 'text-muted-foreground'}`} style={selectedCategory !== cat?.name ? {} : { color: cat?.color }}>
                                       {t(`categories.${cat?.name}`, { defaultValue: cat?.name.split(' & ')[0] })}
                                     </span>
                                   </motion.button>
@@ -921,18 +975,31 @@ const CustomerHome = () => {
               )}
             </AnimatePresence>
 
-            {/* Stores grid */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="space-y-1">
-                <h1 className="text-lg font-bold text-foreground">
-                  {activeSearch ? 'Matching Stores' : (locationName.split(',')[0].length > 2 && locationName !== 'Connaught Place' ? `Stores in ${locationName.split(',')[0]}` : 'Hyperlocal (within 20km)')}
+            {/* Stores grid header */}
+            <div className="flex items-center justify-between gap-3 mb-6">
+              <div className="space-y-1.5 min-w-0 pr-2">
+                <h1 className="text-base md:text-xl font-black text-foreground truncate tracking-tight">
+                  {activeSearch ? 'Matching Stores' : (locationName.split(',')[0].length > 2 && locationName !== 'Connaught Place' ? `Stores in ${locationName.split(',')[0]}` : 'Hyperlocal Shops')}
                 </h1>
-                <div className="flex items-center gap-2 text-[9px] text-muted-foreground bg-secondary/50 w-fit px-2.5 py-0.5 rounded-full border border-border/50">
-                  <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                  {t('home.marketplace_live')}
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[10px] font-bold text-primary bg-primary/5 px-2 py-0.5 rounded-full border border-primary/10">
+                    {filteredStores.length} {t('home.stores_found')}
+                  </span>
+                  <div className="flex items-center gap-1.5 text-[8px] md:text-[9px] text-muted-foreground bg-accent/10 w-fit px-2 py-0.5 rounded-full border border-accent/20">
+                    <div className="w-1 h-1 rounded-full bg-accent animate-pulse" />
+                    Marketplace Live
+                  </div>
                 </div>
               </div>
-              <span className="text-xs font-bold text-muted-foreground bg-white px-3 py-1 rounded-lg shadow-sm border border-border/50">{filteredStores.length} {t('home.stores_found')}</span>
+              <div className="flex items-center gap-2 shrink-0">
+                <SortOptions 
+                  priceSort={priceSort}
+                  onPriceSortChange={setPriceSort}
+                  showRating={true}
+                  ratingSort={ratingSort}
+                  onRatingSortChange={setRatingSort}
+                />
+              </div>
             </div>
 
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-20">
@@ -999,9 +1066,16 @@ const CustomerHome = () => {
                         </div>
                       </div>
                       <div className="flex items-center justify-between mt-2">
-                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground min-w-0 flex-1">
-                          <MapPin className="w-3.5 h-3.5 shrink-0 text-primary/50" />
-                          <span className="truncate font-medium">
+                        <div 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const query = (store.lat && store.lng) ? `${store.lat},${store.lng}` : encodeURIComponent(store.address);
+                            window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
+                          }}
+                          className="flex items-center gap-1.5 text-xs text-muted-foreground min-w-0 flex-1 hover:text-primary transition-colors cursor-pointer group/addr"
+                        >
+                          <MapPin className="w-3.5 h-3.5 shrink-0 text-primary/50 group-hover/addr:text-primary transition-colors" />
+                          <span className="truncate font-medium group-hover/addr:underline">
                             {store.address ? (store.address.split(',')[1]?.trim() || store.address.split(',')[0]) : 'Local Area'}
                           </span>
                         </div>
@@ -1150,7 +1224,7 @@ const CustomerHome = () => {
         )}
 
         {/* Footer */}
-        <footer className="py-8 px-4 border-t border-border mt-12 bg-white/50 backdrop-blur-sm">
+        <footer className="py-8 px-4 border-t border-border mt-12 bg-transparent backdrop-blur-sm">
           <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex flex-col md:flex-row items-center gap-4">
               <span className="font-bold text-sm text-foreground">BellBasket</span>
@@ -1161,9 +1235,8 @@ const CustomerHome = () => {
             <p className="text-xs text-muted-foreground">© 2026 BellBasket. All rights reserved.</p>
           </div>
         </footer>
-      </div>
+      </PullToRefresh>
     </div>
-
   );
 };
 

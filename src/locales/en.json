@@ -333,5 +333,15 @@
         "shop_status": "Shop Status",
         "active_orders": "Active Orders",
         "revenue": "Revenue"
+    },
+    "sort": {
+        "price": "Sort by Price",
+        "rating": "Sort by Rating",
+        "low_to_high": "Low to High",
+        "high_to_low": "High to Low",
+        "top_rated": "Top Rated",
+        "low_rated": "Low Rated",
+        "none": "None",
+        "title": "Sort"
     }
 }

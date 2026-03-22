@@ -1,6 +1,17 @@
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Star, MapPin, Clock, Plus, Minus, Loader2, MessageSquare, Search, X, Tag, Phone, ChevronRight, ChevronLeft, Share2, Sparkles, ShoppingBasket, Calendar, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Star, MapPin, Clock, Plus, Minus, Loader2, MessageSquare, Search, X, Tag, Phone, ChevronRight, ChevronLeft, Share2, Sparkles, ShoppingBasket, Calendar, AlertCircle, ArrowUpDown, ChevronDown } from 'lucide-react';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger, 
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem
+} from '@/components/ui/dropdown-menu';
+import SortOptions from '@/components/SortOptions';
 import Loader from '@/components/ui/loader-animation';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -38,6 +49,7 @@ const StoreDetail = () => {
   const [bookingService, setBookingService] = useState<Product | null>(null);
   const [bookingData, setBookingData] = useState({ name: '', phone: '', location: '', description: '', date: '', timeSlot: '' });
   const [isBooking, setIsBooking] = useState(false);
+  const [priceSort, setPriceSort] = useState<'none' | 'low-high' | 'high-low'>('none');
   const { user } = useApp();
   
   // 0. Immediate Visibility Check (for stores already in context)
@@ -206,12 +218,23 @@ const StoreDetail = () => {
 
   const filteredProducts = useMemo(() => {
     const q = activeSearch.toLowerCase();
-    return products.filter(p =>
+    let result = products.filter(p =>
       p.name.toLowerCase().includes(q) ||
       p.category.toLowerCase().includes(q) ||
       (p.description && p.description.toLowerCase().includes(q))
     );
-  }, [products, activeSearch]);
+
+    if (priceSort !== 'none') {
+      result = [...result].sort((a, b) => {
+        const pA = a.discountedPrice && a.discountedPrice < a.price ? a.discountedPrice : a.price;
+        const pB = b.discountedPrice && b.discountedPrice < b.price ? b.discountedPrice : b.price;
+        if (priceSort === 'low-high') return pA - pB;
+        return pB - pA;
+      });
+    }
+
+    return result;
+  }, [products, activeSearch, priceSort]);
 
   const handleSearchTrigger = () => {
     setIsSearching(true);
@@ -303,6 +326,8 @@ const StoreDetail = () => {
         createdAt: new Date().toISOString(),
         vendorId: store.vendorId,
         userId: user?.id || 'guest',
+        storePhone: store.phone || '',
+        storeImage: store.image || '',
       };
 
       const cleanedData = cleanObject(serviceData);
@@ -448,7 +473,7 @@ const StoreDetail = () => {
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2.5rem] p-8 relative shadow-2xl border border-white/10"
+              className="bg-white dark:bg-[#202020] w-full max-w-sm rounded-[2.5rem] p-8 relative shadow-2xl border border-white/10"
             >
               <button
                 onClick={() => setShowShareModal(false)}
@@ -518,7 +543,7 @@ const StoreDetail = () => {
 
         {/* Store header - Hidden when searching or viewing search results */}
         {!activeSearch && !isSearching && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white dark:bg-slate-900 rounded-3xl overflow-hidden mb-8 border border-border/40 shadow-sm relative">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white dark:bg-[#202020] rounded-3xl overflow-hidden mb-8 border border-border/40 shadow-sm relative">
             <div className="relative h-36 md:h-52">
               <img src={store.image} alt={store.name} className="w-full h-full object-cover" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
@@ -544,7 +569,16 @@ const StoreDetail = () => {
                   <h1 className="text-2xl md:text-3xl lg:text-4xl font-black text-white drop-shadow-lg tracking-tight leading-none mb-1">
                     {(store.brandText && store.plan === 'pro') ? store.brandText : store.name}
                   </h1>
-                  <p className="text-[10px] md:text-xs font-bold text-white/90 drop-shadow-md mb-2 flex items-center gap-1.5 opacity-90">
+                  <p 
+                    onClick={() => {
+                      if (store.lat && store.lng) {
+                        window.open(`https://www.google.com/maps/search/?api=1&query=${store.lat},${store.lng}`, '_blank');
+                      } else {
+                        window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(store.address)}`, '_blank');
+                      }
+                    }}
+                    className="text-[10px] md:text-xs font-bold text-white/90 drop-shadow-md mb-2 flex items-center gap-1.5 opacity-90 cursor-pointer hover:text-white transition-colors"
+                  >
                     <MapPin className="w-3 h-3" />
                     {store.address || 'Address not registered'}
                   </p>
@@ -578,7 +612,16 @@ const StoreDetail = () => {
                   </div>
                 )}
 
-                <div className="flex flex-col bg-secondary/30 px-4 py-2.5 rounded-xl min-w-0 max-w-[200px]">
+                <div 
+                  onClick={() => {
+                    if (store.lat && store.lng) {
+                      window.open(`https://www.google.com/maps/search/?api=1&query=${store.lat},${store.lng}`, '_blank');
+                    } else {
+                      window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(store.address)}`, '_blank');
+                    }
+                  }}
+                  className="flex flex-col bg-secondary/30 px-4 py-2.5 rounded-xl min-w-0 max-w-[200px] cursor-pointer hover:bg-secondary/50 transition-colors"
+                >
                   <div className="flex items-center gap-1.5 text-primary mb-0.5">
                     <MapPin className="w-3.5 h-3.5" />
                     <span className="text-[10px] font-black uppercase tracking-widest opacity-60">Address</span>
@@ -663,7 +706,7 @@ const StoreDetail = () => {
 
 
         {/* Search Bar inside Store */}
-        <div className="mb-10 sticky top-16 z-30 py-3 -mx-4 px-4 bg-white/95 backdrop-blur-md border-b border-border/10 shadow-sm">
+        <div className="mb-10 sticky top-16 z-30 py-3 -mx-4 px-4 bg-white/95 dark:bg-[#202020]/95 backdrop-blur-md border-b border-border/10 shadow-sm">
           <div className="relative group flex gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
@@ -673,7 +716,7 @@ const StoreDetail = () => {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearchTrigger()}
                 placeholder={`${t('common.search')} in ${store.name}...`}
-                className="w-full pl-12 pr-12 py-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-border/50 shadow-sm text-foreground text-sm md:text-base outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                className="w-full pl-12 pr-12 py-3.5 rounded-2xl bg-white dark:bg-[#202020] border border-border/50 shadow-sm text-foreground text-sm md:text-base outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
               />
               {searchTerm && (
                 <button
@@ -694,7 +737,7 @@ const StoreDetail = () => {
                     initial={{ opacity: 0, y: -10, scaleY: 0.95 }}
                     animate={{ opacity: 1, y: 0, scaleY: 1 }}
                     exit={{ opacity: 0, y: -10, scaleY: 0.95 }}
-                    className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-border/50 overflow-hidden z-50 origin-top"
+                    className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-[#202020] rounded-xl shadow-xl border border-border/50 overflow-hidden z-50 origin-top"
                   >
                     <ul>
                       {searchSuggestions.map((suggestion, idx) => (
@@ -735,6 +778,14 @@ const StoreDetail = () => {
               )}
             </button>
           </div>
+          
+          
+          <div className="mt-4 flex items-center justify-end">
+            <SortOptions 
+              priceSort={priceSort}
+              onPriceSortChange={setPriceSort}
+            />
+          </div>
         </div>
 
         <AnimatePresence>
@@ -772,7 +823,7 @@ const StoreDetail = () => {
                 <Loader2 className="w-8 h-8 animate-spin text-primary" />
               </div>
             ) : filteredProducts.length === 0 ? (
-              <div className="bg-white dark:bg-slate-900 rounded-3xl p-16 text-center space-y-4 border border-border/40 shadow-sm">
+              <div className="bg-white dark:bg-[#202020] rounded-3xl p-16 text-center space-y-4 border border-border/40 shadow-sm">
                 <div className="w-20 h-20 rounded-2xl bg-secondary/50 flex items-center justify-center mx-auto opacity-40">
                   <Search className="w-10 h-10" />
                 </div>
@@ -861,7 +912,7 @@ const StoreDetail = () => {
                               transition={{ delay: pi * 0.04 }}
                               whileHover={{ y: -4, scale: 1.02 }}
                               onClick={() => setSelectedProduct(product)}
-                              className={`w-[148px] sm:w-[168px] md:w-[190px] shrink-0 snap-start cursor-pointer bg-white dark:bg-slate-900 rounded-2xl border shadow-sm hover:shadow-xl transition-all duration-300 group flex flex-col overflow-hidden relative ${highlightedProductId === product.id
+                              className={`w-[148px] sm:w-[168px] md:w-[190px] shrink-0 snap-start cursor-pointer bg-white dark:bg-[#202020] rounded-2xl border shadow-sm hover:shadow-xl transition-all duration-300 group flex flex-col overflow-hidden relative ${highlightedProductId === product.id
                                 ? 'border-primary ring-2 ring-primary/30 scale-105 z-10'
                                 : 'border-slate-200/80 dark:border-slate-700/60'
                                 }`}
@@ -1043,7 +1094,7 @@ const StoreDetail = () => {
                 exit={{ y: 80, opacity: 0, scale: 0.97 }}
                 transition={{ type: 'spring', damping: 26, stiffness: 320 }}
                 onClick={e => e.stopPropagation()}
-                className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-[2rem] overflow-hidden shadow-2xl"
+                className="relative w-full max-w-md bg-white dark:bg-[#202020] rounded-[2rem] overflow-hidden shadow-2xl"
               >
                 {/* Close */}
                 <button
@@ -1162,7 +1213,7 @@ const StoreDetail = () => {
               initial={{ y: 50, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 50, opacity: 0 }}
-              className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-[2rem] p-6 shadow-2xl my-8"
+              className="relative w-full max-w-md bg-white dark:bg-[#202020] rounded-[2rem] p-6 shadow-2xl my-8"
             >
               <button
                 onClick={() => setBookingService(null)}

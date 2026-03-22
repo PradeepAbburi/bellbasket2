@@ -1,5 +1,5 @@
 import { db } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, setDoc } from 'firebase/firestore';
 
 /**
  * Global audio context to be reused and unlocked via user interaction
@@ -163,7 +163,7 @@ export const sendInAppNotification = async (
     }
 ) => {
     try {
-        await addDoc(collection(db, 'notifications'), {
+        const notificationData = {
             userId: targetUserId,
             title: notification.title,
             body: notification.body,
@@ -172,8 +172,19 @@ export const sendInAppNotification = async (
             targetId: notification.id || '',
             createdAt: serverTimestamp(),
             read: false
-        });
-        console.log(`[Notification] In-app alert queued for user ${targetUserId}`);
+        };
+
+        // If an ID (orderId/bookingId) is provided, use a deterministic doc ID 
+        // to prevent duplicate notification entries for the same order/booking status updates.
+        // This ensures the user only sees the LATEST update for a given order.
+        if (notification.id) {
+            const customId = `notif_${targetUserId}_${notification.id}_${notification.type || 'order'}`;
+            await setDoc(doc(db, 'notifications', customId), notificationData);
+            console.log(`[Notification] In-app alert updated/set for order/booking ${notification.id}`);
+        } else {
+            await addDoc(collection(db, 'notifications'), notificationData);
+            console.log(`[Notification] In-app alert queued for user ${targetUserId}`);
+        }
 
         // Also trigger Push Notification (FCM) via backend
         fetch('/api/notify', {

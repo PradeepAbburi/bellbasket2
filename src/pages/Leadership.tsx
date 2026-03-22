@@ -6,8 +6,8 @@ import { Helmet } from 'react-helmet';
 const TEAM_MEMBERS = [
     {
         name: 'Pradeep Abburi',
-        role: 'Founder & CEO',
-        bio: 'Visionary leader dedicated to transforming local commerce and empowering neighborhood vendors across Bharat.',
+        role: 'Founder, CEO & CTO',
+        bio: 'The driving force behind our technical architecture and strategic vision. Dedicated to building high-performance systems that empower neighborhood vendors across Bharat.',
         image: '/assets/team/pradeep.png',
         icon: Zap,
         color: 'bg-amber-500',
@@ -17,9 +17,10 @@ const TEAM_MEMBERS = [
     {
         name: 'Md. Afrid Basha',
         role: 'Co-Founder & CMO',
-        bio: 'Tech architect and marketing strategist focused on building high-performance systems and growing local commerce.',
+        bio: 'Strategic lead for market expansion and brand growth. Focused on building a hyper-local ecosystem that connects millions of customers with local creators.',
         icon: Code2,
         color: 'bg-blue-500',
+        linkedin: 'https://www.linkedin.com/in/mohammed-afrid-basha-a47876292/',
         x: 'https://x.com/'
     }
 ];
@@ -77,8 +78,9 @@ const Leadership = () => {
                             
                             <div className="flex flex-col items-center gap-6 relative z-10">
                                 {member.image ? (
-                                    <div className="w-32 h-32 md:w-40 md:h-40 rounded-3xl overflow-hidden shadow-2xl border-4 border-white/50 bg-white">
-                                        <img src={member.image} alt={member.name} className="w-full h-full object-cover" />
+                                    <div className="w-32 h-32 md:w-48 md:h-48 relative">
+                                        <img src={member.image} alt={member.name} className="w-full h-full object-contain relative z-10" />
+                                        <div className={`absolute inset-0 ${member.color} opacity-20 blur-3xl rounded-full`} />
                                     </div>
                                 ) : (
                                     <div className={`w-32 h-32 md:w-40 md:h-40 rounded-3xl ${member.color} flex items-center justify-center text-white shadow-2xl border-4 border-white/50`}>
@@ -122,7 +124,12 @@ const Leadership = () => {
                 {/* Support Box */}
                 <div className="glass rounded-[2rem] p-8 text-center border-dashed border-2 border-primary/20 bg-primary/5">
                     <p className="text-sm font-bold text-muted-foreground">
-                        Interested in joining our mission? <span className="text-primary hover:underline cursor-pointer">We're always looking for talented folks!</span>
+                        Interested in joining our mission? <span 
+                            onClick={() => navigate('/careers')}
+                            className="text-primary hover:underline cursor-pointer"
+                        >
+                            Explore our Careers Page!
+                        </span>
                     </p>
                 </div>
             </div>

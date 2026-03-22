@@ -250,6 +250,8 @@ const VendorSubscription = () => {
                 return;
             }
 
+            const currentEmail = auth.currentUser.email || 'unknown';
+
             let couponData: any = null;
             let couponId: string | null = null;
             let isLocal = false;
@@ -302,7 +304,14 @@ const VendorSubscription = () => {
                 return;
             }
 
-            if (couponData.isUsed) {
+            if (couponData.usageType === 'multiple') {
+                const usedByList = couponData.usedByList || [];
+                if (usedByList.includes(currentEmail)) {
+                    toast.error("Coupon Already Used", { description: "You have already redeemed this code." });
+                    setIsClaiming(false);
+                    return;
+                }
+            } else if (couponData.isUsed) {
                 toast.error("Coupon Already Used", { description: "This code has already been redeemed." });
                 setIsClaiming(false);
                 return;
@@ -320,20 +329,33 @@ const VendorSubscription = () => {
 
             // Mark coupon as used
             console.log("Marking coupon as used...");
-            const currentEmail = auth.currentUser.email || 'unknown';
             if (isLocal) {
                 const localCoupons = JSON.parse(localStorage.getItem('bellbasket_local_coupons') || '[]');
                 const updated = localCoupons.map((c: any) =>
-                    c.id === couponId ? { ...c, isUsed: true, usedBy: currentEmail, usedAt: new Date().toISOString() } : c
+                    c.id === couponId ? { 
+                        ...c, 
+                        isUsed: c.usageType === 'multiple' ? false : true, 
+                        usedBy: currentEmail, 
+                        usedByList: [...(c.usedByList || []), currentEmail],
+                        redemptionCount: (c.redemptionCount || 0) + 1,
+                        usedAt: new Date().toISOString() 
+                    } : c
                 );
                 localStorage.setItem('bellbasket_local_coupons', JSON.stringify(updated));
             } else {
                 try {
-                    await updateDoc(doc(db, "coupons", couponId!), {
-                        isUsed: true,
-                        usedBy: currentEmail,
+                    const updateData: any = {
+                        redemptionCount: (couponData.redemptionCount || 0) + 1,
+                        usedByList: [...(couponData.usedByList || []), currentEmail],
                         usedAt: new Date().toISOString()
-                    });
+                    };
+                    
+                    if (couponData.usageType !== 'multiple') {
+                        updateData.isUsed = true;
+                        updateData.usedBy = currentEmail;
+                    }
+
+                    await updateDoc(doc(db, "coupons", couponId!), updateData);
                 } catch (writeError: any) {
                     console.error("Failed at coupon write stage:", writeError);
                     throw new Error(`COUPON_WRITE_FAILED: ${writeError.message || "Insufficient permissions to mark coupon as used."}`);

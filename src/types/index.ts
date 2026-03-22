@@ -95,6 +95,8 @@ export interface Order {
   userName?: string;
   userPhone?: string;
   storePhone?: string;
+  deletedByUser?: boolean;
+  deletedByVendor?: boolean;
 }
 
 export interface ServiceBooking {
@@ -114,6 +116,8 @@ export interface ServiceBooking {
   createdAt: string;
   vendorId: string;
   userId?: string;
+  storePhone?: string;
+  storeImage?: string;
   review?: {
     rating: number;
     text: string;
@@ -121,6 +125,8 @@ export interface ServiceBooking {
     isAnonymous?: boolean;
     reply?: string;
   };
+  deletedByUser?: boolean;
+  deletedByVendor?: boolean;
 }
 
 
@@ -129,7 +135,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'customer' | 'vendor' | 'admin';
+  role: 'customer' | 'vendor' | 'admin' | 'hr';
   isVerified?: boolean;
   phone?: string;
   hasSetupStore?: boolean;
@@ -150,6 +156,60 @@ export interface User {
   autoPayFailed?: boolean;
 }
 
+export interface Staff {
+  id: string;
+  agentName: string;
+  referralId: string;
+  loginId?: string;
+  password?: string;
+  email?: string;
+  phone?: string;
+  department?: 'Sales' | 'Marketing' | 'HR' | 'CXO Level' | 'Operations' | 'Finance' | 'IT Support';
+  role?: string;
+  image?: string;
+  address?: string;
+  aadharNumber?: string;
+  officeLocation?: string;
+  isActive?: boolean;
+  commissionRate?: number;
+  bankName?: string;
+  accountName?: string;
+  accountNumber?: string;
+  ifscCode?: string;
+  bankDetails?: {
+    bankName: string;
+    accountName: string;
+    accountNumber: string;
+    ifsc: string;
+  };
+  payments?: {
+    amount: number;
+    date: any;
+    month?: string;
+    year?: string;
+    status: string;
+    transactionRef?: string;
+  }[];
+  education?: {
+    degree: string;
+    college: string;
+    branch: string;
+    startYear: string;
+    endYear: string;
+  };
+  experience?: {
+    companyName: string;
+    role: string;
+    startYear: string;
+    endYear: string;
+  };
+  totalPastExperience?: number;
+  resume?: string;
+  totalEarnings?: number;
+  totalVendors?: number;
+  createdAt?: any;
+}
+
 export interface Coupon {
   id: string;
   code: string;
@@ -157,6 +217,9 @@ export interface Coupon {
   months: number;
   isUsed: boolean;
   usedBy?: string;
+  usedByList?: string[];
+  usageType: 'single' | 'multiple';
+  redemptionCount: number;
   usedAt?: string;
   createdAt: string;
 }

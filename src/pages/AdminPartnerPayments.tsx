@@ -175,16 +175,16 @@ const AdminPartnerPayments = () => {
                     <ArrowLeft className="w-4 h-4" /> Back to Dashboard
                 </button>
 
-                <h1 className="text-3xl font-black text-foreground mb-8">Partner Payments & Referrals</h1>
+                <h1 className="text-3xl font-black text-foreground mb-8">Staff Payments & Referrals</h1>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     {/* Create Section */}
                     <div className="lg:col-span-1 space-y-6">
                         <div className="p-6 bg-secondary/30 rounded-3xl border border-border/50">
-                            <h3 className="text-xl font-black text-foreground mb-4">Create Partner ID</h3>
+                            <h3 className="text-xl font-black text-foreground mb-4">Create Staff ID</h3>
                             <div className="space-y-4">
                                 <div>
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Partner Name</label>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Staff Name</label>
                                     <input
                                         type="text"
                                         value={newAgentName}
@@ -194,7 +194,7 @@ const AdminPartnerPayments = () => {
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Partner ID</label>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Staff ID</label>
                                     <input
                                         type="text"
                                         value={newReferralId}
@@ -255,7 +255,7 @@ const AdminPartnerPayments = () => {
                             <h4 className="text-xs font-black uppercase tracking-widest text-primary mb-2">Referral Stats</h4>
                             <div className="space-y-2">
                                 <div className="flex justify-between items-center">
-                                    <span className="text-xs font-bold text-muted-foreground">Tracked Partners:</span>
+                                    <span className="text-xs font-bold text-muted-foreground">Tracked Staff:</span>
                                     <span className="text-sm font-black text-foreground">{referralList.length}</span>
                                 </div>
                                 <div className="flex justify-between items-center">
@@ -277,7 +277,7 @@ const AdminPartnerPayments = () => {
                         <div className="flex items-center justify-between mb-6">
                             <h3 className="text-xl font-black text-foreground flex items-center gap-2">
                                 <TrendingUp className="w-5 h-5 text-primary" />
-                                Partner Ledger
+                                Staff Ledger
                             </h3>
                         </div>
 
@@ -299,13 +299,13 @@ const AdminPartnerPayments = () => {
                                                         <p className="font-black text-foreground text-sm">{item.agentName}</p>
                                                         <span className="px-1.5 py-0.5 rounded-md bg-primary/5 text-primary text-[9px] font-black tracking-tighter border border-primary/10">{item.referralId}</span>
                                                     </div>
-                                                    <div className="flex items-center gap-4 mt-0.5">
-                                                        <p className="text-[10px] font-bold text-muted-foreground uppercase">{item.createdAt ? new Date(item.createdAt).toLocaleDateString() : 'N/A'}</p>
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="text-[9px] font-black text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100 uppercase tracking-tighter">ID: {item.loginId}</span>
-                                                            <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 uppercase tracking-tighter">PW: {item.password}</span>
+                                                        <div className="flex items-center gap-2 mt-0.5">
+                                                            <p className="text-[10px] font-bold text-muted-foreground uppercase">{item.createdAt ? new Date(item.createdAt).toLocaleDateString() : 'N/A'}</p>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-[9px] font-black text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100 uppercase tracking-tighter">{item.loginId}</span>
+                                                                <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 uppercase tracking-tighter">{item.password}</span>
+                                                            </div>
                                                         </div>
-                                                    </div>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-6">

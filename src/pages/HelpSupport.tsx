@@ -1,11 +1,40 @@
 import { ArrowLeft, Mail, ExternalLink, HelpCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { Helmet } from 'react-helmet';
 
 const HelpSupport = () => {
     const navigate = useNavigate();
 
     return (
         <div className="min-h-screen bg-background pb-24">
+            <Helmet>
+                <title>Help & Support | BellBasket Customer Service</title>
+                <meta name="description" content="Get help with your BellBasket orders, payments, and account. Find answers to frequently asked questions or contact our support team." />
+                <script type="application/ld+json">
+                    {JSON.stringify({
+                        "@context": "https://schema.org",
+                        "@type": "FAQPage",
+                        "mainEntity": [
+                            {
+                                "@type": "Question",
+                                "name": "How can I track my order?",
+                                "acceptedAnswer": {
+                                    "@type": "Answer",
+                                    "text": "You can track your order in the 'Receipts' section of your profile. We send real-time notifications for every stage of your order."
+                                }
+                            },
+                            {
+                                "@type": "Question",
+                                "name": "What if my order is delayed?",
+                                "acceptedAnswer": {
+                                    "@type": "Answer",
+                                    "text": "If your order is delayed beyond the estimated time, you can call the store directly using the call button on the store page or contact our support team."
+                                }
+                            }
+                        ]
+                    })}
+                </script>
+            </Helmet>
             <div className="p-6 flex items-center gap-4 border-b border-border sticky top-0 bg-background/80 backdrop-blur-md z-10">
                 <button onClick={() => navigate(-1)} className="p-2 -ml-2 hover:bg-secondary rounded-full">
                     <ArrowLeft className="w-6 h-6" />

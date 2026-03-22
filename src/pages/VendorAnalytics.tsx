@@ -272,7 +272,7 @@ Thank you for using BellBasket Pro.
                         <h1 className="text-2xl font-bold text-foreground">Performance Analytics</h1>
                         <p className="text-sm text-muted-foreground">Deep dive into your store's growing metrics</p>
                     </div>
-                    <div className="flex items-center gap-2 bg-white/50 backdrop-blur-sm p-1 rounded-xl border border-white/20 flex-wrap">
+                    <div className="flex items-center gap-2 bg-white/50 dark:bg-secondary/20 backdrop-blur-sm p-1 rounded-xl border border-white/20 flex-wrap">
                         <button
                             onClick={() => setTimeRange('weekly')}
                             className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${timeRange === 'weekly' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
@@ -312,7 +312,7 @@ Thank you for using BellBasket Pro.
                         <motion.div
                             initial={{ opacity: 0, scale: 0.9 }}
                             animate={{ opacity: 1, scale: 1 }}
-                            className="glass-strong rounded-[40px] p-10 max-w-lg w-full text-center shadow-2xl border-2 border-primary/20 bg-white/40 backdrop-blur-xl"
+                            className="glass-strong rounded-[40px] p-10 max-w-lg w-full text-center shadow-2xl border-2 border-primary/20 bg-white/40 dark:bg-[#202020]/80 backdrop-blur-xl"
                         >
                             <div className="w-20 h-20 rounded-[30px] gradient-primary flex items-center justify-center mx-auto mb-6 shadow-xl shadow-primary/30">
                                 <TrendingUp className="w-10 h-10 text-primary-foreground" />
@@ -436,7 +436,7 @@ Thank you for using BellBasket Pro.
                                             <span className="text-muted-foreground uppercase tracking-widest">{cat.name}</span>
                                             <span className="text-foreground">{cat.value}%</span>
                                         </div>
-                                        <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
+                                        <div className="h-1.5 w-full bg-secondary dark:bg-[#333333] rounded-full overflow-hidden">
                                             <motion.div
                                                 initial={{ width: 0 }}
                                                 animate={{ width: `${cat.value}%` }}

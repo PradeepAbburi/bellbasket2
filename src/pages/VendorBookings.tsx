@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Check, Calendar, Phone, MapPin, X, Loader2, KeyRound, Navigation } from 'lucide-react';
+import { ArrowLeft, Check, Calendar, Phone, MapPin, X, Loader2, KeyRound, Navigation, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import { toast } from 'sonner';
@@ -96,6 +96,16 @@ const VendorBookings = () => {
         }
     };
 
+    const handleDeleteBooking = async (bookingId: string) => {
+        if (!window.confirm("Remove this booking from your history? It will still be visible to the customer.")) return;
+        try {
+            await updateDoc(doc(db, 'serviceBookings', bookingId), { deletedByVendor: true });
+            toast.success("Booking removed from your view");
+        } catch (e) {
+            toast.error("Failed to remove booking");
+        }
+    };
+
     if (loading) {
         return (
             <div className="min-h-screen gradient-warm flex items-center justify-center">
@@ -116,7 +126,7 @@ const VendorBookings = () => {
 
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                     <div className="space-y-1">
-                        <h1 className="text-2xl font-bold text-foreground">Service Bookings</h1>
+                        <h1 className="text-2xl font-bold text-foreground">Service Bookings ({activeBookings.length})</h1>
                     </div>
                     <div className="bg-secondary p-1 rounded-xl flex items-center gap-1 w-fit">
                         <button
@@ -166,6 +176,15 @@ const VendorBookings = () => {
                                         }`}>
                                         {t(`common.order_status.${booking.status}`, { defaultValue: booking.status.toUpperCase() })}
                                     </span>
+                                    {view === 'past' && (
+                                        <button
+                                            onClick={() => handleDeleteBooking(booking.id!)}
+                                            className="p-2 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive hover:text-white transition-all shadow-sm border border-destructive/20 ml-2"
+                                            title="Remove from history"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    )}
                                 </div>
 
                                 {/* Booking PIN - Matching Normal Orders */}

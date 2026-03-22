@@ -51,37 +51,37 @@
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    --background: 0 0% 12.5%;
+    --foreground: 0 0% 95%;
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 0 0% 12.5%;
+    --card-foreground: 0 0% 95%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 0 0% 12.5%;
+    --popover-foreground: 0 0% 95%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 45 93% 47%;
+    --primary-foreground: 0 0% 12.5%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 0 0% 18%;
+    --secondary-foreground: 0 0% 95%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 0 0% 18%;
+    --muted-foreground: 0 0% 65%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 0 0% 18%;
+    --accent-foreground: 0 0% 95%;
 
     --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 0 0% 95%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --border: 0 0% 25%;
+    --input: 0 0% 25%;
+    --ring: 45 93% 47%;
 
-    --glass-bg: 222 47% 11% / 0.6;
-    --glass-border: 0 0% 100% / 0.08;
-    --glass-shadow: 0 8px 32px 0 hsla(0, 0%, 0%, 0.3);
+    --glass-bg: 0 0% 12.5% / 0.7;
+    --glass-border: 0 0% 100% / 0.12;
+    --glass-shadow: 0 12px 40px 0 hsla(0, 0%, 0%, 0.4);
   }
 }
 
@@ -106,15 +106,19 @@
   }
 
   .glass-strong {
-    background: hsla(0, 0%, 100%, 0.75);
+    background: hsla(var(--glass-bg));
     backdrop-filter: blur(30px);
     -webkit-backdrop-filter: blur(30px);
-    border: 1px solid hsla(0, 0%, 100%, 0.35);
+    border: 1px solid hsla(var(--glass-border));
     box-shadow: var(--glass-shadow);
   }
 
   .gradient-warm {
-    background-color: hsl(210 40% 98%);
+    background: hsl(var(--background));
+  }
+
+  .dark .gradient-warm {
+    background: linear-gradient(180deg, #202020 0%, #0D0D0D 100%);
   }
 
   .gradient-primary {
@@ -154,4 +158,19 @@
   #bottom-nav {
     display: none !important;
   }
+}
+
+@keyframes bounce-gentle {
+  0%, 100% {
+    transform: translateY(-5%);
+    animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
+  }
+  50% {
+    transform: translateY(0);
+    animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
+  }
+}
+
+.animate-bounce-gentle {
+  animation: bounce-gentle 2s infinite;
 }

@@ -1,6 +1,6 @@
 import { useApp } from '@/context/AppContext';
 import { useNavigate } from 'react-router-dom';
-import { User, Mail, Shield, LogOut, ChevronRight, MapPin, Bell, BellRing, Phone, Lock, Edit2, CheckCircle2, X, Loader2, Sparkles, Crown, Zap, Building2, KeyRound, HelpCircle, Languages, Search, Image as ImageIcon, Camera, Upload, Clock, FileText, Eye, EyeOff, XCircle } from 'lucide-react';
+import { User, Mail, Shield, LogOut, ChevronRight, MapPin, Bell, BellRing, Phone, Lock, Edit2, CheckCircle2, X, Loader2, Sparkles, Crown, Zap, Building2, KeyRound, HelpCircle, Languages, Search, Image as ImageIcon, Camera, Upload, Clock, FileText, Eye, EyeOff, XCircle, Moon, Sun } from 'lucide-react';
 import Header from '@/components/Header';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Helmet } from 'react-helmet';
@@ -15,7 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { playBellSound, initAudio } from '@/utils/notifications';
 
 const Profile = () => {
-    const { user, loading, logout, refreshUser, updateUser, stores, requestPushNotifications } = useApp();
+    const { user, loading, logout, refreshUser, updateUser, stores, requestPushNotifications, theme, toggleTheme } = useApp();
     const { t, i18n } = useTranslation();
     const navigate = useNavigate();
 
@@ -326,20 +326,20 @@ const Profile = () => {
                     </div>
 
                     <div
-                        onClick={() => { initAudio(); playBellSound(); toast.success("Testing Bell Sound..."); }}
+                        onClick={toggleTheme}
                         className="glass rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:bg-white/40 transition-colors group"
                     >
                         <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-xl bg-yellow-500/10 flex items-center justify-center">
-                                <Bell className="w-5 h-5 text-yellow-600" />
+                            <div className="w-10 h-10 rounded-xl bg-slate-500/10 flex items-center justify-center">
+                                {theme === 'dark' ? <Moon className="w-5 h-5 text-slate-800" /> : <Sun className="w-5 h-5 text-orange-500" />}
                             </div>
                             <div>
-                                <p className="text-sm font-bold text-foreground">Notification Sound</p>
-                                <p className="text-xs text-muted-foreground">Test the doorbell chime</p>
+                                <p className="text-sm font-bold text-foreground">Dark Theme</p>
+                                <p className="text-xs text-muted-foreground">{theme === 'dark' ? 'Classic dark mode' : 'Toggle dark mode'}</p>
                             </div>
                         </div>
-                        <div className="px-3 py-1 rounded-lg bg-yellow-500/10 text-yellow-600 text-[10px] font-black uppercase tracking-widest group-hover:bg-yellow-500 group-hover:text-white transition-all">
-                            Test
+                        <div className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${theme === 'dark' ? 'bg-primary text-white' : 'bg-secondary text-muted-foreground'}`}>
+                            {theme === 'dark' ? 'Enabled' : 'Disabled'}
                         </div>
                     </div>
 

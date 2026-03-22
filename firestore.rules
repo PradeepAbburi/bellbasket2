@@ -20,58 +20,82 @@ service cloud.firestore {
       return isAuth() && (
         request.auth.token.email == 'contact.bellbasket1@gmail.com' || 
         request.auth.token.email == 'contact.belllbasket1@gmail.com' ||
-        hasRole('admin')
+        hasRole('admin') ||
+        hasRole('hr')
       );
     }
 
     // --- COLLECTION RULES ---
 
-    match /{document=**} {
-      allow read, write: if isAdmin();
-    }
-
     match /users/{userId} {
-      allow read: if true;
-      allow write: if isOwner(userId);
+      // Allow read if authenticated. Protect sensitive fields like fcmTokens if necessary.
+      allow read: if isAuth();
+      
+      // Prevent role escalation and verification tampering
+      allow create: if isAuth() && isOwner(userId) && 
+        request.resource.data.role == 'customer' && 
+        request.resource.data.isVerified == false;
+        
+      allow update: if isOwner(userId) && (
+        !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['role', 'isVerified', 'plan', 'subscriptionExpiry', 'isBlocked', 'referralCode', 'fcmTokens', 'email'])
+      ) || isAdmin();
+      
+      allow delete: if isAdmin();
     }
 
     match /stores/{storeId} {
       allow read: if true;
-      allow create, delete: if isOwner(storeId);
+      allow create: if isOwner(storeId);
+      allow delete: if isAdmin();
       allow update: if isOwner(storeId) || (
         isAuth() && 
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reviews', 'rating'])
-      );
+      ) || isAdmin();
     }
 
     match /products/{productId} {
       allow read: if true;
-      allow create: if isAuth() && (request.resource.data.vendorId == request.auth.uid || hasRole('vendor'));
-      allow update, delete: if isAuth() && resource.data.vendorId == request.auth.uid;
+      allow create: if isAuth() && (request.resource.data.vendorId == request.auth.uid || hasRole('vendor') || isAdmin());
+      allow update, delete: if isAuth() && (resource.data.vendorId == request.auth.uid || isAdmin());
     }
 
     match /orders/{orderId} {
       allow read: if isAuth() && (
         resource.data.userId == request.auth.uid || 
-        resource.data.storeId == request.auth.uid
+        resource.data.storeId == request.auth.uid ||
+        isAdmin()
       );
-      allow create: if isAuth();
-      allow update, delete: if isAuth() && (
-        resource.data.userId == request.auth.uid || 
-        resource.data.storeId == request.auth.uid
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      
+      allow update: if isAuth() && (
+        // Vendor can update status
+        (resource.data.storeId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'rejectedAt', 'packedAt'])) ||
+        // User can update review
+        (resource.data.userId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['review'])) ||
+        isAdmin()
       );
+      
+      allow delete: if isAdmin();
     }
 
     match /serviceBookings/{bookingId} {
       allow read: if isAuth() && (
         resource.data.userId == request.auth.uid || 
-        resource.data.vendorId == request.auth.uid
+        resource.data.vendorId == request.auth.uid ||
+        isAdmin()
       );
-      allow create: if true;
-      allow update, delete: if isAuth() && (
-        resource.data.userId == request.auth.uid ||
-        resource.data.vendorId == request.auth.uid
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      
+      allow update: if isAuth() && (
+        // Vendor can update status
+        (resource.data.vendorId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])) ||
+        // User can update review
+        (resource.data.userId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['review'])) ||
+        isAdmin()
       );
+      
+      allow delete: if isAdmin();
     }
 
     match /coupons/{couponId} {
@@ -81,19 +105,21 @@ service cloud.firestore {
     }
 
     match /support_requests/{requestId} {
-      allow read, update: if isAuth() && resource.data.userId == request.auth.uid;
+      allow read, update: if isAdmin() || (isAuth() && resource.data.userId == request.auth.uid);
       allow create: if isAuth();
     }
 
     match /referrals/{referralId} {
+      // NOTE: This collection contains staff login credentials.
+      // Ideally, this should be moved to Firebase Auth or a secure backend.
+      // For now, we allow read to support the custom login system, but restrict all writes.
       allow read: if true;
       allow write: if isAdmin();
     }
 
     match /notifications/{notifId} {
-      allow read: if isAuth() && resource.data.userId == request.auth.uid;
-      allow create: if isAuth();
-      allow update, delete: if isAuth() && resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isAuth() && resource.data.userId == request.auth.uid;
+      allow create: if isAuth() || isAdmin(); 
     }
 
     match /store_visits/{docId} {
@@ -106,7 +132,21 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin();
     }
-    
+
+    match /referrals_public/{docId} {
+        // Suggested collection for public referral data if needed
+        allow read: if true;
+    }
+
+    // --- CAREERS PORTAL RULES ---
+    match /job_posts/{jobId} {
+      allow read: if true;
+      allow write: if isAdmin() || (isAuth() && request.auth.token.email == 'careers@bellbasket.com');
+    }
+
+    match /job_applications/{appId} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin() || (isAuth() && request.auth.token.email == 'careers@bellbasket.com');
     }
   }
 }

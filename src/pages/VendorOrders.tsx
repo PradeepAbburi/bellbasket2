@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Check, Package, Shield, Key, Phone, KeyRound, X } from 'lucide-react';
+import { ArrowLeft, Check, Package, Shield, Key, Phone, KeyRound, X, Trash2, RefreshCcw, MapPin } from 'lucide-react';
+
+import PullToRefresh from '@/components/ui/PullToRefresh';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import { toast } from 'sonner';
@@ -16,10 +18,17 @@ const statusFlow = ['pending', 'accepted', 'packed', 'completed'] as const;
 const VendorOrders = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const { user, orders: allOrders } = useApp();
+  const { user, orders: allOrders, refreshData } = useApp();
   const [customerData, setCustomerData] = useState<Record<string, any>>({});
   const [view, setView] = useState<'active' | 'past'>('active');
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    toast.info("Refreshing orders...");
+    window.location.reload();
+  };
 
   // Memoize filtered orders from global state for live updates
   const orders = useMemo(() => {
@@ -39,19 +48,23 @@ const VendorOrders = () => {
 
   useEffect(() => {
     const fetchCustomers = async () => {
-      const uids = [...new Set(orders.map(o => o.userId).filter(Boolean))];
-      const data: Record<string, any> = {};
+      const missingUids = [...new Set(orders.filter(o => !o.userName || !o.userPhone).map(o => o.userId).filter(Boolean))];
+      if (missingUids.length === 0) return;
+      
+      const data: Record<string, any> = { ...customerData };
+      let changed = false;
 
-      for (const uid of uids) {
-        if (!uid || typeof uid !== 'string') continue;
+      for (const uid of missingUids) {
+        if (!uid || typeof uid !== 'string' || data[uid]) continue;
         const userRef = doc(db, 'users', uid);
         const snap = await getDoc(userRef);
         if (snap.exists()) {
           const userData = snap.data();
           data[uid] = userData;
+          changed = true;
         }
       }
-      setCustomerData(data);
+      if (changed) setCustomerData(data);
     };
 
     if (orders.length > 0) fetchCustomers();
@@ -133,10 +146,20 @@ const VendorOrders = () => {
     }
   };
 
+  const handleDeleteOrder = async (orderId: string) => {
+    if (!window.confirm("Remove this order from your history? It will still be visible to the customer.")) return;
+    try {
+      await updateDoc(doc(db, 'orders', orderId), { deletedByVendor: true });
+      toast.success("Order removed from your view");
+    } catch (e) {
+      toast.error("Failed to remove order");
+    }
+  };
+
   return (
     <div className="min-h-screen gradient-warm">
       <Header />
-      <div className="pt-20 pb-40 px-4 max-w-2xl mx-auto">
+      <PullToRefresh onRefresh={refreshData} className="pt-20 pb-40 px-4 max-w-2xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <button onClick={() => navigate('/vendor')} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
             <ArrowLeft className="w-4 h-4" /> {t('common.dashboard')}
@@ -145,7 +168,16 @@ const VendorOrders = () => {
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div className="space-y-1">
-            <h1 className="text-2xl font-bold text-foreground">{t('vendor_orders.title')}</h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold text-foreground">{t('vendor_orders.title')} ({activeOrders.length})</h1>
+              <button 
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                className={`p-2 rounded-full bg-secondary text-primary hover:bg-primary hover:text-white transition-all shadow-sm ${isRefreshing ? 'opacity-50' : 'active:scale-95'}`}
+              >
+                <RefreshCcw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
           </div>
           <div className="bg-secondary p-1 rounded-xl flex items-center gap-1 w-fit">
             <button
@@ -207,6 +239,15 @@ const VendorOrders = () => {
                     }`}>
                     {t(`common.order_status.${order.status}`, { defaultValue: order.status })}
                   </span>
+                  {view === 'past' && (
+                    <button
+                      onClick={() => handleDeleteOrder(order.id)}
+                      className="p-2 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive hover:text-white transition-all shadow-sm border border-destructive/20 ml-2"
+                      title="Remove from history"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
 
                 {/* Customer Details */}
@@ -224,16 +265,31 @@ const VendorOrders = () => {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      <a
-                        href={`tel:${order.userPhone || customerData[order.userId || '']?.phone}`}
-                        className="p-2 rounded-lg bg-white shadow-sm text-primary hover:scale-110 transition-transform"
-                      >
-                        <Phone className="w-3.5 h-3.5" />
-                      </a>
-                      <span className="text-xs font-mono font-bold text-foreground">
-                        {order.userPhone || customerData[order.userId || '']?.phone || t('common.no_phone')}
-                      </span>
+                    <div className="flex flex-col items-end gap-2">
+                      <div className="flex items-center gap-2">
+                        <a
+                          href={`tel:${order.userPhone || customerData[order.userId || '']?.phone}`}
+                          className="p-2 rounded-lg bg-white shadow-sm text-primary hover:scale-110 transition-transform"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Phone className="w-3.5 h-3.5" />
+                        </a>
+                        <span className="text-xs font-mono font-bold text-foreground">
+                          {order.userPhone || customerData[order.userId || '']?.phone || t('common.no_phone')}
+                        </span>
+                      </div>
+                      {(customerData[order.userId || '']?.address) && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(customerData[order.userId || '']?.address)}`, '_blank');
+                          }}
+                          className="flex items-center gap-1.5 text-[10px] font-bold text-primary hover:underline transition-all"
+                        >
+                          <MapPin className="w-3 h-3" />
+                          <span className="truncate max-w-[150px]">{customerData[order.userId || '']?.address}</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 )}
@@ -311,8 +367,7 @@ const VendorOrders = () => {
             ))
           )}
         </div>
-      </div>
-
+      
       {/* Products Modal */}
       {selectedOrder && (
         <>
@@ -393,6 +448,7 @@ const VendorOrders = () => {
           </div>
         </>
       )}
+      </PullToRefresh>
     </div>
   );
 };

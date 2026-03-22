@@ -7,8 +7,6 @@ import { sendInAppNotification, playBellSound } from '@/utils/notifications';
 import { orderBy, limit } from 'firebase/firestore';
 import { toast } from 'sonner';
 import i18n from 'i18next';
-import { getToken, onMessage } from 'firebase/messaging';
-import { messaging } from '@/lib/firebase';
 
 
 import { cleanObject } from '@/utils/firebase';
@@ -42,6 +40,8 @@ interface AppState {
   markAllNotificationsRead: () => Promise<void>;
   markNotificationAsRead: (id: string) => Promise<void>;
   requestPushNotifications: () => Promise<void>;
+  theme: 'light' | 'dark';
+  toggleTheme: () => void;
 }
 
 const AppContext = createContext<AppState | undefined>(undefined);
@@ -54,6 +54,39 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [stores, setStores] = useState<Store[]>([]);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    const saved = localStorage.getItem('bellbasket_theme');
+    if (saved === 'dark' || saved === 'light') return saved as 'light' | 'dark';
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  });
+
+  // Listen for system theme changes in real-time IF no manual preference is set
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = (e: MediaQueryListEvent) => {
+      const saved = localStorage.getItem('bellbasket_theme');
+      if (!saved) {
+        setTheme(e.matches ? 'dark' : 'light');
+      }
+    };
+
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
+
+  const toggleTheme = () => {
+    const newTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(newTheme);
+    localStorage.setItem('bellbasket_theme', newTheme);
+  };
+
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [theme]);
 
   useEffect(() => {
     if (user?.language) {
@@ -87,13 +120,21 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
     const q = query(
       collection(db, 'serviceBookings'),
-      user.role === 'vendor'
-        ? where('vendorId', '==', user.id)
-        : where('userId', '==', user.id)
+      or(
+        where('vendorId', '==', user.id),
+        where('userId', '==', user.id)
+      )
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const fetchedBookings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as ServiceBooking[];
+      const fetchedBookings = snapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() } as ServiceBooking))
+        .filter(b => {
+          if (user.role === 'vendor' && b.deletedByVendor) return false;
+          if (user.role === 'customer' && b.deletedByUser) return false;
+          return true;
+        });
+      
       fetchedBookings.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       setServiceBookings(fetchedBookings);
     });
@@ -107,50 +148,112 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   }, [cart]);
 
   // Listen for Native Bridge (Median/GoNative) Push Tokens
+  // OneSignal Web SDK & Native Bridge Sync
   useEffect(() => {
-    const handleNativeToken = async (tokenData: any) => {
-      console.log("📱 Native Bridge Push Token Received:", tokenData);
-      // Handle various formats: direct string, Median object, or OneSignal object
-      const token = typeof tokenData === 'string' ? tokenData : (tokenData?.oneSignalUserId || tokenData?.registrationId || tokenData?.pushToken);
+    if (!user?.id) return;
 
-      if (token && user) {
-        try {
-          const userRef = doc(db, 'users', user.id);
-          const userSnap = await getDoc(userRef);
-          const userData = userSnap.data();
+    const syncTokenToFirebase = async (token: string, type: 'native_app' | 'web_push') => {
+      try {
+        const userRef = doc(db, 'users', user.id);
+        const userSnap = await getDoc(userRef);
+        const userData = userSnap.data();
 
-          let tokens = userData?.fcmTokens || [];
-          if (!tokens.includes(token)) {
-            tokens.push(token);
-          }
-          if (tokens.length > 5) tokens = tokens.slice(-5);
-
-          await updateDoc(userRef, {
-            fcmToken: token,
-            fcmTokens: tokens,
-            deviceType: 'apk_shell',
-            lastTokenRefresh: new Date().toISOString()
-          });
-          console.log("✅ Native Push Token synced to cloud profile (Merged into fcmTokens)");
-        } catch (err) {
-          console.error("Failed to save native token:", err);
+        let tokens = userData?.fcmTokens || [];
+        if (!tokens.includes(token)) {
+          tokens.push(token);
         }
+        if (tokens.length > 5) tokens = tokens.slice(-5);
+
+        await updateDoc(userRef, {
+          fcmToken: token, // Stores the most recent OneSignal ID
+          fcmTokens: tokens,
+          deviceType: type,
+          lastTokenRefresh: new Date().toISOString()
+        });
+        console.log(`✅ [OneSignal] ${type} ID synced to cloud profile`);
+      } catch (err) {
+        console.error("❌ Failed to sync token:", err);
       }
     };
 
-    // Attach to global window scope for Median/GoNative callbacks
+    // 1. OneSignal Web (Browser/PWA) Initialization
+    const initWebOneSignal = async () => {
+      const OneSignal = (window as any).OneSignal;
+      if (!OneSignal) return;
+      
+      const OS_APP_ID = import.meta.env.VITE_ONESIGNAL_APP_ID || "317c3713-88c6-4173-b31d-469ced947d19";
+      
+      try {
+        await OneSignal.init({
+          appId: OS_APP_ID,
+          allowLocalhostAsSecureOrigin: true,
+          notifyButton: { enable: false }
+        });
+
+        // 🆔 Identity Linking: Sync UID as an External ID to solve "0 matched recipients"
+        if (OneSignal.login && user.id) {
+           console.log("🆔 [OneSignal] Linking login session to UID:", user.id);
+           await OneSignal.login(user.id);
+        }
+
+        // Listen for subscription changes
+        OneSignal.User.PushSubscription.addEventListener("change", (e: any) => {
+           console.log("🔔 [OneSignal] Subscription changed:", e.current.id);
+           if (e.current.id) {
+              syncTokenToFirebase(e.current.id, 'web_push');
+           }
+        });
+
+        // Check if already subscribed
+        const subId = OneSignal.User.PushSubscription.id;
+        if (subId) {
+          console.log("🔔 [OneSignal] Existing subscription found:", subId);
+          syncTokenToFirebase(subId, 'web_push');
+        } else {
+          console.log("🔔 [OneSignal] No active subscription on this device yet.");
+        }
+      } catch (e) {
+        console.warn("⚠️ OneSignal Web SDK Error:", e);
+      }
+    };
+
+    // 2. Native Bridge Setup (Median/GoNative)
+    const handleNativeToken = async (tokenData: any) => {
+      console.log("📱 [Native Bridge] Token Data Received:", tokenData);
+      
+      const token = typeof tokenData === 'string' ? tokenData : (
+        tokenData?.oneSignalUserId || 
+        tokenData?.registrationId || 
+        tokenData?.pushToken || 
+        tokenData?.userId || 
+        tokenData?.id
+      );
+
+      if (token) {
+        syncTokenToFirebase(token, 'native_app');
+        toast.success("Push Notifications Connected!");
+      }
+    };
+
+    // Register global callbacks for the native bridges
     (window as any).median_onesignal_push_token = handleNativeToken;
     (window as any).gonative_onesignal_push_token = handleNativeToken;
-    (window as any).median_library_ready = () => {
-      console.log("📱 Median Library Ready - Checking Native Permissions");
-      if ((window as any).median?.notifications) {
-        (window as any).median.notifications.requestPermission();
+    (window as any).median_onesignal_info = handleNativeToken;
+    (window as any).gonative_onesignal_info = handleNativeToken;
+    
+    // Fallback Polling for Native Bridge
+    const pollForToken = setInterval(() => {
+      const isNative = (window as any).median || (window as any).gonative;
+      if (isNative) {
+        if ((window as any).median?.oneSignal?.info) (window as any).median.oneSignal.info();
+        else if ((window as any).gonative?.oneSignal?.id) (window as any).gonative.oneSignal.id();
       }
-    };
+    }, 20000);
 
-    // Global Audio Unlocker for Mobile/Modern Browsers
+    initWebOneSignal();
+
+    // 3. Global Audio Unlocker
     const unlockAudio = () => {
-      console.log("🔊 Interaction detected - Unlocking Audio");
       initAudio();
       window.removeEventListener('click', unlockAudio);
       window.removeEventListener('touchstart', unlockAudio);
@@ -159,12 +262,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     window.addEventListener('touchstart', unlockAudio);
 
     return () => {
+      clearInterval(pollForToken);
       delete (window as any).median_onesignal_push_token;
       delete (window as any).gonative_onesignal_push_token;
       window.removeEventListener('click', unlockAudio);
       window.removeEventListener('touchstart', unlockAudio);
     };
-  }, [user?.id, user?.role]);
+  }, [user?.id]);
 
   const fetchUserData = async (firebaseUser: any) => {
     const userRef = doc(db, 'users', firebaseUser.uid);
@@ -251,11 +355,22 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             setLoading(false);
           });
         } else if (localStorage.getItem('bellbasket_admin') === 'true') {
+          // Fallback for Master Admin/HR if Firebase metadata is unavailable correctly
+          // We can't know for sure if it was HR or Admin from just 'true', but Admin is safer for recovery
           setUser({
             id: 'admin_master',
             name: 'System Admin',
-            email: 'contact.bellbasket1@gmail.com',
+            email: 'ceo@bellbasket.com',
             role: 'admin',
+            isVerified: true
+          } as User);
+          setLoading(false);
+        } else if (localStorage.getItem('bellbasket_hr') === 'true') {
+          setUser({
+            id: 'hr_master',
+            name: 'HR Manager',
+            email: 'hr@bellbasket.com',
+            role: 'hr',
             isVerified: true
           } as User);
           setLoading(false);
@@ -279,11 +394,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   // PWA Install Prompt Listener
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: any) => {
-      // Prevent the mini-infobar from appearing on mobile
-      e.preventDefault();
       // Stash the event so it can be triggered later.
       setInstallPrompt(e);
-      console.log('PWA Install Prompt captured');
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -338,9 +450,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       let hasPriorityAlert = false;
 
       snapshot.docChanges().forEach((change) => {
-        if (change.type === 'added') {
+        if (change.type === 'added' || change.type === 'modified') {
           const data = change.doc.data();
           const docId = change.doc.id;
+
+          // Unique key for tracking if we've shown this specific content to the user already
+          const alertKey = `${docId}_${data.title}_${data.body}`;
 
           // Check if it's "fresh" (created in last 30s or has no timestamp yet)
           let isFresh = !data.createdAt;
@@ -352,11 +467,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           }
 
           if (isInitialLoadWindow && !isFresh) {
-            seenNotificationIds.current.add(docId);
+            seenNotificationIds.current.add(alertKey);
           } else {
-            if (!seenNotificationIds.current.has(docId)) {
+            if (!seenNotificationIds.current.has(alertKey)) {
               if (!data.read) {
-                seenNotificationIds.current.add(docId);
+                seenNotificationIds.current.add(alertKey);
                 hasNewUnread = true;
                 
                 // Track if this is a high-priority sound trigger (Bookings or Service Vendors)
@@ -379,7 +494,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
                     body: data.body,
                     icon: '/logo.png', // Fallback to logo if available
                     badge: '/logo.png',
-                    tag: docId, // Prevent duplicate banners for same ID
+                    tag: docId, // Prevent duplicate banners for same ID (overwrites with latest status)
                   });
                   notification.onclick = () => {
                     window.focus();
@@ -414,21 +529,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       console.error("Notifications listener failed:", err);
     });
 
-    // Also listen for foreground FCM messages for double reliability
-    let unsubscribeFCM: (() => void) | null = null;
-    if (messaging) {
-      unsubscribeFCM = onMessage(messaging, (payload) => {
-        console.log("🔔 [FCM] Foreground push received:", payload);
-        const isServiceStore = user?.role === 'vendor' && stores?.find(s => s.vendorId === user.id)?.storeType === 'service';
-        const isBooking = payload.data?.type === 'booking';
-        playBellSound(isBooking || isServiceStore);
-      });
-    }
-
     return () => {
       clearTimeout(initialLoadTimer);
       unsubscribe();
-      if (unsubscribeFCM) unsubscribeFCM();
     };
   }, [user?.id]);
 
@@ -473,12 +576,16 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     if (!user || typeof user.id !== 'string') return;
     try {
       const uid = user.id;
-      const q = query(
-        collection(db, 'orders'),
-        or(where('userId', '==', uid), where('storeId', '==', uid))
-      );
-      const snapshot = await getDocs(q);
-      const firestoreOrders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Order[];
+      const qCustomer = query(collection(db, 'orders'), where('userId', '==', uid));
+      const qVendor = query(collection(db, 'orders'), where('storeId', '==', uid));
+      
+      const [snap1, snap2] = await Promise.all([getDocs(qCustomer), getDocs(qVendor)]);
+      
+      const combined = new Map<string, Order>();
+      snap1.forEach(doc => combined.set(doc.id, { id: doc.id, ...doc.data() } as Order));
+      snap2.forEach(doc => combined.set(doc.id, { id: doc.id, ...doc.data() } as Order));
+      
+      const firestoreOrders = Array.from(combined.values());
       setOrders(firestoreOrders.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
     } catch (e) { console.error("Order sync error", e); }
   };
@@ -503,7 +610,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     await Promise.all([refreshOrders(), refreshStores(), refreshProducts()]);
   };
 
-  // Unified Real-time Order Sync (Efficient: only triggers on changes)
+  // Unified Real-time Order Sync - Split into two for maximum reliability
   useEffect(() => {
     if (!user || typeof user.id !== 'string') {
       setOrders([]);
@@ -511,69 +618,125 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
 
     const uid = user.id;
+    const orderBuffer = new Map<string, Order>();
+    
+    const handleSnapshot = (snapshot: any) => {
+      snapshot.docChanges().forEach((change: any) => {
+        const data = change.doc.data() as Order;
+        const isSoftDeleted = (user.role === 'vendor' && data.deletedByVendor) || 
+                             (user.role === 'customer' && data.deletedByUser);
 
-    try {
-      const q = query(
-        collection(db, 'orders'),
-        or(
-          where('userId', '==', uid),
-          where('storeId', '==', uid)
-        )
-      );
-
-      const isFirstLoad = React.useRef(true);
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        // Track meaningful changes for 'Live' feel
-        snapshot.docChanges().forEach((change) => {
-          if (change.type === 'added' || change.type === 'modified') {
-            const data = change.doc.data() as Order;
-            
-            // Only play sounds for events that happen AFTER the app is loaded and synced
-            if (!isFirstLoad.current && !snapshot.metadata.hasPendingWrites) {
-               // 1. If I am the vendor and a NEW order arrived
-               if (change.type === 'added' && data.storeId === uid) {
-                 console.log("🔔 [AppContext] New Order arrived - playing sound");
-                 playBellSound(true); 
-               }
-
-               // 2. If an order STATUS changed (for anyone)
-               if (change.type === 'modified') {
-                 const prevStatus = prevOrdersMap.current[data.id];
-                 if (prevStatus && prevStatus !== data.status) {
-                   console.log(`🔔 [AppContext] Order ${data.id} status updated: ${prevStatus} -> ${data.status}`);
-                   // Play sound if I am the customer OR if I am the vendor watching the order flow
-                   playBellSound(data.status === 'accepted' || data.status === 'completed');
+        if (!isSoftDeleted && (change.type === 'added' || change.type === 'modified')) {
+          // Play sounds for fresh events
+          if (!isFirstLoad.current && !snapshot.metadata.hasPendingWrites) {
+             if (change.type === 'added' && data.storeId === uid) {
+               playBellSound(true); 
+             }
+             if (change.type === 'modified') {
+               const prevStatus = prevOrdersMap.current[data.id];
+               if (prevStatus && prevStatus !== data.status) {
+                 playBellSound(data.status === 'accepted' || data.status === 'completed');
+                 
+                 // Send personal in-app notification for status updates
+                 if (user.role === 'customer' && data.userId === user.id) {
+                   sendInAppNotification(user.id, {
+                        title: `Order ${data.status.charAt(0).toUpperCase() + data.status.slice(1)}!`,
+                        body: `Your order from ${data.storeName || 'the store'} is now ${data.status}.`,
+                        url: '/receipts',
+                        type: 'order',
+                        id: data.id
+                    });
+                 } else if (user.role === 'vendor' && data.storeId === user.id) {
+                    sendInAppNotification(user.id, {
+                        title: `Order ${data.status.charAt(0).toUpperCase() + data.status.slice(1)}`,
+                        body: `Order #${data.id.slice(-5)} status updated to ${data.status}.`,
+                        url: '/vendor/orders',
+                        type: 'order',
+                        id: data.id
+                    });
                  }
                }
-            }
-            
-            // Always update the status map
-            prevOrdersMap.current[data.id] = data.status;
-          }
-        });
-
-        isFirstLoad.current = false;
-
-        const firestoreOrders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Order[];
-        setOrders(firestoreOrders.sort((a, b) => {
-          const dateA = a.date ? new Date(a.date).getTime() : 0;
-          const dateB = b.date ? new Date(b.date).getTime() : 0;
-          return dateB - dateA;
-        }));
-      }, (err) => {
-        console.error("Unified order sync error", err);
-        if (err.code === 'permission-denied') {
-          toast.error("Order Sync Failed: Permission Denied", {
-            description: "Please apply the latest Firestore Rules to enable live updates.",
-            duration: 10000
-          });
+             }
+           }
+          prevOrdersMap.current[data.id] = data.status;
+          orderBuffer.set(data.id, { ...data, id: change.doc.id });
+        } else if (isSoftDeleted || change.type === 'removed') {
+          orderBuffer.delete(change.doc.id || data.id);
         }
       });
 
-      return () => unsubscribe();
-    } catch (err) {
-      console.error("Unified order sync setup error", err);
-    }
+      const firestoreOrders = Array.from(orderBuffer.values());
+      setOrders(firestoreOrders.sort((a, b) => {
+        const dateA = a.date ? new Date(a.date).getTime() : 0;
+        const dateB = b.date ? new Date(b.date).getTime() : 0;
+        return dateB - dateA;
+      }));
+    };
+
+    const isFirstLoad = { current: true };
+    const q = query(
+      collection(db, 'orders'),
+      or(
+        where('userId', '==', uid),
+        where('storeId', '==', uid)
+      )
+    );
+
+    const unsubscribe = onSnapshot(q, handleSnapshot, (err) => {
+      console.error("Order sync error", err);
+    });
+
+    // --- Service Bookings Real-time Notification Logic ---
+    const prevBookingsMap = { current: {} as Record<string, string> };
+    const qBookings = query(
+      collection(db, 'serviceBookings'),
+      or(
+        where('userId', '==', uid),
+        where('vendorId', '==', uid)
+      )
+    );
+
+    const unsubscribeBookings = onSnapshot(qBookings, (snapshot) => {
+      if (snapshot.metadata.hasPendingWrites) return;
+      
+      snapshot.docChanges().forEach((change) => {
+        const data = change.doc.data() as ServiceBooking;
+        if (change.type === 'modified') {
+          const prevStatus = prevBookingsMap.current[change.doc.id];
+          if (prevStatus && prevStatus !== data.status) {
+            // Priority sound for accepted/completed
+            playBellSound(data.status === 'accepted' || data.status === 'completed');
+
+            // Send in-app notification for status updates
+            if (user.role === 'customer' && data.userId === user.id) {
+               sendInAppNotification(user.id, {
+                    title: `Booking ${data.status.charAt(0).toUpperCase() + data.status.slice(1)}!`,
+                    body: `Your service booking with ${data.storeName || 'the store'} is now ${data.status}.`,
+                    url: '/receipts',
+                    type: 'booking',
+                    id: change.doc.id
+                });
+            } else if (user.role === 'vendor' && data.vendorId === user.id) {
+                sendInAppNotification(user.id, {
+                    title: `Booking Status Update`,
+                    body: `Booking for ${data.customerName || 'customer'} is now ${data.status}.`,
+                    url: '/vendor/bookings',
+                    type: 'booking',
+                    id: change.doc.id
+                });
+            }
+          }
+        }
+        prevBookingsMap.current[change.doc.id] = data.status;
+      });
+    });
+
+    setTimeout(() => { isFirstLoad.current = false; }, 2000);
+
+    return () => {
+      unsubscribe();
+      unsubscribeBookings();
+    };
   }, [user?.id]);
 
   // Sync Stores (Real-time sync to handle blocks/subscription changes immediately)
@@ -596,6 +759,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const login = (u: User) => setUser(u);
   const logout = () => {
     auth.signOut().catch(console.error);
+    const OS = (window as any).OneSignal;
+    if (OS?.logout) OS.logout(); // Clear OneSignal Session Identity
     localStorage.removeItem('bellbasket_admin');
     setUser(null);
     setCart([]);
@@ -794,92 +959,63 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     };
 
     const requestPushNotifications = async () => {
-      // 1. Basic Support Check
-      if (!("Notification" in window)) {
-        toast.error("Push Notifications are not supported by this browser.", {
-          description: "If you are on iOS, please use 'Add to Home Screen' first."
-        });
+      // 1. Audio Initialization (Always needed for bell sound)
+      initAudio();
+
+      // 2. OneSignal Web SDK check (for browser/PWA)
+      const OneSignal = (window as any).OneSignal;
+      if (OneSignal) {
+        try {
+          await OneSignal.Slidedown.show({ force: true });
+          return;
+        } catch (e) {
+          console.warn("OneSignal Slidedown failed, falling back to native checks", e);
+        }
+      }
+
+      // 3. Mobile Native Bridge Check (Median/GoNative OneSignal)
+      if ((window as any).median?.notifications) {
+        console.log("📱 Requesting Mobile Native Permissions via Median...");
+        (window as any).median.notifications.requestPermission();
+        toast.info("Requesting device permissions...");
         return;
       }
 
-      if (!messaging || !user) {
-        toast.error("User not logged in or Firebase not initialized");
+      // 4. Basic Web Support Check
+      if (!("Notification" in window)) {
+        toast.error("Push Notifications require the mobile app or a supported browser.", {
+          description: "If you are on iOS, please use 'Add to Home Screen' and open from there."
+        });
         return;
       }
       
       console.log("🔔 Current Notification Permission:", Notification.permission);
 
-      // 2. Handle 'Denied' state proactively
+      // 4. Handle Web Permission
       if (Notification.permission === 'denied') {
         toast.error("Notifications are blocked!", {
-          description: "Please go to your browser/site settings and allow notifications for this site, then try again."
+          description: "Please allow notifications in your browser settings to receive order updates."
         });
         return;
       }
 
-      initAudio();
+      if (Notification.permission === 'granted') {
+          toast.success("Notifications already enabled.");
+          return;
+      }
 
       try {
-        // 3. Request Permission (if not already granted)
-        const permission = Notification.permission === 'granted' 
-          ? 'granted' 
-          : await Notification.requestPermission();
-
+        const permission = await Notification.requestPermission();
         if (permission === 'granted') {
-          const toastId = toast.loading("Connecting your device to cloud messaging...");
-          const token = await getToken(messaging, {
-            vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY
-          });
-          
-          if (token) {
-            console.log('✅ FCM Connection Successful');
-            
-            const userRef = doc(db, 'users', user.id);
-            const userSnap = await getDoc(userRef);
-            const userData = userSnap.data();
-            
-            let tokens = userData?.fcmTokens || [];
-            if (!tokens.includes(token)) {
-              tokens.push(token);
-            }
-            if (tokens.length > 5) tokens = tokens.slice(-5);
-
-            await updateDoc(userRef, { 
-              fcmToken: token,
-              fcmTokens: tokens,
-              lastTokenRefresh: new Date().toISOString()
-            });
-            
-            toast.success('Push notifications enabled!', { id: toastId });
-          } else {
-            toast.error("Could not retrieve notification token.", { id: toastId });
-          }
+          toast.success("Browser notifications enabled!");
         } else {
-          toast.warning("Notification permission was not granted.");
+          toast.warning("Notification permission not granted.");
         }
       } catch (error: any) {
-        console.error('Error requesting push notification permission:', error);
-        toast.error("Notification setup failed: " + (error.message || "Unknown error"));
+        console.error('Error requesting push permission:', error);
       }
     };
 
-    // Foreground listener
-    useEffect(() => {
-      if (!messaging) return;
-      const unsubscribe = onMessage(messaging, (payload) => {
-        console.log('Foreground Message:', payload);
-        toast(payload.notification?.title || 'New Alert', {
-          description: payload.notification?.body,
-          duration: 10000,
-          action: {
-            label: 'View',
-            onClick: () => window.location.href = payload.data?.url || '/vendor/orders'
-          }
-        });
-        playBellSound();
-      });
-      return () => unsubscribe();
-    }, []);
 
   return (
     <AppContext.Provider value={{
@@ -887,7 +1023,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       login, logout, refreshUser, addToCart, removeFromCart, updateQuantity,
       clearCart, placeOrder, updatePlan, notifications, installPrompt,
       installPWA, updateUser, refreshOrders, refreshStores, refreshProducts, refreshData,
-      markAllNotificationsRead, markNotificationAsRead, requestPushNotifications
+      markAllNotificationsRead, markNotificationAsRead, requestPushNotifications,
+      theme,
+      toggleTheme
     }}>
       {children}
     </AppContext.Provider>

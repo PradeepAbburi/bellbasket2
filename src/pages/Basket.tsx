@@ -106,7 +106,7 @@ const Cart = () => {
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: i * 0.05 }}
-                  className="bg-white dark:bg-slate-900 rounded-[1.8rem] p-4 flex gap-4 border border-border/40 shadow-sm hover:shadow-md transition-all group"
+                  className="bg-white dark:bg-[#202020] rounded-[1.8rem] p-4 flex gap-4 border border-border/40 shadow-sm hover:shadow-md transition-all group"
                 >
                   <div className="relative w-20 h-20 shrink-0">
                     <img src={item.product.image} alt={item.product.name} className="w-full h-full rounded-2xl object-cover transition-transform group-hover:scale-110" />
@@ -126,7 +126,7 @@ const Cart = () => {
                     <div className="flex items-center justify-between mt-auto">
                       <span className="font-black text-foreground text-base">₹{item.product.price * item.quantity}</span>
                       <div className="flex items-center gap-1.5 bg-secondary/30 p-1 rounded-xl border border-border/40">
-                        <button onClick={() => updateQuantity(item.product.id, item.quantity - 1)} className="w-7 h-7 rounded-lg bg-white dark:bg-slate-800 text-primary flex items-center justify-center shadow-sm hover:scale-105 active:scale-95 transition-all">
+                        <button onClick={() => updateQuantity(item.product.id, item.quantity - 1)} className="w-7 h-7 rounded-lg bg-white dark:bg-[#333333] text-primary flex items-center justify-center shadow-sm hover:scale-105 active:scale-95 transition-all">
                           <Minus className="w-3.5 h-3.5" />
                         </button>
                         <span className="text-xs font-black text-foreground w-5 text-center">{item.quantity}</span>

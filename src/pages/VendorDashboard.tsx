@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Store as StoreIcon, Power, PowerOff, Package, TrendingUp, ShoppingCart, Crown, Check, Star, MessageSquare, Send, Zap, Building2, BarChart3, Clock, Scissors, Settings, MessageCircle, ArrowRight, Image as ImageIcon, Lock, Save, Mail, XCircle, Share2, Phone, ShoppingBasket, Camera, Upload, MapPin, Search, Navigation, X, KeyRound, ShieldAlert } from 'lucide-react';
+import { Store as StoreIcon, Power, PowerOff, Package, TrendingUp, ShoppingCart, Crown, Check, Star, MessageSquare, Send, Zap, Building2, BarChart3, Clock, Scissors, Settings, MessageCircle, ArrowRight, Image as ImageIcon, Lock, Save, Mail, XCircle, Share2, Phone, ShoppingBasket, Camera, Upload, MapPin, Search, Navigation, X, KeyRound, ShieldAlert, BellRing } from 'lucide-react';
+import { getStoreVisualStatus } from '@/utils/storeStatus';
 import Loader from '@/components/ui/loader-animation';
 import Header from '@/components/Header';
 import { useApp } from '@/context/AppContext';
@@ -13,14 +14,21 @@ import QRCodeWithLogo from '@/components/ui/qr-code-with-logo';
 import MapView from '@/components/MapView';
 import { reverseGeocode } from '@/utils/geo';
 import { generateSlug } from '@/utils/seo';
+import PullToRefresh from '@/components/ui/PullToRefresh';
 
 
 import { StoreReview } from '@/types';
 
 const VendorDashboard = () => {
-  const { user, loading, orders: allOrders, serviceBookings, stores, updateUser } = useApp();
+  const { user, loading, orders: allOrders, serviceBookings, stores, updateUser, refreshData } = useApp();
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const ua = navigator.userAgent;
+  const { requestPushNotifications } = useApp();
+  const [notificationPermission, setNotificationPermission] = useState<string>(
+    typeof Notification !== 'undefined' ? Notification.permission : 'default'
+  );
+  const [playerInfo, setPlayerInfo] = useState<{ id: string; synced: boolean }>({ id: '', synced: false });
   const [isOpen, setIsOpen] = useState(true);
   const [productCount, setProductCount] = useState(0);
   const [revenue, setRevenue] = useState(0);
@@ -42,6 +50,102 @@ const VendorDashboard = () => {
       setDaysToExpiry(null);
     }
   }, [user?.subscriptionExpiry, user?.plan]);
+
+  useEffect(() => {
+    if (typeof Notification === 'undefined') return;
+    
+    // Polling or focusing window to check permission state change
+    const checkPermission = () => {
+      setNotificationPermission(Notification.permission);
+    };
+    
+    window.addEventListener('focus', checkPermission);
+    return () => window.removeEventListener('focus', checkPermission);
+  }, []);
+
+  // Sync OneSignal Status for Diagnostics
+  useEffect(() => {
+    if (user) {
+      const tokens = user.fcmTokens || (user.fcmToken ? [user.fcmToken] : []);
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const validId = tokens.find(t => typeof t === 'string' && uuidRegex.test(t));
+      
+      setPlayerInfo({
+        id: validId || '',
+        synced: !!validId
+      });
+    }
+  }, [user?.fcmTokens, user?.fcmToken]);
+
+  const sendTestPush = async () => {
+    if (!user?.id) return;
+    const loadingToast = toast.loading("Sending test push notification...");
+    try {
+      const response = await fetch('/api/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vendorId: user.id,
+          title: "Test Notification 🔔",
+          body: "Push notifications are correctly configured!",
+          type: 'system'
+        })
+      });
+      
+      const data = await response.json();
+      toast.dismiss(loadingToast);
+
+      if (data.success) {
+        if (data.recipientCount > 0) {
+          toast.success("Test push sent successfully!", {
+            description: `Sent to ${data.recipientCount} device(s). Check your mobile bar.`
+          });
+        } else {
+          const errorMsg = data.errors ? (Array.isArray(data.errors) ? data.errors.join(", ") : JSON.stringify(data.errors)) : (data.message || "Check if your device ID is registered on OneSignal dashboard.");
+          toast.warning("API success, but 0 recipients matched.", {
+            description: errorMsg,
+            duration: 8000
+          });
+        }
+      } else {
+        const errorDetail = data.error?.errors?.[0] || data.error?.message || data.message || "Unknown error";
+        toast.error(`Push delivery failed (${data.status || '500'})`, {
+          description: errorDetail,
+          duration: 10000
+        });
+      }
+    } catch (e) {
+      toast.dismiss(loadingToast);
+      toast.error("Network error sending test push");
+    }
+  };
+
+  const refreshPushStatus = () => {
+    const ua = navigator.userAgent;
+    const isNativeBridge = (window as any).median || (window as any).gonative;
+    const OneSignal = (window as any).OneSignal;
+
+    console.log("🔍 [Diagnostic] UA:", ua);
+    console.log("🔍 [Diagnostic] Bridge:", !!isNativeBridge);
+    console.log("🔍 [Diagnostic] Web SDK:", !!OneSignal);
+
+    if (isNativeBridge) {
+      toast.info("Polling native bridge for OneSignal ID...");
+      if ((window as any).median?.oneSignal?.info) {
+        (window as any).median.oneSignal.info();
+      } else if ((window as any).gonative?.oneSignal?.id) {
+        (window as any).gonative.oneSignal.id();
+      }
+    } else if (OneSignal) {
+       toast.info("Requesting Web Notification Slidedown...");
+       if (OneSignal.login && user?.id) OneSignal.login(user.id);
+       OneSignal.Slidedown.show({ force: true });
+    } else {
+      toast.error("OneSignal SDK not found.", {
+        description: "If you just deployed, please refresh the page and wait a few seconds."
+      });
+    }
+  };
 
   const requestSupport = () => {
     setContactEmail(user?.email || '');
@@ -166,11 +270,43 @@ const VendorDashboard = () => {
     fetchStats();
   }, [user?.id, vendorOrders, stores]);
 
+  // Auto-manage shop status based on timings
+  useEffect(() => {
+    if (!vendorStore?.timings || !vendorStore?.autoClose || !user?.id) return;
+
+    const checkAutoStatus = async () => {
+      if (!vendorStore || !user?.id) return;
+      
+      const visualStatus = getStoreVisualStatus(vendorStore);
+
+      // If database status doesn't match the calculated visual status, update it
+      if (visualStatus !== isOpen) {
+        try {
+          await updateDoc(doc(db, 'stores', user.id), { isOpen: visualStatus });
+          setIsOpen(visualStatus);
+          toast.info(`Shop automatically ${visualStatus ? 'opened' : 'closed'} based on scheduled timings`, {
+            description: "You can manually change this status at any time."
+          });
+        } catch (e) {
+          console.error("Auto-status update failed:", e);
+        }
+      }
+    };
+
+    const interval = setInterval(checkAutoStatus, 60000);
+    checkAutoStatus();
+    return () => clearInterval(interval);
+  }, [vendorStore?.timings, vendorStore?.autoClose, isOpen, user?.id, vendorStore?.lastManualUpdate]);
+
   const toggleShop = async () => {
     if (!user) return;
     try {
       const newStatus = !isOpen;
-      await updateDoc(doc(db, 'stores', user.id), { isOpen: newStatus });
+      const now = new Date().toISOString();
+      await updateDoc(doc(db, 'stores', user.id), { 
+        isOpen: newStatus,
+        lastManualUpdate: now 
+      });
       setIsOpen(newStatus);
       toast.success(newStatus ? 'Shop opened' : 'Shop closed');
     } catch (error) {
@@ -263,6 +399,7 @@ const VendorDashboard = () => {
 
   const [tempDeliveryFee, setTempDeliveryFee] = useState(50);
   const [tempBanner, setTempBanner] = useState('');
+  const [tempAutoClose, setTempAutoClose] = useState(false);
   const [tempStoreType, setTempStoreType] = useState<'product' | 'service'>('product');
   const storeFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -287,6 +424,7 @@ const VendorDashboard = () => {
     if (vendorStore?.lng) setTempLng(vendorStore.lng);
     if (vendorStore?.address) setTempAddress(vendorStore.address);
     if (vendorStore?.storeType) setTempStoreType(vendorStore.storeType);
+    if (vendorStore?.autoClose !== undefined) setTempAutoClose(vendorStore.autoClose);
   }, [vendorStore]);
 
   const handleBannerUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -431,6 +569,7 @@ const VendorDashboard = () => {
         lng: tempLng,
         address: tempAddress,
         storeType: tempStoreType,
+        autoClose: tempAutoClose,
         slug
       });
 
@@ -484,7 +623,7 @@ const VendorDashboard = () => {
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2.5rem] p-8 relative shadow-2xl border border-white/10"
+              className="bg-white dark:bg-[#202020] w-full max-w-sm rounded-[2.5rem] p-8 relative shadow-2xl border border-white/10"
             >
               <button
                 onClick={() => setShowShareModal(false)}
@@ -537,7 +676,7 @@ const VendorDashboard = () => {
         )}
       </AnimatePresence>
 
-      <div className="pt-20 pb-40 lg:pb-8 px-4 max-w-4xl mx-auto">
+      <PullToRefresh onRefresh={refreshData} className="pt-20 pb-40 lg:pb-8 px-4 max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <div className="space-y-1">
             <h1 className="text-2xl font-bold text-foreground">{t('common.dashboard')}</h1>
@@ -609,6 +748,41 @@ const VendorDashboard = () => {
             </motion.button>
           </div>
         </div>
+
+        {/* Push Notification Banner */}
+        {notificationPermission !== 'granted' && !loading && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="mb-8 bg-white dark:bg-[#202020] rounded-[2rem] p-6 border-2 border-primary/20 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl relative overflow-hidden group"
+          >
+             <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:scale-110 transition-transform duration-500">
+               <BellRing className="w-32 h-32" />
+             </div>
+             
+             <div className="flex items-center gap-5 relative z-10 text-center md:text-left">
+               <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
+                 <BellRing className="w-8 h-8 text-primary animate-bounce-gentle" />
+               </div>
+               <div>
+                  <h2 className="text-xl font-black text-foreground uppercase tracking-tight">Stay Alerts Ready</h2>
+                  <p className="text-sm text-muted-foreground font-medium mt-1">Get instant push notifications for every new order. Don't miss a beat!</p>
+               </div>
+             </div>
+             
+             <button
+               onClick={async () => {
+                 await requestPushNotifications();
+                 if (typeof Notification !== 'undefined') {
+                   setNotificationPermission(Notification.permission);
+                 }
+               }}
+               className="w-full md:w-auto px-8 py-3.5 rounded-2xl gradient-primary text-white font-black text-xs uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all relative z-10"
+             >
+               Allow Notifications
+             </button>
+          </motion.div>
+        )}
         
         {/* Blocked Account Alert */}
         {user?.isBlocked && (
@@ -719,7 +893,7 @@ const VendorDashboard = () => {
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className={`glass rounded-3xl p-6 mb-8 border-l-8 ${user?.plan === 'pro' ? 'border-amber-400' :
+          className={`bg-white dark:bg-[#202020] rounded-3xl p-6 mb-8 border-l-8 ${user?.plan === 'pro' ? 'border-amber-400' :
             user?.plan === 'growth' ? 'border-blue-500' :
               user?.plan === 'basic' ? 'border-orange-600' : 'border-slate-400'
             } shadow-xl relative overflow-hidden`}
@@ -777,8 +951,6 @@ const VendorDashboard = () => {
           </div>
         </motion.div>
 
-
-
         {/* Stats */}
         <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-6">
           {stats.map((stat, i) => (
@@ -787,7 +959,7 @@ const VendorDashboard = () => {
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.1 }}
-              className="glass rounded-2xl p-4 text-center flex flex-col items-center justify-center gap-2"
+              className="bg-white dark:bg-[#202020] rounded-2xl p-4 text-center flex flex-col items-center justify-center gap-2 border border-border/50 shadow-sm"
             >
               <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
                 <stat.icon className="w-5 h-5 text-primary" />
@@ -798,6 +970,73 @@ const VendorDashboard = () => {
               </div>
             </motion.div>
           ))}
+        </div>
+
+        {/* Push Status Diagnostic Card */}
+        <div className="mb-10 bg-white dark:bg-[#202020] rounded-3xl p-6 border-2 border-primary/10 shadow-xl overflow-hidden relative">
+          <div className="absolute top-0 right-0 p-6 opacity-5">
+            <BellRing className="w-20 h-20" />
+          </div>
+          
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-6 relative z-10">
+            <div className="flex items-center gap-5">
+              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${playerInfo.synced ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
+                {playerInfo.synced ? <Check className="w-7 h-7" /> : <ShieldAlert className="w-7 h-7" />}
+              </div>
+              <div>
+                 <h3 className="text-lg font-black text-foreground uppercase tracking-tight">Push Notification Status</h3>
+                 <div className="flex items-center gap-2 mt-1">
+                    <div className={`w-2 h-2 rounded-full ${playerInfo.synced ? 'bg-emerald-500' : 'bg-rose-500'} animate-pulse`} />
+                    <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest">
+                      {playerInfo.synced ? 'Connected & Synced' : 'Not Connected'}
+                    </p>
+                 </div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={refreshPushStatus}
+                className="px-6 py-2.5 rounded-xl bg-secondary text-foreground text-xs font-black uppercase tracking-widest hover:bg-secondary/80 transition-all border border-border"
+              >
+                Refresh Status
+              </button>
+              <button
+                onClick={sendTestPush}
+                disabled={!playerInfo.synced}
+                className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all border ${playerInfo.synced ? 'bg-primary/10 text-primary border-primary/20 hover:bg-primary/20' : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'}`}
+              >
+                Send Test Push
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-6 pt-6 border-t border-border/50">
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-secondary/30 p-4 rounded-2xl">
+                   <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">OneSignal Player ID</p>
+                   <p className="text-[11px] font-mono font-bold text-foreground break-all">{playerInfo.id || 'Not found'}</p>
+                </div>
+                <div className="bg-secondary/30 p-4 rounded-2xl">
+                   <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Last Sync Check</p>
+                   <p className="text-[11px] font-bold text-foreground">{new Date().toLocaleTimeString()}</p>
+                </div>
+             </div>
+             
+             {!playerInfo.synced && (
+                <div className="mt-4 space-y-2">
+                  <p className="text-[10px] text-rose-500 font-bold bg-rose-500/5 p-3 rounded-xl border border-rose-500/10">
+                    ⚠️ {ua.includes('Median') || ua.includes('GoNative') 
+                        ? "Native ID missing. Please ensure your mobile app has notifications enabled." 
+                        : "Web Push ID missing. Please accept the notification prompt if shown."}
+                  </p>
+                  <div className="bg-secondary/20 p-3 rounded-xl border border-border/50">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-1">Identity Details (UA)</p>
+                    <p className="text-[9px] font-mono text-muted-foreground break-all">{ua}</p>
+                  </div>
+                </div>
+             )}
+          </div>
         </div>
 
         {/* Analytics Section - Gated for Growth+ */}
@@ -813,17 +1052,17 @@ const VendorDashboard = () => {
           {user?.plan && user.plan !== 'basic' ? (
             <div
               onClick={() => navigate('/vendor/analytics')}
-              className="glass rounded-3xl p-8 text-center border-blue-500/20 bg-blue-500/5 cursor-pointer hover:shadow-xl hover:scale-[1.01] transition-all group"
+              className="bg-white dark:bg-[#202020] rounded-3xl p-8 text-center border-primary/20 bg-primary/5 cursor-pointer hover:shadow-xl hover:scale-[1.01] transition-all group"
             >
-              <BarChart3 className="w-10 h-10 text-blue-500 mx-auto mb-4 group-hover:scale-110 transition-transform" />
+              <BarChart3 className="w-10 h-10 text-primary mx-auto mb-4 group-hover:scale-110 transition-transform" />
               <p className="text-foreground font-bold">{t('common.view_full_analytics')}</p>
               <p className="text-xs text-muted-foreground mt-2 mb-4">{t('common.analytics_desc')}</p>
-              <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-500 text-white text-xs font-black uppercase tracking-widest shadow-lg shadow-blue-500/20 group-hover:gap-3 transition-all">
+              <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 group-hover:gap-3 transition-all">
                 {t('common.open_analytics')} <ArrowRight className="w-4 h-4" />
               </div>
             </div>
           ) : (
-            <div className="glass rounded-3xl p-8 relative overflow-hidden group border-orange-500/20">
+            <div className="bg-white dark:bg-[#202020] rounded-3xl p-8 relative overflow-hidden group border-orange-500/20">
               <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 to-transparent pointer-events-none" />
               <div className="flex flex-col items-center justify-center text-center relative z-10 py-4">
                 <div className="w-12 h-12 rounded-2xl bg-orange-100 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
@@ -847,7 +1086,11 @@ const VendorDashboard = () => {
 
         {/* Recent Orders/Bookings - Limited to 3 */}
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-foreground">{isServiceStore ? 'Recent Bookings' : t('common.recent_orders')}</h2>
+          <h2 className="text-lg font-bold text-foreground">
+            {isServiceStore 
+              ? `Recent Bookings (${serviceBookings.filter(b => b.status === 'pending' || b.status === 'accepted').length})` 
+              : `${t('common.recent_orders')} (${vendorOrders.filter(o => o.status === 'pending' || o.status === 'accepted' || o.status === 'packed').length})`}
+          </h2>
           <button
             onClick={() => isServiceStore ? navigate('/vendor/bookings') : navigate('/vendor/orders')}
             className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
@@ -858,12 +1101,12 @@ const VendorDashboard = () => {
 
         <div className="space-y-3 mb-12">
           {(!isServiceStore ? vendorOrders : serviceBookings).length === 0 ? (
-            <div className="glass rounded-2xl p-8 text-center text-muted-foreground">
+            <div className="bg-white dark:bg-[#202020] rounded-2xl p-8 text-center text-muted-foreground border border-border/50">
               {isServiceStore ? 'No bookings yet.' : t('vendor_orders.no_orders')}
             </div>
           ) : (
             (!isServiceStore ? vendorOrders : serviceBookings).slice(0, 3).map(item => (
-              <div key={item.id} className="glass rounded-2xl p-4 flex items-center justify-between hover:bg-white/50 transition-colors cursor-pointer" onClick={() => isServiceStore ? navigate('/vendor/bookings') : navigate('/vendor/orders')}>
+              <div key={item.id} className="bg-white dark:bg-[#202020] rounded-2xl p-4 flex items-center justify-between hover:bg-secondary dark:hover:bg-[#333333] transition-colors cursor-pointer" onClick={() => isServiceStore ? navigate('/vendor/bookings') : navigate('/vendor/orders')}>
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-[10px] font-mono font-bold bg-secondary px-2 py-0.5 rounded text-muted-foreground">{item.id.slice(-6)}</span>
@@ -892,8 +1135,8 @@ const VendorDashboard = () => {
                     </p>
                   )}
                 </div>
-                <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider border ${item.status === 'accepted' ? 'bg-blue-100 text-blue-700 border-blue-200' :
-                  item.status === 'packed' || item.status === 'completed' ? 'bg-green-100 text-green-700 border-green-200' :
+                <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider border ${item.status === 'accepted' ? 'bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-500/20' :
+                  item.status === 'packed' || item.status === 'completed' ? 'bg-green-100 dark:bg-green-500/10 text-green-700 dark:text-green-400 border-green-200 dark:border-green-500/20' :
                     'bg-secondary text-muted-foreground border-border'
                   }`}>
                   {t(`common.order_status.${item.status}`, { defaultValue: item.status })}
@@ -918,11 +1161,12 @@ const VendorDashboard = () => {
         </div>
         <div className="space-y-4 mb-16">
           {!Array.isArray(vendorStore?.reviews) || vendorStore.reviews.length === 0 ? (
-            <div className="glass rounded-2xl p-8 text-center text-muted-foreground">
+            <div className="bg-white dark:bg-[#202020] rounded-2xl p-8 text-center text-muted-foreground border border-border/50">
               No reviews yet.
             </div>
           ) : (
             vendorStore.reviews
+              .filter((r: StoreReview) => r.comment && r.comment.trim().length > 0)
               .slice()
               .sort((a: StoreReview, b: StoreReview) => new Date(b.date).getTime() - new Date(a.date).getTime())
               .slice(0, 2)
@@ -931,13 +1175,13 @@ const VendorDashboard = () => {
                   key={review.id}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="glass rounded-2xl p-5 space-y-4"
+                  className="bg-white dark:bg-[#202020] rounded-2xl p-5 space-y-4 border border-border/50 shadow-sm"
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-full gradient-primary flex items-center justify-center text-sm font-bold text-primary-foreground">
-                        {review.userName.charAt(0)}
-                      </div>
+                                                <div className="w-10 h-10 rounded-full gradient-primary flex items-center justify-center text-sm font-bold text-primary-foreground flex-shrink-0">
+                                                    {(review.userName || 'C').charAt(0).toUpperCase()}
+                                                </div>
                       <div>
                         <p className="font-bold text-foreground">{review.userName}</p>
                         <div className="flex items-center gap-2 mt-1">
@@ -955,9 +1199,11 @@ const VendorDashboard = () => {
                     </div>
                   </div>
 
-                  <p className="text-sm text-foreground leading-relaxed pl-[52px]">
-                    {review.comment}
-                  </p>
+                  {review.comment && (
+                    <p className="text-sm text-foreground leading-relaxed pl-[52px]">
+                      {review.comment}
+                    </p>
+                  )}
 
                   {/* Vendor Reply */}
                   {review.reply ? (
@@ -1042,7 +1288,7 @@ const VendorDashboard = () => {
               >
                 <div className="grid md:grid-cols-2 gap-6 mb-6">
                   {/* Timings Card */}
-                  <div className={`glass rounded-3xl p-6 relative overflow-hidden group border transition-all ${user?.plan && user.plan !== 'basic' ? 'border-primary/20 hover:border-primary/40' : 'border-border opacity-80'}`}>
+                  <div className={`bg-white dark:bg-[#202020] rounded-3xl p-6 relative overflow-hidden group border transition-all ${user?.plan && user.plan !== 'basic' ? 'border-primary/20 hover:border-primary/40' : 'border-border opacity-80'}`}>
                     {(!user?.plan || user.plan === 'basic') && (
                       <div className="absolute inset-0 bg-background/50 backdrop-blur-[1px] z-10 flex items-center justify-center">
                         <div className="bg-background/90 text-foreground px-4 py-2 rounded-xl shadow-lg flex items-center gap-2 border border-border">
@@ -1083,10 +1329,28 @@ const VendorDashboard = () => {
                         />
                       </div>
                     </div>
+
+                    <div className="mt-6 pt-4 border-t border-border/50">
+                      <label className="flex items-center justify-between cursor-pointer group">
+                        <div className="space-y-0.5">
+                          <p className="text-sm font-bold text-foreground group-hover:text-primary transition-colors">Automatic Shop Hours</p>
+                          <p className="text-[10px] text-muted-foreground font-medium">Auto-manage opening and closing times</p>
+                        </div>
+                        <div className="relative inline-flex items-center">
+                          <input
+                            type="checkbox"
+                            className="sr-only peer"
+                            checked={tempAutoClose}
+                            onChange={e => setTempAutoClose(e.target.checked)}
+                          />
+                          <div className="w-11 h-6 bg-secondary peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                        </div>
+                      </label>
+                    </div>
                   </div>
 
                   {/* Business Contact */}
-                  <div className="glass rounded-3xl p-6 relative overflow-hidden transition-all border border-border">
+                  <div className="bg-white dark:bg-[#202020] rounded-3xl p-6 relative overflow-hidden transition-all border border-border">
                     <div className="flex items-start justify-between mb-6">
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-600">
@@ -1106,7 +1370,7 @@ const VendorDashboard = () => {
                         value={tempPhone}
                         onChange={e => setTempPhone(e.target.value)}
                         placeholder="e.g. +91 98765 43210"
-                        className="w-full bg-secondary/50 border border-transparent focus:border-primary/30 focus:bg-background transition-all rounded-xl px-4 py-3 text-sm font-bold outline-none"
+                        className="w-full bg-secondary border border-transparent focus:border-primary/30 focus:bg-background transition-all rounded-xl px-4 py-3 text-sm font-bold outline-none"
                       />
                     </div>
 
@@ -1131,7 +1395,7 @@ const VendorDashboard = () => {
 
 
                   {/* Delivery Options */}
-                  <div className="glass rounded-3xl p-6 relative overflow-hidden transition-all border border-border opacity-100">
+                  <div className="bg-white dark:bg-[#202020] rounded-3xl p-6 relative overflow-hidden transition-all border border-border opacity-100">
                     <div className="flex items-start justify-between mb-6">
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded-2xl bg-green-500/10 flex items-center justify-center text-green-600">
@@ -1162,7 +1426,7 @@ const VendorDashboard = () => {
                             type="number"
                             value={tempDeliveryFee}
                             onChange={e => setTempDeliveryFee(Number(e.target.value))}
-                            className="w-full bg-secondary/50 border border-transparent focus:border-primary/30 focus:bg-background transition-all rounded-xl px-4 py-3 text-sm font-bold outline-none"
+                            className="w-full bg-secondary border border-transparent focus:border-primary/30 focus:bg-background transition-all rounded-xl px-4 py-3 text-sm font-bold outline-none"
                             min="0"
                           />
                         </div>
@@ -1173,7 +1437,7 @@ const VendorDashboard = () => {
 
                   {/* Store Editor */}
                   {user?.plan === 'pro' && (
-                    <div className="glass rounded-3xl p-6 relative overflow-hidden group border border-amber-400/30 hover:border-amber-400/50 transition-all">
+                    <div className="bg-white dark:bg-[#202020] rounded-3xl p-6 relative overflow-hidden group border border-amber-400/30 hover:border-amber-400/50 transition-all">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
                           <div className="w-12 h-12 rounded-2xl bg-purple-500/10 flex items-center justify-center text-purple-600">
@@ -1251,7 +1515,7 @@ const VendorDashboard = () => {
                     </div>
                   </div>
                   {/* Store Location */}
-                  <div className="glass rounded-3xl p-6 relative overflow-hidden transition-all border border-border md:col-span-2">
+                  <div className="bg-white dark:bg-[#202020] rounded-3xl p-6 relative overflow-hidden transition-all border border-border md:col-span-2">
                     <div className="flex items-start justify-between mb-6">
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
@@ -1265,7 +1529,16 @@ const VendorDashboard = () => {
                     </div>
 
                     <div className="space-y-4">
-                      <div className="p-4 rounded-2xl bg-secondary/30 border border-border/50">
+                      <div 
+                        onClick={() => {
+                          if (tempLat && tempLng) {
+                            window.open(`https://www.google.com/maps/search/?api=1&query=${tempLat},${tempLng}`, '_blank');
+                          } else if (tempAddress) {
+                            window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(tempAddress)}`, '_blank');
+                          }
+                        }}
+                        className="p-4 rounded-2xl bg-secondary/30 border border-border/50 cursor-pointer hover:bg-secondary/50 transition-colors"
+                      >
                         <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Current Address</p>
                         <p className="text-sm font-bold text-foreground">{tempAddress || 'No address set'}</p>
                       </div>
@@ -1439,7 +1712,7 @@ const VendorDashboard = () => {
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
+      </PullToRefresh>
     </div>
   );
 };

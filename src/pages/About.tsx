@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Store, ShoppingCart, MapPin, Bell, ShieldCheck, ArrowRight, CheckCircle2, ArrowLeft, HeartHandshake, TrendingUp, Truck, Headphones, Sparkles } from 'lucide-react';
 import { Helmet } from 'react-helmet';
 
@@ -71,24 +71,24 @@ const About = () => {
                 </div>
 
                 {/* Intro Section */}
-                <div className="text-center space-y-6 max-w-3xl mx-auto">
-                    <div className="inline-flex items-center gap-2 glass rounded-full px-4 py-2 border border-primary/20 bg-primary/5 text-primary">
+                <div className="text-center space-y-6 max-w-4xl mx-auto">
+                    <div className="inline-flex items-center gap-2 glass rounded-full px-5 py-2.5 border border-primary/20 bg-primary/5 text-primary">
                         <Sparkles className="w-4 h-4" />
-                        <span className="text-xs font-bold uppercase tracking-widest">About BellBasket</span>
+                        <span className="text-xs font-black uppercase tracking-widest">About BellBasket Marketplace</span>
                     </div>
-                    <h1 className="text-4xl md:text-6xl font-black text-foreground leading-tight">
-                        Connecting You to Your <span className="text-gradient">Neighborhood</span>
+                    <h1 className="text-4xl md:text-6xl lg:text-7xl font-black text-foreground leading-[1.1] tracking-tight">
+                        Connecting Bharat to its <span className="text-gradient">Neighborhood</span>
                     </h1>
-                    <p className="text-lg text-muted-foreground leading-relaxed">
-                        BellBasket is a hyper-local marketplace that empowers local stores to sell online and enables customers to shop fresh groceries and daily essentials directly from their trusted neighborhood vendors.
+                    <p className="text-xl text-muted-foreground leading-relaxed max-w-3xl mx-auto font-medium">
+                        BellBasket is India's premier hyper-local marketplace. We empower local neighborhood stores (Kiranas) to sell online, enabling customers to shop fresh groceries and daily essentials directly from their trusted community vendors with fast, reliable delivery.
                     </p>
                 </div>
 
-                {/* Section 1: The Core Mission */}
-                <section className="bg-white/40 dark:bg-slate-900/40 rounded-[3rem] p-8 md:p-12 border border-white/50 shadow-xl overflow-hidden relative">
-                    <div className="absolute -top-24 -right-24 w-64 h-64 bg-primary/10 rounded-full blur-[80px] pointer-events-none" />
-                    <div className="grid md:grid-cols-2 gap-12 items-center relative z-10">
-                        <div className="space-y-6">
+                {/* Section 1: The Core Mission & Vision */}
+                <div className="grid md:grid-cols-2 gap-8">
+                    <section className="bg-white/40 dark:bg-slate-900/40 rounded-[3rem] p-8 md:p-12 border border-white/50 shadow-xl overflow-hidden relative">
+                        <div className="absolute -top-24 -right-24 w-64 h-64 bg-primary/10 rounded-full blur-[80px] pointer-events-none" />
+                        <div className="space-y-6 relative z-10">
                             <h2 className="text-3xl font-black text-foreground">1. Our Core Mission</h2>
                             <p className="text-muted-foreground text-lg leading-relaxed">
                                 We believe in the power of local communities. Our mission is to digitize neighborhood kirana stores, bakeries, and fresh produce vendors, giving them the tools to compete in the modern digital age while providing customers with the unparalleled convenience of local shopping.
@@ -97,11 +97,21 @@ const About = () => {
                                 <HeartHandshake className="w-6 h-6" /> Support Local Businesses
                             </div>
                         </div>
-                        <div className="glass rounded-[2rem] p-8 border-2 border-white/50">
-                            <img src="https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&auto=format&fit=crop&q=60" alt="Local store" className="rounded-2xl object-cover h-64 w-full" />
+                    </section>
+
+                    <section className="bg-white/40 dark:bg-slate-900/40 rounded-[3rem] p-8 md:p-12 border border-white/50 shadow-xl overflow-hidden relative">
+                        <div className="absolute -top-24 -left-24 w-64 h-64 bg-accent/10 rounded-full blur-[80px] pointer-events-none" />
+                        <div className="space-y-6 relative z-10">
+                            <h2 className="text-3xl font-black text-foreground">2. Our Core Vision</h2>
+                            <p className="text-muted-foreground text-lg leading-relaxed">
+                                Our vision is to become Bharat's most trusted hyper-local ecosystem, where every neighborhood vendor is just a click away from their customers. We aim to create a future where tradition meets technology, preserving the charm of local commerce while embracing digital excellence.
+                            </p>
+                            <div className="flex items-center gap-4 text-accent font-bold">
+                                <TrendingUp className="w-6 h-6" /> Empowering Bharat's Economy
+                            </div>
                         </div>
-                    </div>
-                </section>
+                    </section>
+                </div>
 
                 {/* Section 2: How Shoppers Use BellBasket */}
                 <section className="space-y-12">
@@ -186,29 +196,45 @@ const About = () => {
                 </section>
 
                 {/* Section 5: Growth & Support */}
-                <section className="bg-secondary/30 rounded-[3rem] p-8 md:p-16 border border-border shadow-inner">
+                <section className="bg-secondary/30 rounded-[3rem] p-8 md:p-16 border border-border">
                     <div className="text-center mb-12">
                         <h2 className="text-3xl font-black text-foreground mb-4">5. Continuous Growth & Support</h2>
-                        <p className="text-muted-foreground text-lg max-w-2xl mx-auto">Whether you are a customer needing assistance with an order, or a vendor looking to scale your business, we are here to help.</p>
+                        <p className="text-muted-foreground text-lg max-w-2xl mx-auto">Whether you are a customer needing assistance or a vendor looking to scale your business, we are here to help.</p>
                     </div>
 
-                    <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-                        <div className="glass p-8 rounded-[2rem] flex items-start gap-4">
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-5xl mx-auto">
+                        <div className="glass p-8 rounded-[2rem] flex items-start gap-4 hover:border-primary/30 transition-all">
+                            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                                <ShoppingCart className="w-6 h-6 text-primary" />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-lg mb-2">Shop Near You</h3>
+                                <p className="text-sm text-muted-foreground mb-4">Discover hundreds of verified local stores in your area. Buy local, grow local!</p>
+                                <div className="flex flex-wrap gap-2">
+                                  {["Grocery", "Bakery", "Fruits", "Organic"].map(cat => (
+                                    <Link key={cat} to={`/browse?q=${cat}`} className="text-[10px] font-black uppercase text-primary border border-primary/20 px-2 py-1 rounded-md hover:bg-primary/5">{cat}</Link>
+                                  ))}
+                                </div>
+                            </div>
+                        </div>
+                        <div className="glass p-8 rounded-[2rem] flex items-start gap-4 hover:border-primary/30 transition-all">
                             <div className="w-12 h-12 rounded-xl bg-orange-500/10 flex items-center justify-center shrink-0">
                                 <TrendingUp className="w-6 h-6 text-orange-500" />
                             </div>
                             <div>
-                                <h3 className="font-bold text-lg mb-2">Vendor Analytics</h3>
-                                <p className="text-sm text-muted-foreground">Pro vendors get access to detailed sales analytics, trends, and customer retention metrics to help grow their business strategically.</p>
+                                <h3 className="font-bold text-lg mb-2">Vendor Success</h3>
+                                <p className="text-sm text-muted-foreground mb-4">Advanced analytics and featured placements help our partner vendors double their sales volume in just months.</p>
+                                <Link to="/auth?role=vendor" className="text-[10px] font-black uppercase text-orange-500 hover:underline">Grow Your Store</Link>
                             </div>
                         </div>
-                        <div className="glass p-8 rounded-[2rem] flex items-start gap-4">
+                        <div className="glass p-8 rounded-[2rem] flex items-start gap-4 hover:border-primary/30 transition-all md:col-span-2 lg:col-span-1">
                             <div className="w-12 h-12 rounded-xl bg-purple-500/10 flex items-center justify-center shrink-0">
                                 <Headphones className="w-6 h-6 text-purple-500" />
                             </div>
                             <div>
-                                <h3 className="font-bold text-lg mb-2">Dedicated Support</h3>
-                                <p className="text-sm text-muted-foreground">Our support team is always ready to resolve disputes, answer queries, and provide guidance to both shoppers and store owners.</p>
+                                <h3 className="font-bold text-lg mb-2">24/7 Support</h3>
+                                <p className="text-sm text-muted-foreground mb-4">Dedicated local support in English, Hindi, and Telugu to resolve any order or account queries promptly.</p>
+                                <a href="mailto:support@bellbasket.com" className="text-[10px] font-black uppercase text-purple-500 hover:underline">Contact Support</a>
                             </div>
                         </div>
                     </div>

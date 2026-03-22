@@ -1,6 +1,6 @@
 import { useApp } from '@/context/AppContext';
 import { NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
-import { ShoppingCart, Bell, User, LogOut, Store, Menu, X, Search, ShoppingBag, Package, TrendingUp, Crown, Smartphone, Shield } from 'lucide-react';
+import { ShoppingCart, Bell, User, LogOut, Store, Menu, X, Search, ShoppingBag, Package, TrendingUp, Crown, Smartphone, Shield, BellRing } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
@@ -8,7 +8,7 @@ import DesktopBackground from './DesktopBackground';
 import { getAudioStatus, onAudioStatusChange, initAudio, playBellSound } from '@/utils/notifications';
 
 const Header = () => {
-  const { user, cart, orders, serviceBookings, logout, notifications, markAllNotificationsRead, stores } = useApp();
+  const { user, cart, orders, serviceBookings, logout, notifications, markAllNotificationsRead, stores, requestPushNotifications } = useApp();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
@@ -18,7 +18,7 @@ const Header = () => {
   const unreadCount = notifications.filter((n: any) => !n.read && n.id !== 'welcome').length;
 
   const isVendorView = user?.role === 'vendor';
-  const isAdminView = user?.role === 'admin';
+  const isAdminView = user?.role === 'admin' || user?.role === 'hr';
   const cartCount = cart.reduce((s, c) => s + c.quantity, 0);
 
   const isServiceStore = isVendorView && stores?.find(s => s.vendorId === user.id)?.storeType === 'service';
@@ -60,31 +60,32 @@ const Header = () => {
   return (
     <>
       <DesktopBackground />
-      <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-border">
+      <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 dark:bg-[#202020]/80 backdrop-blur-md border-b border-border">
         {/* Audio Muted Alert Banner (Only for Vendors/Admins who need real-time alerts) */}
+        {/* Push Notification Permission Banner */}
         <AnimatePresence>
-          {(isVendorView || isAdminView) && audioStatus !== 'running' && (
+          {user && (isVendorView || isAdminView || activeReceiptsCount > 0) && ("Notification" in window) && Notification.permission !== "granted" && (
             <motion.div 
               initial={{ height: 0, opacity: 0 }} 
               animate={{ height: 'auto', opacity: 1 }} 
               exit={{ height: 0, opacity: 0 }}
-              className="bg-amber-500 overflow-hidden"
+              className="bg-primary/95 backdrop-blur-sm overflow-hidden"
             >
               <button 
-                onClick={() => { initAudio(); playBellSound(); }}
-                className="w-full py-1 text-[10px] font-black uppercase tracking-widest text-white flex items-center justify-center gap-2 hover:bg-amber-600 transition-colors"
-                title="Browser prevents sound alerts until you click once."
+                onClick={() => { initAudio(); requestPushNotifications(); }}
+                className="w-full py-1 text-[10px] font-black uppercase tracking-widest text-white flex items-center justify-center gap-2 hover:bg-primary transition-colors"
+                title="Browser needs your permission to show push alerts for new orders."
               >
-                <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
-                Sound Alerts Muted • Tap to enable doorbell chime
-                <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                <BellRing className="w-3.5 h-3.5 animate-bounce" />
+                Push Notifications Muted • Enable for live updates
+                <BellRing className="w-3.5 h-3.5 animate-bounce" />
               </button>
             </motion.div>
           )}
         </AnimatePresence>
 
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
-          <Link to={isAdminView ? "/admin" : (user?.role === 'vendor' ? "/vendor" : "/browse")} className="group flex-shrink-0">
+          <Link to={user?.role === 'hr' ? "/hr" : (user?.role === 'admin' ? "/admin" : (user?.role === 'vendor' ? "/vendor" : "/browse"))} className="group flex-shrink-0">
             <span className="font-black text-2xl tracking-tighter text-foreground hover:text-primary transition-colors">BellBasket</span>
           </Link>
 
@@ -92,9 +93,9 @@ const Header = () => {
           <div className="flex items-center gap-1 sm:gap-2">
             <nav className="hidden md:flex items-center gap-1 lg:gap-2">
               {isAdminView ? (
-                <NavLink to="/admin" className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}>
+                <NavLink to={user?.role === 'hr' ? "/hr" : "/admin"} className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}>
                   <Shield className="w-5 h-5" />
-                  <span className="hidden lg:inline">Dashboard</span>
+                  <span className="hidden lg:inline">{user?.role === 'hr' ? 'HR Portal' : 'Dashboard'}</span>
                 </NavLink>
               ) : !isVendorView ? (
                 !isDownloadPage && (
@@ -120,7 +121,7 @@ const Header = () => {
                           )}
                         </AnimatePresence>
                       </div>
-                      <span className="hidden lg:inline">{t('common.orders')}</span>
+                      <span className="hidden lg:inline">{t('common.orders')} ({activeReceiptsCount})</span>
                     </NavLink>
 
                     <NavLink to="/cart" className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}>
@@ -327,19 +328,19 @@ const Header = () => {
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
-              className="md:hidden bg-white border-b border-border overflow-hidden"
+              className="md:hidden bg-white dark:bg-[#202020] border-b border-border overflow-hidden"
             >
               <div className="p-4 space-y-2">
                 {isAdminView ? (
                   <>
                     <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground px-4 py-2">Admin Tools</p>
                     <Link
-                      to="/admin"
+                      to={user?.role === 'hr' ? "/hr" : "/admin"}
                       onClick={() => { initAudio(); setMenuOpen(false); }}
                       className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-primary/5 text-foreground transition-colors"
                     >
                       <Shield className="w-5 h-5 text-primary" />
-                      <span className="font-bold text-sm">Admin Dashboard</span>
+                      <span className="font-bold text-sm">{user?.role === 'hr' ? 'HR Portal' : 'Admin Dashboard'}</span>
                     </Link>
                   </>
                 ) : isVendorView ? (

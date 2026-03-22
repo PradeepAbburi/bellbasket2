@@ -18,14 +18,13 @@ const BottomNav = () => {
     const activeReceiptsCount = orders.filter(o => !['completed', 'rejected'].includes(o.status)).length +
         serviceBookings.filter(b => !['completed', 'rejected'].includes(b.status)).length;
 
-    // Hide if not logged in, not verified, or on auth/setup pages
-    if (!user || !user.isVerified || location.pathname === '/auth' || location.pathname === '/vendor/setup') return null;
+    // Hide if not logged in, not verified, or on auth/setup pages, or for HR/Admin roles
+    if (!user || !user.isVerified || user.role === 'hr' || user.role === 'admin' || location.pathname === '/auth' || location.pathname === '/vendor/setup') return null;
 
     // Hide BottomNav on subscription page
     if (location.pathname === '/vendor/subscription') return null;
 
     const isVendor = user.role === 'vendor';
-    const isAdmin = user.role === 'admin';
     const isServiceStore = isVendor && stores?.find(s => s.vendorId === user.id)?.storeType === 'service';
     let hasValidPlan = false;
     if (user?.plan && user.plan !== 'none') {
@@ -66,7 +65,7 @@ const BottomNav = () => {
         <div id="bottom-nav" className="fixed bottom-0 left-0 right-0 z-50 md:hidden pointer-events-none">
             {/* View Cart Banner - Floating above the bottom nav */}
             <AnimatePresence>
-                {!isVendor && !isAdmin && cart.length > 0 && location.pathname !== '/cart' && (
+                {!isVendor && cart.length > 0 && location.pathname !== '/cart' && (
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -91,15 +90,8 @@ const BottomNav = () => {
                 )}
             </AnimatePresence>
 
-            <nav className="bg-background border-t border-border flex items-center justify-around pointer-events-auto pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
-                {isAdmin ? (
-                    <NavItem
-                        to="/admin"
-                        end
-                        icon={LayoutDashboard}
-                        label={t('common.dashboard')}
-                    />
-                ) : isVendor ? (
+            <nav className="bg-white dark:bg-[#0D0D0D]/95 dark:backdrop-blur-md border-t border-border flex items-center justify-around pointer-events-auto pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_30px_rgba(0,0,0,0.3)]">
+                {isVendor ? (
                     <>
                         <NavItem
                             to="/vendor"

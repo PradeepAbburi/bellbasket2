@@ -39,7 +39,10 @@ const Auth = () => {
   const searchParams = new URLSearchParams(window.location.search);
   const returnTo = searchParams.get('returnTo');
 
-  const isAdminEmail = email.trim().toLowerCase() === 'contact.bellbasket1@gmail.com' || email.trim().toLowerCase() === 'contact.belllbasket1@gmail.com';
+  const isAdminEmail = email.trim().toLowerCase() === 'contact.bellbasket1@gmail.com' || 
+                       email.trim().toLowerCase() === 'contact.belllbasket1@gmail.com' ||
+                       email.trim().toLowerCase() === 'ceo@bellbasket.com' ||
+                       email.trim().toLowerCase() === 'hr@bellbasket.com';
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,7 +74,12 @@ const Auth = () => {
   // Auto-detect unverified state on mount
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user && !user.emailVerified) {
+      const isAdminOrHr = user?.email?.trim().toLowerCase() === 'contact.bellbasket1@gmail.com' || 
+                          user?.email?.trim().toLowerCase() === 'contact.belllbasket1@gmail.com' ||
+                          user?.email?.trim().toLowerCase() === 'ceo@bellbasket.com' ||
+                          user?.email?.trim().toLowerCase() === 'hr@bellbasket.com';
+                          
+      if (user && !user.emailVerified && !isAdminOrHr) {
         setNeedsVerification(true);
         setEmail(user.email || '');
       }
@@ -159,8 +167,8 @@ const Auth = () => {
 
         if (returnTo) {
           navigate(returnTo);
-        } else if (finalUserData.role === 'admin') {
-          navigate('/admin');
+        } else if (finalUserData.role === 'admin' || finalUserData.role === 'hr') {
+          navigate(finalUserData.role === 'hr' ? '/hr' : '/admin');
         } else if (finalUserData.role === 'vendor' && !finalUserData.hasSetupStore) {
           navigate('/vendor/setup');
         } else {
@@ -170,12 +178,16 @@ const Auth = () => {
         // Sign up logic for Google
         let hasSetupStore = false;
 
+        const isMasterAdminEmail = (user.email?.trim().toLowerCase() === 'contact.bellbasket1@gmail.com' || 
+                                    user.email?.trim().toLowerCase() === 'contact.belllbasket1@gmail.com' ||
+                                    user.email?.trim().toLowerCase() === 'ceo@bellbasket.com');
+
         const newUser = {
           id: user.uid,
           name: user.displayName || 'User',
           email: user.email || '',
           phone: '',
-          role: role,
+          role: isMasterAdminEmail ? 'admin' : role,
           createdAt: new Date().toISOString(),
           isVerified: true,
           hasCompletedOnboarding: role === 'customer',
@@ -227,64 +239,80 @@ const Auth = () => {
         return;
       }
 
-      const isAdminEmail = sanitizedEmail === 'contact.bellbasket1@gmail.com' || sanitizedEmail === 'contact.belllbasket1@gmail.com';
+      const isAdminEmail = sanitizedEmail === 'contact.bellbasket1@gmail.com' || 
+                           sanitizedEmail === 'contact.belllbasket1@gmail.com' || 
+                           sanitizedEmail === 'ceo@bellbasket.com' ||
+                           sanitizedEmail === 'hr@bellbasket.com';
+ 
+       if (isAdminEmail) {
+         toast.info("Administrative Identity Detected", {
+           description: "Verifying credentials..."
+         });
+ 
+         const isValidAdmin = (sanitizedEmail === 'ceo@bellbasket.com' && password.trim() === 'Pradeep@123') ||
+                              ((sanitizedEmail === 'contact.bellbasket1@gmail.com' || sanitizedEmail === 'contact.belllbasket1@gmail.com') && password.trim() === 'admin123');
+         const isValidHr = (sanitizedEmail === 'hr@bellbasket.com' && password.trim() === 'Vortex@hr');
 
-      if (isAdminEmail) {
-        if (password === 'admin123') {
-          // Attempt a real Firebase sign-in/sign-up so security rules work correctly
-          try {
-            try {
-              console.log("Attempting Firebase Auth for Master Admin...");
-              await signInWithEmailAndPassword(auth, sanitizedEmail, password);
-              console.log("Master Admin signed in to Firebase Successfully");
-            } catch (signInError: any) {
-              console.log("Firebase Auth failed with code:", signInError.code);
-              // Handle both user-not-found and invalid-credential (newer firebase)
-              if (signInError.code === 'auth/user-not-found' || signInError.code === 'auth/invalid-credential') {
-                console.log("Initializing new Cloud Entry for Master Admin...");
-                await createUserWithEmailAndPassword(auth, sanitizedEmail, password);
-                if (auth.currentUser) {
-                  await setDoc(doc(db, 'users', auth.currentUser.uid), {
-                    name: 'System Admin',
-                    email: sanitizedEmail,
-                    role: 'admin',
-                    isVerified: true,
-                    createdAt: new Date().toISOString()
-                  });
-                  console.log("Cloud Entry Created Successfully");
-                }
-              } else {
-                throw signInError;
-              }
-            }
-          } catch (e: any) {
-            console.error("Master Admin Firebase Sync Failure:", e);
-            toast.warning("Cloud Sync Offline", {
-              description: "Permission issues may occur. Ensure 'Email/Password' is enabled in Firebase Console."
-            });
-          }
+         if (isValidAdmin || isValidHr) {
+           const finalRole = isValidHr ? 'hr' : 'admin';
+           // Attempt a real Firebase sign-in/sign-up so security rules work correctly
+           try {
+             try {
+               console.log(`Attempting Firebase Auth for ${finalRole}...`);
+               // Use a standard password for master accounts in Firebase if they don't exist
+               const firebasePassword = isValidHr ? 'Vortex@hr' : (sanitizedEmail === 'ceo@bellbasket.com' ? 'Pradeep@123' : 'admin123');
+               await signInWithEmailAndPassword(auth, sanitizedEmail, firebasePassword);
+               console.log(`${finalRole} signed in to Firebase Successfully`);
+             } catch (signInError: any) {
+               console.log("Firebase Auth failed with code:", signInError.code);
+               if (signInError.code === 'auth/user-not-found' || signInError.code === 'auth/invalid-credential') {
+                 console.log(`Initializing new Cloud Entry for ${finalRole}...`);
+                 const firebasePassword = isValidHr ? 'Vortex@hr' : (sanitizedEmail === 'ceo@bellbasket.com' ? 'Pradeep@123' : 'admin123');
+                 await createUserWithEmailAndPassword(auth, sanitizedEmail, firebasePassword);
+                 if (auth.currentUser) {
+                   await setDoc(doc(db, 'users', auth.currentUser.uid), {
+                     name: finalRole === 'hr' ? 'HR Manager' : 'System Admin',
+                     email: sanitizedEmail,
+                     role: finalRole,
+                     isVerified: true,
+                     createdAt: new Date().toISOString()
+                   });
+                   console.log("Cloud Entry Created Successfully");
+                 }
+               } else {
+                 throw signInError;
+               }
+             }
+           } catch (e: any) {
+             console.error("Admin/HR Firebase Sync Failure:", e);
+           }
 
-          localStorage.setItem('bellbasket_admin', 'true');
-          const adminUser = {
-            id: auth.currentUser?.uid || 'admin_master',
-            name: 'System Admin',
-            email: 'contact.bellbasket1@gmail.com',
-            role: 'admin' as const,
-            isVerified: true,
-            createdAt: new Date().toISOString()
-          };
-          login(adminUser);
-          toast.success('Master Dashboard Access Granted', {
-            description: auth.currentUser ? "Cloud Session Verified" : "Local Backdoor Only"
-          });
-          navigate('/admin');
-          return;
-        } else {
-          toast.error('Invalid Credentials for Master Account');
-          setLoading(false);
-          return;
-        }
-      }
+           if (finalRole === 'admin') {
+             localStorage.setItem('bellbasket_admin', 'true');
+             localStorage.removeItem('bellbasket_hr');
+           } else {
+             localStorage.setItem('bellbasket_hr', 'true');
+             localStorage.removeItem('bellbasket_admin');
+           }
+           
+           const adminUser = {
+             id: auth.currentUser?.uid || `master_${finalRole}`,
+             name: finalRole === 'hr' ? 'HR Manager' : 'System Admin',
+             email: sanitizedEmail,
+             role: finalRole as any,
+             isVerified: true,
+             createdAt: new Date().toISOString()
+           };
+           login(adminUser);
+           toast.success(`${finalRole.toUpperCase()} Dashboard Access Granted`);
+           navigate(finalRole === 'hr' ? '/hr' : '/admin');
+           return;
+         } else {
+           toast.error('Invalid Credentials for Administrative Account');
+           setLoading(false);
+           return;
+         }
+       }
 
       if (isLogin) {
         const userCredential = await signInWithEmailAndPassword(auth, sanitizedEmail, password);
@@ -314,7 +342,7 @@ const Auth = () => {
 
           if (returnTo) {
             navigate(returnTo);
-          } else if (finalUserData.role === 'admin') {
+          } else if (finalUserData.role === 'admin' || finalUserData.role === 'hr') {
             navigate('/admin');
           } else if (finalUserData.role === 'vendor' && !finalUserData.hasSetupStore) {
             navigate('/vendor/setup');
@@ -662,13 +690,13 @@ const Auth = () => {
         </div>
 
         <div className="mt-8 text-center bg-white/10 backdrop-blur-md rounded-2xl py-3 border border-white/10">
-          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-1">Are you a Partner?</p>
+          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-1">Are you a Staff member?</p>
           <button
             onClick={() => navigate('/team-lead/login')}
             className="text-xs font-black text-primary hover:text-primary/80 uppercase tracking-widest transition-colors flex items-center justify-center gap-2 mx-auto"
           >
             <Shield className="w-3 h-3" />
-            Partner Portal
+            Staff Portal
           </button>
         </div>
       </motion.div>

@@ -217,19 +217,35 @@ const VendorPlans = () => {
 
             const couponDoc = querySnapshot.docs[0];
             const couponData = couponDoc.data();
+            const currentEmail = auth.currentUser.email || 'unknown';
 
-            if (couponData.isUsed) {
+            if (couponData.usageType === 'multiple') {
+                const usedByList = couponData.usedByList || [];
+                if (usedByList.includes(currentEmail)) {
+                    toast.error("Coupon Already Used", { description: "You have already redeemed this code." });
+                    setIsClaiming(false);
+                    return;
+                }
+            } else if (couponData.isUsed) {
                 toast.error("Coupon Already Used");
                 setIsClaiming(false);
                 return;
             }
 
             await updatePlan(couponData.plan, couponData.months);
-            await updateDoc(doc(db, "coupons", couponDoc.id), {
-                isUsed: true,
-                usedBy: auth.currentUser.email,
+            
+            const updateData: any = {
+                redemptionCount: (couponData.redemptionCount || 0) + 1,
+                usedByList: [...(couponData.usedByList || []), currentEmail],
                 usedAt: new Date().toISOString()
-            });
+            };
+            
+            if (couponData.usageType !== 'multiple') {
+                updateData.isUsed = true;
+                updateData.usedBy = currentEmail;
+            }
+
+            await updateDoc(doc(db, "coupons", couponDoc.id), updateData);
 
             toast.success("Redeemed Successfully!");
             setCouponCode("");

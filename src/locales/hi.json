@@ -328,6 +328,8 @@
         "orders_today": "आज के ऑर्डर",
         "revenue_today": "आज की आय",
         "active_plan": "सक्रिय प्लान",
-        "shop_status": "दुकान की स्थिति"
+        "shop_status": "दुकान की स्थिति",
+        "active_orders": "सक्रिय ऑर्डर",
+        "revenue": "कुल आय"
     }
-}
+}

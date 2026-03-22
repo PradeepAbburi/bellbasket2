@@ -21,12 +21,13 @@ import VendorSetup from "./pages/VendorSetup";
 import VendorAnalytics from "./pages/VendorAnalytics";
 import VendorPlans from "./pages/VendorPlans";
 import VendorReviews from "./pages/VendorReviews";
-import AdminDashboard from "./pages/AdminDashboard";
-import AdminAnalytics from "./pages/AdminAnalytics";
-import AdminCredentials from "./pages/AdminCredentials";
-import AdminModeration from "./pages/AdminModeration";
-import AdminPartnerBank from "./pages/AdminPartnerBank";
-import AdminPartnerPayments from "./pages/AdminPartnerPayments";
+import AdminLayout from "./components/admin/AdminLayout";
+import AdminOverview from "./pages/admin/AdminOverview";
+import AdminVendors from "./pages/admin/AdminVendors";
+import AdminUsers from "./pages/admin/AdminUsers";
+import AdminCoupons from "./pages/admin/AdminCoupons";
+import AdminSupport from "./pages/admin/AdminSupport";
+import AdminAnalyticsNew from "./pages/admin/AdminAnalytics";
 import SupportChat from "./pages/SupportChat";
 import ResetPassword from "./pages/ResetPassword";
 import HelpSupport from "./pages/HelpSupport";
@@ -39,18 +40,41 @@ import NotFound from "./pages/NotFound";
 import TeamLeadDashboard from "./pages/TeamLeadDashboard";
 import TeamLeadLogin from "./pages/TeamLeadLogin";
 import Leadership from "./pages/Leadership";
+import Careers from "./pages/Careers";
+import JobDetail from "./pages/JobDetail";
+import ApplyJob from "./pages/ApplyJob";
+import HrLayout from "./components/hr/HrLayout";
+import HrOverview from "./pages/hr/HrOverview";
+import HrStaffDirectory from "./pages/hr/StaffDirectory";
+import HrStaffOnboarding from "./pages/hr/StaffOnboarding";
+import HrStaffPayments from "./pages/hr/StaffPayments";
+import StaffProfile from "./pages/hr/StaffProfile";
+import AdminPartnerPayments from "./pages/AdminPartnerPayments";
+import AdminPartnerBank from "./pages/AdminPartnerBank";
 import BottomNav from "./components/BottomNav";
 import OnlineStatusProvider from "./components/OnlineStatusProvider";
 import Onboarding from "./components/Onboarding";
+import NotificationPrompt from "./components/NotificationPrompt";
 
 const queryClient = new QueryClient();
 
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+const ProtectedRoute = ({ children, requiredRole }: { children: React.ReactNode, requiredRole?: string | string[] }) => {
   const { user, loading } = useApp();
 
   if (loading) return null;
-  if (!user || (!user.isVerified && user.role !== 'admin')) {
+  if (!user) return <Navigate to="/auth" replace />;
+
+  // Special verification bypass for admin/hr is kept as per business logic
+  const isInternal = user.role === 'admin' || user.role === 'hr';
+  if (!user.isVerified && !isInternal) {
     return <Navigate to="/auth" replace />;
+  }
+
+  if (requiredRole) {
+    const roles = Array.isArray(requiredRole) ? requiredRole : [requiredRole];
+    if (!roles.includes(user.role)) {
+      return <Navigate to="/" replace />;
+    }
   }
 
   return <>{children}</>;
@@ -61,7 +85,7 @@ const VendorProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
   if (loading) return null;
 
-  if (!user || !user.isVerified) {
+  if (!user || (!user.isVerified && user.role !== 'admin')) {
     return <Navigate to="/auth" replace />;
   }
 
@@ -81,6 +105,14 @@ const VendorProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     return <Navigate to="/vendor/subscription" replace />;
   }
 
+  return <>{children}</>;
+};
+
+const TeamLeadProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const saved = localStorage.getItem("bellbasket_teamlead_session");
+  if (!saved) {
+    return <Navigate to="/team-lead/login" replace />;
+  }
   return <>{children}</>;
 };
 
@@ -114,13 +146,18 @@ const AppContent = () => {
           <Route path="/vendor/reviews" element={<VendorProtectedRoute><VendorReviews /></VendorProtectedRoute>} />
           <Route path="/vendor/editor" element={<VendorProtectedRoute><StoreEditor /></VendorProtectedRoute>} />
 
-          <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
-          <Route path="/admin/analytics" element={<ProtectedRoute><AdminAnalytics /></ProtectedRoute>} />
-          <Route path="/admin/credentials" element={<ProtectedRoute><AdminCredentials /></ProtectedRoute>} />
-          <Route path="/admin/moderation" element={<ProtectedRoute><AdminModeration /></ProtectedRoute>} />
-          <Route path="/admin/payments" element={<ProtectedRoute><AdminPartnerPayments /></ProtectedRoute>} />
-          <Route path="/admin/partner-bank" element={<ProtectedRoute><AdminPartnerBank /></ProtectedRoute>} />
-          <Route path="/team-lead" element={<TeamLeadDashboard />} />
+          <Route path="/admin" element={<ProtectedRoute requiredRole="admin"><AdminLayout /></ProtectedRoute>}>
+            <Route index element={<AdminOverview />} />
+            <Route path="vendors" element={<AdminVendors />} />
+            <Route path="users" element={<AdminUsers />} />
+            <Route path="coupons" element={<AdminCoupons />} />
+            <Route path="support" element={<AdminSupport />} />
+            <Route path="analytics" element={<AdminAnalyticsNew />} />
+            <Route path="partner-payments" element={<AdminPartnerPayments />} />
+            <Route path="partner-bank" element={<AdminPartnerBank />} />
+          </Route>
+          
+          <Route path="/team-lead" element={<TeamLeadProtectedRoute><TeamLeadDashboard /></TeamLeadProtectedRoute>} />
           <Route path="/team-lead/login" element={<TeamLeadLogin />} />
           <Route path="/support/chat/:id" element={<ProtectedRoute><SupportChat /></ProtectedRoute>} />
           <Route path="/support" element={<ProtectedRoute><HelpSupport /></ProtectedRoute>} />
@@ -128,12 +165,26 @@ const AppContent = () => {
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsAndConditions />} />
           <Route path="/leadership" element={<Leadership />} />
+          <Route path="/careers" element={<Careers />} />
+          <Route path="/careers/job/:id" element={<JobDetail />} />
+          <Route path="/careers/apply/:id" element={<ApplyJob />} />
+          
+          {/* HR Routes */}
+          <Route path="/hr" element={<ProtectedRoute requiredRole="hr"><HrLayout /></ProtectedRoute>}>
+            <Route index element={<HrOverview />} />
+            <Route path="staff" element={<HrStaffDirectory />} />
+            <Route path="staff/:id" element={<StaffProfile />} />
+            <Route path="onboarding" element={<HrStaffOnboarding />} />
+            <Route path="payments" element={<HrStaffPayments />} />
+          </Route>
+
           <Route path="/sitemap.xml" element={<Sitemap />} />
 
           <Route path="*" element={<NotFound />} />
         </Routes>
         <BottomNav />
         {user && user.isVerified && user.role !== 'admin' && !user.hasCompletedOnboarding && sessionStorage.getItem('allow_onboarding') === 'true' && <Onboarding />}
+        <NotificationPrompt />
       </div>
     </BrowserRouter>
   );

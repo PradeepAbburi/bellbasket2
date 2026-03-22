@@ -42,7 +42,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             whileHover={{ y: -8, scale: 1.02 }}
-            className={`w-[155px] sm:w-[185px] md:w-[220px] h-[335px] shrink-0 snap-start bg-white/30 dark:bg-slate-900/60 backdrop-blur-xl rounded-[2rem] border border-white/20 shadow-lg hover:shadow-2xl transition-all duration-300 group flex flex-col overflow-hidden relative ${highlighted ? 'border-primary ring-4 ring-primary/20 scale-105 z-10' : 'border-white/40'
+            className={`w-[155px] sm:w-[185px] md:w-[220px] h-[335px] shrink-0 snap-start bg-white/30 dark:bg-[#202020]/60 backdrop-blur-xl rounded-[2rem] border border-white/20 shadow-lg hover:shadow-2xl transition-all duration-300 group flex flex-col overflow-hidden relative ${highlighted ? 'border-primary ring-4 ring-primary/20 scale-105 z-10' : 'border-white/40'
                 }`}
         >
             {/* Image Section */}
@@ -121,7 +121,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
                                         <motion.button
                                             whileTap={{ scale: 0.8 }}
                                             onClick={() => updateQuantity(product.id, qty - 1)}
-                                            className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-white dark:bg-slate-800 text-primary flex items-center justify-center hover:bg-destructive hover:text-white transition-all shadow-sm border border-border/10"
+                                            className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-white dark:bg-[#202020] text-primary flex items-center justify-center hover:bg-destructive hover:text-white transition-all shadow-sm border border-border/10"
                                         >
                                             <Minus className="w-3 h-3" />
                                         </motion.button>

@@ -14,6 +14,7 @@ interface TeamLead {
     loginId: string;
     password?: string;
     createdAt?: string;
+    image?: string;
 }
 
 const TeamLeadDashboard = () => {
@@ -160,16 +161,24 @@ const TeamLeadDashboard = () => {
                     animate={{ opacity: 1, y: 0 }}
                     className="flex flex-col lg:flex-row items-center justify-between gap-6 mb-8"
                 >
-                    <div className="text-center lg:text-left">
-                        <h1 className="text-4xl font-black text-foreground flex items-center justify-center lg:justify-start gap-4">
-                            <Shield className="w-10 h-10 text-primary shrink-0 drop-shadow-sm" />
-                            Command Center
-                        </h1>
-                        <p className="text-muted-foreground font-bold mt-2 flex items-center justify-center lg:justify-start gap-2">
-                            Welcome back, <span className="text-primary">{teamLeadData.agentName}</span>
-                            <span className="w-1 h-1 rounded-full bg-muted-foreground/30 mx-1"></span>
-                            <span className="text-[10px] uppercase tracking-widest bg-secondary/50 px-2 py-0.5 rounded-md">Partner Verified</span>
-                        </p>
+                    <div className="flex flex-col lg:flex-row items-center gap-6 text-center lg:text-left">
+                        {teamLeadData.image ? (
+                            <img src={teamLeadData.image} alt="" className="w-16 h-16 rounded-2xl object-cover shadow-xl border-2 border-white ring-4 ring-primary/5" />
+                        ) : (
+                            <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
+                                <Shield className="w-8 h-8" />
+                            </div>
+                        )}
+                        <div>
+                            <h1 className="text-4xl font-black text-foreground flex items-center justify-center lg:justify-start gap-4">
+                                Command Center
+                            </h1>
+                            <p className="text-muted-foreground font-bold mt-2 flex items-center justify-center lg:justify-start gap-2">
+                                Welcome back, <span className="text-primary">{teamLeadData.agentName}</span>
+                                <span className="w-1 h-1 rounded-full bg-muted-foreground/30 mx-1"></span>
+                                <span className="text-[10px] uppercase tracking-widest bg-secondary/50 px-2 py-0.5 rounded-md">Staff Verified</span>
+                            </p>
+                        </div>
                     </div>
 
                     <div className="flex items-center gap-3">
@@ -596,7 +605,7 @@ const TeamLeadDashboard = () => {
                 {activeTab === 'leaderboard' && (
                     <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="glass-strong rounded-[44px] overflow-hidden shadow-2xl">
                         <div className="p-10 border-b border-border/50 bg-secondary/10 text-center">
-                            <h3 className="text-3xl font-black text-foreground mb-2">Partner Leaderboard</h3>
+                            <h3 className="text-3xl font-black text-foreground mb-2">Staff Leaderboard</h3>
                             <p className="text-muted-foreground font-bold uppercase tracking-widest text-[10px]">Benchmark your performance against the network</p>
                         </div>
                         <div className="p-6 space-y-4 max-h-[600px] overflow-y-auto">

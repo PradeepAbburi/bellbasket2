@@ -102,7 +102,7 @@ const AdminPartnerBank = () => {
     };
 
     const deletePartner = async (id: string) => {
-        if (!window.confirm("Delete this partner?")) return;
+        if (!window.confirm("Delete this staff?")) return;
         try {
             await deleteDoc(doc(db, "referrals", id));
             toast.success("Partner deleted");
@@ -127,12 +127,12 @@ const AdminPartnerBank = () => {
                 <button onClick={() => navigate("/admin")} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8 transition-colors">
                     <ArrowLeft className="w-4 h-4" /> Back to Dashboard
                 </button>
-                <h1 className="text-3xl font-black text-foreground mb-8">Partner Bank & Payment Management</h1>
+                <h1 className="text-3xl font-black text-foreground mb-8">Staff Bank & Payment Management</h1>
                 {/* Partner List */}
                 <div className="space-y-6">
                     {referralList.length === 0 ? (
                         <div className="p-10 text-center glass rounded-3xl border-dashed border-2">
-                            <p className="text-muted-foreground font-bold italic">No partners created yet.</p>
+                            <p className="text-muted-foreground font-bold italic">No staff created yet.</p>
                         </div>
                     ) : (
                         referralList.map((partner) => (
@@ -143,7 +143,7 @@ const AdminPartnerBank = () => {
                                             {partner.agentName?.charAt(0) ?? "P"}
                                         </div>
                                         <div>
-                                            <p className="font-black text-foreground text-sm">{partner.agentName || "Unnamed Partner"}</p>
+                                            <p className="font-black text-foreground text-sm">{partner.agentName || "Unnamed Staff"}</p>
                                             <p className="text-[10px] font-bold text-muted-foreground uppercase">ID: {partner.referralId}</p>
                                         </div>
                                     </div>

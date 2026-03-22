@@ -1,25 +1,25 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Package, Clock, Star, ArrowLeft, MapPin, Navigation, Loader2, EyeOff, KeyRound, Phone, User as UserIcon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import MapView from '@/components/MapView';
 import { Helmet } from 'react-helmet';
+import PullToRefresh from '@/components/ui/PullToRefresh';
 import { useApp } from '@/context/AppContext';
 import { doc, updateDoc, arrayUnion, setDoc, getDoc, deleteDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { useTranslation } from 'react-i18next';
 import { ServiceBooking, Store, Order } from '@/types';
-import { Trash2, CheckCircle2, Circle } from 'lucide-react';
+import { Trash2, CheckCircle2, Circle, RefreshCcw, Package, Clock, Star, ArrowLeft, MapPin, Navigation, Loader2, EyeOff, KeyRound, Phone, User as UserIcon, BellRing } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { toast } from 'sonner';
 import { sendInAppNotification } from '@/utils/notifications';
 
 
 const statusColors: Record<string, string> = {
-  pending: 'bg-muted text-muted-foreground',
+  pending: 'bg-muted/50 text-muted-foreground',
   accepted: 'bg-primary/20 text-primary',
   packed: 'bg-accent/20 text-accent',
-  completed: 'bg-accent text-accent-foreground',
+  completed: 'bg-accent/20 dark:bg-accent/10 text-accent dark:text-accent-foreground',
   rejected: 'bg-destructive/10 text-destructive',
 };
 
@@ -108,7 +108,7 @@ const RenderBookingCard = ({
         if (!showSelection) e.preventDefault();
       }}
       onClick={showSelection ? onToggleSelect : onClick}
-      className={`glass rounded-2xl p-5 transition-all relative ${onClick || showSelection ? 'cursor-pointer hover:shadow-lg active:scale-[0.98]' : ''} overflow-hidden ${isSelected ? 'ring-2 ring-primary ring-inset bg-primary/5 shadow-inner' : ''} touch-none`}
+      className={`glass rounded-2xl p-5 transition-all relative ${onClick || showSelection ? 'cursor-pointer hover:shadow-lg active:scale-[0.98]' : ''} overflow-hidden ${isSelected ? 'ring-2 ring-primary ring-inset bg-primary/5 shadow-inner' : ''}`}
     >
       <AnimatePresence>
         {showSelection && (
@@ -117,7 +117,7 @@ const RenderBookingCard = ({
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.5 }}
             onClick={(e) => { e.stopPropagation(); onToggleSelect?.(); }}
-            className="absolute top-3 right-3 z-10 p-1.5 rounded-full bg-white/90 dark:bg-black/90 shadow-lg border border-primary/20 hover:scale-110 active:scale-90 transition-all"
+            className="absolute top-3 right-3 z-10 p-1.5 rounded-full bg-white/90 dark:bg-[#202020] shadow-lg border border-primary/20 hover:scale-110 active:scale-90 transition-all"
           >
             {isSelected ? (
               <CheckCircle2 className="w-5 h-5 text-primary fill-primary" />
@@ -178,10 +178,10 @@ const RenderBookingCard = ({
         </div>
         <div className="flex flex-col items-end gap-2">
            <span className={`text-[10px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest shadow-sm ring-1 ring-inset ${
-             booking.status === 'completed' ? 'bg-green-100 text-green-700 ring-green-200' : 
-             booking.status === 'accepted' ? 'bg-amber-100 text-amber-700 ring-amber-200' : 
+             booking.status === 'completed' ? 'bg-green-100 dark:bg-green-500/10 text-green-700 dark:text-green-400 ring-green-200 dark:ring-green-500/20' : 
+             booking.status === 'accepted' ? 'bg-amber-100 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 ring-amber-200 dark:ring-amber-500/20' : 
              booking.status === 'rejected' ? 'bg-destructive/10 text-destructive ring-destructive/20' : 
-             'bg-orange-100 text-orange-700 ring-orange-200'
+             'bg-orange-100 dark:bg-orange-500/10 text-orange-700 dark:text-orange-400 ring-orange-200 dark:ring-orange-500/20'
            }`}>
              {t(`common.order_status.${booking.status}`, { defaultValue: booking.status.toUpperCase() })}
            </span>
@@ -201,9 +201,9 @@ const RenderBookingCard = ({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {vendorInfo?.phone || storePhone ? (
+            {(vendorInfo?.phone || booking.storePhone || store?.phone) ? (
               <a
-                href={`tel:${vendorInfo?.phone || storePhone}`}
+                href={`tel:${vendorInfo?.phone || booking.storePhone || store?.phone}`}
                 onClick={(e) => e.stopPropagation()}
                 className="p-2 rounded-lg bg-white shadow-sm text-primary hover:scale-110 transition-transform"
               >
@@ -215,7 +215,7 @@ const RenderBookingCard = ({
               </div>
             )}
             <span className="text-xs font-mono font-bold text-foreground">
-              {vendorInfo?.phone || storePhone || 'No Phone'}
+              {vendorInfo?.phone || booking.storePhone || store?.phone || 'No Phone'}
             </span>
           </div>
         </div>
@@ -275,9 +275,15 @@ const RenderBookingCard = ({
           <Clock className="w-4 h-4 text-primary" />
           <span className="font-medium">Scheduled for:</span> {booking.date} at {booking.timeSlot}
         </div>
-        <div className="flex items-center gap-2">
-          <MapPin className="w-4 h-4 text-primary" />
-          <span className="truncate max-w-[200px]">{booking.location}</span>
+        <div 
+          onClick={(e) => {
+            e.stopPropagation();
+            window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(booking.location)}`, '_blank');
+          }}
+          className="flex items-center gap-2 cursor-pointer hover:text-primary transition-colors group"
+        >
+          <MapPin className="w-4 h-4 text-primary group-hover:scale-110 transition-transform" />
+          <span className="truncate max-w-[200px] font-medium">{booking.location}</span>
         </div>
         {booking.description && (
           <div className="text-xs text-muted-foreground mt-2 p-3 bg-secondary/30 rounded-xl">
@@ -483,7 +489,7 @@ const RenderOrderCard = ({
         if (!showSelection) e.preventDefault();
       }}
       onClick={showSelection ? onToggleSelect : onClick}
-      className={`glass rounded-2xl p-5 transition-all relative ${onClick || showSelection ? 'cursor-pointer hover:shadow-lg active:scale-[0.98]' : ''} overflow-hidden ${isSelected ? 'ring-2 ring-primary ring-inset bg-primary/5 shadow-inner' : ''} touch-none`}
+      className={`glass rounded-2xl p-5 transition-all relative ${onClick || showSelection ? 'cursor-pointer hover:shadow-lg active:scale-[0.98]' : ''} overflow-hidden ${isSelected ? 'ring-2 ring-primary ring-inset bg-primary/5 shadow-inner' : ''}`}
     >
       <AnimatePresence>
         {showSelection && (
@@ -492,7 +498,7 @@ const RenderOrderCard = ({
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.5 }}
             onClick={(e) => { e.stopPropagation(); onToggleSelect?.(); }}
-            className="absolute top-3 right-3 z-10 p-1.5 rounded-full bg-white/90 dark:bg-black/90 shadow-lg border border-primary/20 hover:scale-110 active:scale-90 transition-all"
+            className="absolute top-3 right-3 z-10 p-1.5 rounded-full bg-white/90 dark:bg-[#202020] shadow-lg border border-primary/20 hover:scale-110 active:scale-90 transition-all"
           >
             {isSelected ? (
               <CheckCircle2 className="w-5 h-5 text-primary fill-primary" />
@@ -565,9 +571,9 @@ const RenderOrderCard = ({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {vendorInfo?.phone || storePhone ? (
+            {(vendorInfo?.phone || order.storePhone || store?.phone) ? (
               <a
-                href={`tel:${vendorInfo?.phone || storePhone}`}
+                href={`tel:${vendorInfo?.phone || order.storePhone || store?.phone}`}
                 onClick={(e) => e.stopPropagation()}
                 className="p-2 rounded-lg bg-white shadow-sm text-primary hover:scale-110 transition-transform"
               >
@@ -579,7 +585,7 @@ const RenderOrderCard = ({
               </div>
             )}
             <span className="text-xs font-mono font-bold text-foreground">
-              {vendorInfo?.phone || storePhone || 'No Phone'}
+              {vendorInfo?.phone || order.storePhone || store?.phone || 'No Phone'}
             </span>
           </div>
         </div>
@@ -704,8 +710,15 @@ const RenderOrderCard = ({
               <div className="p-2 rounded-xl bg-primary/10 text-primary">
                 <MapPin className="w-5 h-5" />
               </div>
-              <div className="min-w-0">
-                <p className="text-xs font-bold text-foreground truncate">{store.address}</p>
+              <div 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const query = (store.lat && store.lng) ? `${store.lat},${store.lng}` : encodeURIComponent(store.address);
+                  window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
+                }}
+                className="min-w-0 cursor-pointer hover:text-primary transition-all group"
+              >
+                <p className="text-xs font-bold text-foreground truncate group-hover:text-primary transition-colors">{store.address}</p>
                 <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-black">Store Location</p>
               </div>
             </div>
@@ -840,78 +853,41 @@ const RenderOrderCard = ({
 };
 
 const Receipts = () => {
-  const { user, loading, stores, orders, serviceBookings } = useApp();
+  const { user, loading, stores, orders, serviceBookings, refreshData } = useApp();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
+  const { requestPushNotifications } = useApp();
+  const [notificationPermission, setNotificationPermission] = useState<string>(
+    typeof Notification !== 'undefined' ? Notification.permission : 'default'
+  );
   const [reviews, setReviews] = useState<Record<string, { rating: number; text: string; isAnonymous: boolean; submitted: boolean }>>({});
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [filterType, setFilterType] = useState<'orders' | 'bookings'>('orders');
   const [view, setView] = useState<'active' | 'history'>('active');
   const [vendorInfoState, setVendorInfoState] = useState<Record<string, { phone: string; name: string }>>({});
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Fetch missing store phones
+  useEffect(() => {
+    if (typeof Notification === 'undefined') return;
+    const checkPermission = () => {
+      setNotificationPermission(Notification.permission);
+    };
+    window.addEventListener('focus', checkPermission);
+    return () => window.removeEventListener('focus', checkPermission);
+  }, []);
+
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    toast.info("Refreshing receipts...");
+    window.location.reload();
+  };
+
+  // No more manual fetches needed as data is denormalized or in global stores state
   useEffect(() => {
     setSelectedIds([]);
   }, [filterType, view]);
-
-  // Fetch missing vendor info (phones and names)
-  useEffect(() => {
-    const fetchVendorInfo = async () => {
-      const allItems = [...orders, ...serviceBookings];
-      const missing = allItems.filter(item => {
-        const hasInfo = vendorInfoState[item.storeId];
-        return !hasInfo || !hasInfo.phone || !hasInfo.name;
-      });
-
-      if (missing.length === 0) return;
-
-      const newInfo = { ...vendorInfoState };
-      let changed = false;
-
-      for (const item of missing) {
-        if (!item.storeId || newInfo[item.storeId]) continue;
-        
-        try {
-          let phone = '';
-          let name = '';
-
-          // 1. Try store doc
-          const storeRef = doc(db, 'stores', item.storeId);
-          const storeSnap = await getDoc(storeRef);
-          if (storeSnap.exists()) {
-            const data = storeSnap.data();
-            phone = data.phone || '';
-          }
-
-          // 2. Try user doc (vendor UID)
-          const userRef = doc(db, 'users', item.storeId);
-          const userSnap = await getDoc(userRef);
-          if (userSnap.exists()) {
-            const data = userSnap.data();
-            name = data.name || '';
-            if (!phone) phone = data.phone || '';
-          }
-
-          if (phone || name) {
-            newInfo[item.storeId] = { phone, name };
-            changed = true;
-          }
-        } catch (err) {
-          console.error("Error fetching vendor info:", err);
-        }
-      }
-
-      if (changed) {
-        setVendorInfoState(newInfo);
-      }
-    };
-
-    if (orders.length > 0 || serviceBookings.length > 0) {
-      fetchVendorInfo();
-    }
-  }, [orders, serviceBookings]);
 
 
   const handleRating = (orderId: string, rating: number) => {
@@ -1027,8 +1003,10 @@ const Receipts = () => {
 
   const activeOrders = customerOrders.filter(o => o.status !== 'completed' && o.status !== 'rejected');
   const pastOrders = customerOrders.filter(o => o.status === 'completed' || o.status === 'rejected');
+  const activeBookings = serviceBookings.filter(b => b.status === 'pending' || b.status === 'accepted');
+  const pastBookings = serviceBookings.filter(b => b.status === 'completed' || b.status === 'rejected');
   const displayOrders = view === 'active' ? activeOrders : pastOrders;
-  const displayBookings = serviceBookings.filter(b => view === 'active' ? (b.status === 'pending' || b.status === 'accepted') : (b.status === 'completed' || b.status === 'rejected'));
+  const displayBookings = view === 'active' ? activeBookings : pastBookings;
 
   const handleDeleteSelected = async () => {
     if (selectedIds.length === 0) return;
@@ -1037,7 +1015,8 @@ const Receipts = () => {
 
     const promise = Promise.all(selectedIds.map(async (id) => {
       const collectionName = filterType === 'orders' ? 'orders' : 'serviceBookings';
-      await deleteDoc(doc(db, collectionName, id));
+      // SOFT DELETE: Only hide for user, keep for vendor audit
+      await updateDoc(doc(db, collectionName, id), { deletedByUser: true });
     }));
 
     toast.promise(promise, {
@@ -1075,7 +1054,7 @@ const Receipts = () => {
         <meta name="robots" content="noindex, follow" />
       </Helmet>
       <Header />
-      <div className="pt-20 pb-32 px-4 max-w-4xl mx-auto">
+      <PullToRefresh onRefresh={refreshData} className="pt-20 pb-32 px-4 max-w-4xl mx-auto">
         <AnimatePresence mode="wait">
           {!selectedOrderId && !selectedBookingId ? (
             <motion.div
@@ -1083,39 +1062,83 @@ const Receipts = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="space-y-6 pb-40 overflow-y-auto max-h-[85vh] custom-scrollbar"
+              className="space-y-6 pb-40"
             >
+              {/* Push Notification Banner */}
+              {notificationPermission !== 'granted' && !loading && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="mb-8 glass-strong rounded-[2rem] p-6 border-2 border-primary/20 bg-primary/5 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl relative overflow-hidden group"
+                >
+                  <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:scale-110 transition-transform duration-500">
+                    <BellRing className="w-32 h-32" />
+                  </div>
+                  
+                  <div className="flex items-center gap-5 relative z-10 text-center md:text-left">
+                    <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
+                      <BellRing className="w-8 h-8 text-primary animate-bounce-gentle" />
+                    </div>
+                    <div>
+                        <h2 className="text-xl font-black text-foreground uppercase tracking-tight">Stay Alerts Ready</h2>
+                        <p className="text-sm text-muted-foreground font-medium mt-1">Get real-time updates when your order status changes. Turn on notifications!</p>
+                    </div>
+                  </div>
+                  
+                  <button
+                    onClick={async () => {
+                      await requestPushNotifications();
+                      if (typeof Notification !== 'undefined') {
+                        setNotificationPermission(Notification.permission);
+                      }
+                    }}
+                    className="w-full md:w-auto px-8 py-3.5 rounded-2xl gradient-primary text-white font-black text-xs uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all relative z-10"
+                  >
+                    Allow Notifications
+                  </button>
+                </motion.div>
+              )}
+
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="space-y-1">
-                  <h1 className="text-2xl font-bold text-foreground">{filterType === 'orders' ? t('common.receipts.title') : 'Service Bookings'}</h1>
+                  <div className="flex items-center gap-3">
+                    <h1 className="text-2xl font-bold text-foreground">{filterType === 'orders' ? t('common.receipts.title') : 'Service Bookings'}</h1>
+                    <button 
+                      onClick={handleRefresh}
+                      disabled={isRefreshing}
+                      className={`p-2 rounded-full bg-secondary text-primary hover:bg-primary hover:text-white transition-all shadow-sm ${isRefreshing ? 'opacity-50' : 'active:scale-95'}`}
+                    >
+                      <RefreshCcw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                    </button>
+                  </div>
                 </div>
                 <div className="flex gap-2">
                   <div className="bg-secondary p-1 rounded-xl flex items-center gap-1 w-fit">
                     <button
                       onClick={() => setFilterType('orders')}
-                      className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${filterType === 'orders' ? 'bg-white shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                      className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${filterType === 'orders' ? 'bg-white dark:bg-primary shadow-sm text-foreground dark:text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                     >
-                      Orders
+                      Orders ({view === 'active' ? activeOrders.length : pastOrders.length})
                     </button>
                     <button
                       onClick={() => setFilterType('bookings')}
-                      className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${filterType === 'bookings' ? 'bg-white shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                      className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${filterType === 'bookings' ? 'bg-white dark:bg-primary shadow-sm text-foreground dark:text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                     >
-                      Bookings
+                      Bookings ({view === 'active' ? activeBookings.length : pastBookings.length})
                     </button>
                   </div>
                   <div className="bg-secondary p-1 rounded-xl flex items-center gap-1 w-fit">
                     <button
                       onClick={() => setView('active')}
-                      className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${view === 'active' ? 'bg-white shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                      className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${view === 'active' ? 'bg-white dark:bg-primary shadow-sm text-foreground dark:text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                     >
-                      {t('common.active')} ({filterType === 'orders' ? activeOrders.length : serviceBookings.filter(b => b.status === 'pending' || b.status === 'accepted').length})
+                      {t('common.active')} ({filterType === 'orders' ? activeOrders.length : activeBookings.length})
                     </button>
                     <button
                       onClick={() => setView('history')}
-                      className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${view === 'history' ? 'bg-white shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                      className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${view === 'history' ? 'bg-white dark:bg-primary shadow-sm text-foreground dark:text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                     >
-                      {t('common.history')} ({filterType === 'orders' ? pastOrders.length : serviceBookings.filter(b => b.status === 'completed' || b.status === 'rejected').length})
+                      {t('common.history')} ({filterType === 'orders' ? pastOrders.length : pastBookings.length})
                     </button>
                   </div>
                 </div>
@@ -1178,19 +1201,19 @@ const Receipts = () => {
                       <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        className="bg-[#1e3a8a] rounded-2xl p-4 flex items-center justify-between shadow-xl shadow-blue-900/10 border border-white/5"
+                        className="bg-primary/10 dark:bg-primary/20 rounded-2xl p-4 flex items-center justify-between shadow-xl border border-primary/20 backdrop-blur-md"
                       >
                         <div className="flex items-center gap-4">
                           <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center backdrop-blur-md">
-                            <Star className="w-5 h-5 text-white fill-white" />
+                            <Star className="w-5 h-5 text-primary fill-white" />
                           </div>
                           <div>
-                            <h3 className="text-sm font-black text-white uppercase tracking-tight">{t('common.receipts.review_experience')}</h3>
-                            <p className="text-[10px] text-white/60 font-medium">You have {pendingCount} {pendingCount === 1 ? 'order' : 'orders'} waiting for your feedback</p>
+                            <h3 className="text-sm font-black text-primary uppercase tracking-tight">{t('common.receipts.review_experience')}</h3>
+                            <p className="text-[10px] text-primary/60 font-medium">You have {pendingCount} {pendingCount === 1 ? 'order' : 'orders'} waiting for your feedback</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2 bg-white/5 px-2.5 py-1 rounded-lg backdrop-blur-sm">
-                          <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">Scroll to Rate</span>
+                          <span className="text-[9px] font-black text-primary/40 uppercase tracking-widest">Scroll to Rate</span>
                           <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
                         </div>
                       </motion.div>
@@ -1278,7 +1301,7 @@ const Receipts = () => {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
-              className="space-y-6 pb-40 overflow-y-auto max-h-[90vh] custom-scrollbar"
+              className="space-y-6 pb-40"
             >
               <button onClick={() => { setSelectedOrderId(null); setSelectedBookingId(null); }} className="flex items-center gap-2 text-sm font-bold text-primary mb-2">
                 <ArrowLeft className="w-4 h-4" /> {selectedOrderId ? t('common.back_to_all_orders') : 'Back to Bookings'}
@@ -1389,7 +1412,7 @@ const Receipts = () => {
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
+      </PullToRefresh>
     </div>
   );
 };
