@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useApp } from '@/context/AppContext';
+import { useApp } from '@/context/appStore';
 import { doc, getDoc, updateDoc, arrayUnion, onSnapshot, collection, query, where, orderBy, getDocs, addDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { toast } from 'sonner';

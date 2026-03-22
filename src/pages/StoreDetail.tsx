@@ -18,7 +18,7 @@ import { useTranslation } from 'react-i18next';
 import QRCodeWithLogo from '@/components/ui/qr-code-with-logo';
 import Header from '@/components/Header';
 import ReviewModal from '@/components/ReviewModal';
-import { useApp } from '@/context/AppContext';
+import { useApp } from '@/context/appStore';
 import { toast } from 'sonner';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, doc, getDoc, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';

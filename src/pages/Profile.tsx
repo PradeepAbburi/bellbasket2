@@ -1,4 +1,4 @@
-import { useApp } from '@/context/AppContext';
+import { useApp } from '@/context/appStore';
 import { useNavigate } from 'react-router-dom';
 import { User, Mail, Shield, LogOut, ChevronRight, MapPin, Bell, BellRing, Phone, Lock, Edit2, CheckCircle2, X, Loader2, Sparkles, Crown, Zap, Building2, KeyRound, HelpCircle, Languages, Search, Image as ImageIcon, Camera, Upload, Clock, FileText, Eye, EyeOff, XCircle, Moon, Sun } from 'lucide-react';
 import Header from '@/components/Header';

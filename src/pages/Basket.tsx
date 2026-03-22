@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Minus, Plus, Trash2, CreditCard, Wallet, ArrowLeft, CheckCircle, AlertCircle, Clock, Phone } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
-import { useApp } from '@/context/AppContext';
+import { useApp } from '@/context/appStore';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 

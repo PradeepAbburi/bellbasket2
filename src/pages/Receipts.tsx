@@ -5,7 +5,7 @@ import Header from '@/components/Header';
 import MapView from '@/components/MapView';
 import { Helmet } from 'react-helmet';
 import PullToRefresh from '@/components/ui/PullToRefresh';
-import { useApp } from '@/context/AppContext';
+import { useApp } from '@/context/appStore';
 import { doc, updateDoc, arrayUnion, setDoc, getDoc, deleteDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { useTranslation } from 'react-i18next';
 import { ServiceBooking, Store, Order } from '@/types';

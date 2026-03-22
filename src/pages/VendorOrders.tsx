@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import { toast } from 'sonner';
 import { Order } from '@/types';
-import { useApp } from '@/context/AppContext';
+import { useApp } from '@/context/appStore';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { useTranslation } from 'react-i18next';

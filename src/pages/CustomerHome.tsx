@@ -19,7 +19,7 @@ import PullToRefresh from '@/components/ui/PullToRefresh';
 import { Store, Product } from '@/types';
 import { CATEGORY_METADATA } from '@/constants/categories';
 import { toast } from 'sonner';
-import { useApp } from '@/context/AppContext';
+import { useApp } from '@/context/appStore';
 import MapView from '@/components/MapView';
 import { Helmet } from 'react-helmet';
 import { useTranslation } from 'react-i18next';

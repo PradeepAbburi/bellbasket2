@@ -5,7 +5,7 @@ import { Store as StoreIcon, Power, PowerOff, Package, TrendingUp, ShoppingCart,
 import { getStoreVisualStatus } from '@/utils/storeStatus';
 import Loader from '@/components/ui/loader-animation';
 import Header from '@/components/Header';
-import { useApp } from '@/context/AppContext';
+import { useApp } from '@/context/appStore';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { db, auth } from '@/lib/firebase';
