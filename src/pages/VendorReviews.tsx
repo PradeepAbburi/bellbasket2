@@ -226,23 +226,23 @@ const VendorReviews = () => {
                     </div>
 
                     {/* Search & Sort Controls */}
-                    <div className="flex flex-col sm:flex-row gap-3 mb-6 sticky top-16 z-30 py-4 -mx-4 px-4 bg-white/95 backdrop-blur-md border-b border-border/10">
+                    <div className="flex flex-col sm:flex-row gap-3 mb-6 sticky top-16 z-30 py-4 -mx-4 px-4 bg-[#202020] backdrop-blur-md border-b border-white/10 rounded-b-2xl shadow-xl">
                         <div className="relative flex-1">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
                             <input
                                 type="text"
                                 placeholder="Search reviews..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full bg-white rounded-xl pl-11 pr-4 py-3 text-sm font-medium text-foreground placeholder:text-muted-foreground outline-none border border-border/50 focus:ring-2 focus:ring-primary/20 shadow-sm"
+                                className="w-full bg-white/10 rounded-xl pl-11 pr-4 py-3 text-sm font-medium text-white placeholder:text-white/30 outline-none border border-white/10 focus:ring-2 focus:ring-primary/20 shadow-sm transition-all"
                             />
                         </div>
-                        <div className="flex items-center gap-2 bg-white/50 backdrop-blur-sm p-1 rounded-xl border border-white/20">
+                        <div className="flex items-center gap-2 bg-white/5 backdrop-blur-sm p-1 rounded-xl border border-white/10">
                             {(['newest', 'oldest', 'highest', 'lowest'] as const).map(opt => (
                                 <button
                                     key={opt}
                                     onClick={() => setSortBy(opt)}
-                                    className={`px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all ${sortBy === opt ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                                    className={`px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all ${sortBy === opt ? 'bg-primary text-primary-foreground shadow-sm' : 'text-white/60 hover:text-white hover:bg-white/5'}`}
                                 >
                                     {opt}
                                 </button>
