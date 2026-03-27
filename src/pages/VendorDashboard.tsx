@@ -1089,12 +1089,16 @@ const VendorDashboard = () => {
           </button>
         </div>
         <div className="space-y-4 mb-16">
-          {!Array.isArray(vendorStore?.reviews) || vendorStore.reviews.length === 0 ? (
-            <div className="bg-white dark:bg-[#202020] rounded-2xl p-8 text-center text-muted-foreground border border-border/50">
-              No reviews yet.
-            </div>
-          ) : (
-            vendorStore.reviews
+          {(() => {
+            const hasReviews = (vendorStore?.reviews || []).some((r: any) => r.comment && r.comment.trim() !== '');
+            if (!hasReviews) {
+              return (
+                <div className="bg-white dark:bg-[#202020] rounded-2xl p-8 text-center text-muted-foreground border border-border/50">
+                  No reviews with comments yet.
+                </div>
+              );
+            }
+            return vendorStore.reviews
               .filter((r: StoreReview) => r.comment && r.comment.trim().length > 0)
               .slice()
               .sort((a: StoreReview, b: StoreReview) => new Date(b.date).getTime() - new Date(a.date).getTime())
@@ -1182,11 +1186,9 @@ const VendorDashboard = () => {
                     </div>
                   )}
                 </motion.div>
-              ))
-          )}
+              ));
+            })()}
         </div>
-
-        {/* Store Settings & Special Features */}
         <div className="mt-20 mb-12 border-t border-border pt-12">
           <div className="flex items-center justify-between mb-6">
             <div>

@@ -8,12 +8,23 @@ import { toast } from 'sonner';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { StoreReview } from '@/types';
+import { 
+    DropdownMenu, 
+    DropdownMenuContent, 
+    DropdownMenuItem, 
+    DropdownMenuTrigger, 
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuRadioGroup,
+    DropdownMenuRadioItem
+} from '@/components/ui/dropdown-menu';
+import { ArrowUpDown } from 'lucide-react';
 
 const VendorReviews = () => {
     const navigate = useNavigate();
     const { user, stores } = useApp();
     const vendorStore = stores.find(s => s.id === user?.id);
-    const reviews: StoreReview[] = vendorStore?.reviews || [];
+    const reviews: StoreReview[] = (vendorStore?.reviews || []).filter((r: StoreReview) => r.comment && r.comment.trim() !== "");
 
     const [replyInputs, setReplyInputs] = useState<Record<string, string>>({});
     const [filterRating, setFilterRating] = useState<number | null>(null);
@@ -226,7 +237,7 @@ const VendorReviews = () => {
                     </div>
 
                     {/* Search & Sort Controls */}
-                    <div className="flex flex-col sm:flex-row gap-3 mb-6 sticky top-16 z-30 py-4 -mx-4 px-4 bg-[#202020] backdrop-blur-md border-b border-white/10 rounded-b-2xl shadow-xl">
+                    <div className="flex items-center gap-2 mb-6 sticky top-16 z-30 py-4 -mx-4 px-4 bg-[#202020] backdrop-blur-md border-b border-white/10 rounded-b-2xl shadow-xl">
                         <div className="relative flex-1">
                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
                             <input
@@ -237,17 +248,30 @@ const VendorReviews = () => {
                                 className="w-full bg-white/10 rounded-xl pl-11 pr-4 py-3 text-sm font-medium text-white placeholder:text-white/30 outline-none border border-white/10 focus:ring-2 focus:ring-primary/20 shadow-sm transition-all"
                             />
                         </div>
-                        <div className="flex items-center gap-2 bg-white/5 backdrop-blur-sm p-1 rounded-xl border border-white/10">
-                            {(['newest', 'oldest', 'highest', 'lowest'] as const).map(opt => (
-                                <button
-                                    key={opt}
-                                    onClick={() => setSortBy(opt)}
-                                    className={`px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all ${sortBy === opt ? 'bg-primary text-primary-foreground shadow-sm' : 'text-white/60 hover:text-white hover:bg-white/5'}`}
-                                >
-                                    {opt}
+                        
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <button className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white/10 border border-white/10 text-white hover:bg-white/20 transition-all shadow-sm">
+                                    <ArrowUpDown className="w-4 h-4" />
+                                    <span className="hidden sm:inline text-xs font-bold uppercase tracking-wider">{sortBy}</span>
                                 </button>
-                            ))}
-                        </div>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent className="w-48 bg-[#202020] border-white/10 text-white" align="end">
+                                <DropdownMenuLabel className="text-[10px] font-black uppercase tracking-widest text-white/40 px-2 py-1.5">Sort Reviews By</DropdownMenuLabel>
+                                <DropdownMenuSeparator className="bg-white/5" />
+                                <DropdownMenuRadioGroup value={sortBy} onValueChange={(val) => setSortBy(val as any)}>
+                                    {(['newest', 'oldest', 'highest', 'lowest'] as const).map(opt => (
+                                        <DropdownMenuRadioItem 
+                                            key={opt} 
+                                            value={opt}
+                                            className="px-2 py-2.5 text-xs font-bold capitalize cursor-pointer focus:bg-white/10 focus:text-white"
+                                        >
+                                            {opt}
+                                        </DropdownMenuRadioItem>
+                                    ))}
+                                </DropdownMenuRadioGroup>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </div>
 
                     {/* Reviews List */}

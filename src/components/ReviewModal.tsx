@@ -11,9 +11,11 @@ interface ReviewModalProps {
     storeName: string;
 }
 
-const ReviewModal = ({ isOpen, onClose, reviews = [], storeName }: ReviewModalProps) => {
+const ReviewModal = ({ isOpen, onClose, reviews: allReviews = [], storeName }: ReviewModalProps) => {
     const { t } = useTranslation();
     const [selectedStar, setSelectedStar] = useState<number | null>(null);
+
+    const reviews = useMemo(() => allReviews.filter(r => r.comment && r.comment.trim() !== ''), [allReviews]);
 
     const stats = useMemo(() => {
         const counts = [0, 0, 0, 0, 0, 0];
@@ -34,9 +36,8 @@ const ReviewModal = ({ isOpen, onClose, reviews = [], storeName }: ReviewModalPr
     }, [reviews]);
 
     const filteredReviews = useMemo(() => {
-        const withComment = reviews.filter(r => r.comment && r.comment.trim() !== '');
-        if (selectedStar === null) return withComment;
-        return withComment.filter(r => Math.round(Number(r.rating) || 0) === selectedStar);
+        if (selectedStar === null) return reviews;
+        return reviews.filter(r => Math.round(Number(r.rating) || 0) === selectedStar);
     }, [reviews, selectedStar]);
 
     const averageRating = useMemo(() => {
