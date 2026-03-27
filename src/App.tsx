@@ -57,7 +57,6 @@ import BottomNav from "./components/BottomNav";
 import OnlineStatusProvider from "./components/OnlineStatusProvider";
 import Onboarding from "./components/Onboarding";
 import NotificationPrompt from "./components/NotificationPrompt";
-import PWAInstallPrompt from "./components/PWAInstallPrompt";
 
 const queryClient = new QueryClient();
 
@@ -190,7 +189,6 @@ const AppContent = () => {
         <BottomNav />
         {user && user.isVerified && user.role !== 'admin' && !user.hasCompletedOnboarding && sessionStorage.getItem('allow_onboarding') === 'true' && <Onboarding />}
         <NotificationPrompt />
-        <PWAInstallPrompt />
       </div>
     </BrowserRouter>
   );
