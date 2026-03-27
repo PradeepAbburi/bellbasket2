@@ -264,7 +264,8 @@ const VendorReviews = () => {
                                         <DropdownMenuRadioItem 
                                             key={opt} 
                                             value={opt}
-                                            className="px-2 py-2.5 text-xs font-bold capitalize cursor-pointer focus:bg-white/10 focus:text-white"
+                                            indicatorSide="right"
+                                            className="px-4 py-2.5 text-xs font-bold capitalize cursor-pointer focus:bg-white/10 focus:text-white"
                                         >
                                             {opt}
                                         </DropdownMenuRadioItem>
