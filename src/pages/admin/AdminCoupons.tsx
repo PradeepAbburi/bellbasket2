@@ -94,13 +94,13 @@ const AdminCoupons = () => {
 
                         <div className="space-y-6">
                             <div className="space-y-3">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Plan Entitlement</label>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-900 ml-1">Plan Entitlement</label>
                                 <div className="grid grid-cols-1 gap-2">
                                     {(['basic', 'growth', 'pro'] as PlanTier[]).map((p) => (
                                         <button
                                             key={p}
                                             onClick={() => setNewCoupon({ ...newCoupon, plan: p })}
-                                            className={`flex items-center justify-between px-5 py-4 rounded-2xl border transition-all ${newCoupon.plan === p ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-100' : 'bg-slate-50 border-transparent text-slate-500 hover:border-slate-200'}`}
+                                            className={`flex items-center justify-between px-5 py-4 rounded-2xl border transition-all ${newCoupon.plan === p ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-100' : 'bg-slate-50 border-transparent text-slate-900 hover:border-slate-200'}`}
                                         >
                                             <div className="flex items-center gap-3">
                                                 <Crown className={`w-4 h-4 ${newCoupon.plan === p ? 'text-white' : 'text-slate-400'}`} />
@@ -113,13 +113,13 @@ const AdminCoupons = () => {
                             </div>
 
                             <div className="space-y-3">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Usage Type</label>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-900 ml-1">Usage Type</label>
                                 <div className="grid grid-cols-2 gap-2">
                                     {(['single', 'multiple'] as const).map((type) => (
                                         <button
                                             key={type}
                                             onClick={() => setNewCoupon({ ...newCoupon, usageType: type })}
-                                            className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl border transition-all ${newCoupon.usageType === type ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-slate-50 border-transparent text-slate-500 hover:border-slate-200'}`}
+                                            className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl border transition-all ${newCoupon.usageType === type ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-slate-50 border-transparent text-slate-900 hover:border-slate-200'}`}
                                         >
                                             <span className="text-[10px] font-black uppercase tracking-widest">{type}</span>
                                             {newCoupon.usageType === type && <CheckCircle2 className="w-3 h-3" />}
@@ -128,16 +128,35 @@ const AdminCoupons = () => {
                                 </div>
                             </div>
 
-                            <div className="space-y-3">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Duration (Months)</label>
-                                <input 
-                                    type="number" 
-                                    min="1" 
-                                    max="120"
-                                    value={newCoupon.months}
-                                    onChange={(e) => setNewCoupon({ ...newCoupon, months: parseInt(e.target.value) || 1 })}
-                                    className="w-full bg-slate-50 border-none rounded-2xl py-4 px-6 text-sm font-black focus:ring-4 focus:ring-indigo-600/5 transition-all outline-none"
-                                />
+                            <div className="space-y-4">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-900 ml-1">Duration (Months)</label>
+                                
+                                <div className="grid grid-cols-4 gap-2 mb-2">
+                                    {[1, 3, 6, 12].map(m => (
+                                        <button
+                                            key={m}
+                                            onClick={() => setNewCoupon({ ...newCoupon, months: m })}
+                                            className={`py-2 rounded-xl text-[10px] font-black transition-all ${newCoupon.months === m ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                                        >
+                                            {m}M
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <div className="relative">
+                                    <input 
+                                        type="number" 
+                                        min="1" 
+                                        max="120"
+                                        value={newCoupon.months}
+                                        onChange={(e) => setNewCoupon({ ...newCoupon, months: parseInt(e.target.value) || 1 })}
+                                        className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-6 text-sm font-black text-slate-900 focus:ring-4 focus:ring-indigo-600/5 transition-all outline-none"
+                                        placeholder="Enter months..."
+                                    />
+                                    <div className="absolute right-6 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-300 uppercase tracking-widest pointer-events-none">
+                                        Months
+                                    </div>
+                                </div>
                             </div>
 
                             <button 
