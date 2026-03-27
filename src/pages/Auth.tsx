@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mail, UserCircle, Store, ArrowRight, CheckCircle2, Loader2, Lock, Phone, Zap, Shield, Eye, EyeOff } from 'lucide-react';
+import { Mail, UserCircle, Store, ArrowRight, CheckCircle2, Loader2, Lock, Phone, Zap, Shield, Eye, EyeOff, Sun, Moon } from 'lucide-react';
 import { Helmet } from 'react-helmet';
-import { useApp } from '@/context/appStore';
+import { useApp } from '@/context/AppContext';
 import { toast } from 'sonner';
 import { auth, db } from '@/lib/firebase';
 import {
@@ -34,13 +34,12 @@ const Auth = () => {
   const [needsVerification, setNeedsVerification] = useState(false);
   const [referralCode, setReferralCode] = useState('');
 
-  const { login, refreshUser } = useApp();
+  const { login, refreshUser, theme, toggleTheme } = useApp();
   const navigate = useNavigate();
   const searchParams = new URLSearchParams(window.location.search);
   const returnTo = searchParams.get('returnTo');
 
-  const isAdminEmail = email.trim().toLowerCase() === 'contact.bellbasket1@gmail.com' || 
-                       email.trim().toLowerCase() === 'contact.belllbasket1@gmail.com' ||
+  const isAdminEmail = email.trim().toLowerCase() === 'contact@bellbasket.com' || 
                        email.trim().toLowerCase() === 'ceo@bellbasket.com' ||
                        email.trim().toLowerCase() === 'hr@bellbasket.com';
 
@@ -53,7 +52,7 @@ const Auth = () => {
     setLoading(true);
     try {
       const sanitizedEmail = email.trim().toLowerCase();
-      const isAdminEmail = sanitizedEmail === 'contact.bellbasket1@gmail.com' || sanitizedEmail === 'contact.belllbasket1@gmail.com';
+      const isAdminEmail = sanitizedEmail === 'contact@bellbasket.com';
 
       if (isAdminEmail) {
         toast.info("Password reset is disabled for the Master Admin account.");
@@ -74,8 +73,7 @@ const Auth = () => {
   // Auto-detect unverified state on mount
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      const isAdminOrHr = user?.email?.trim().toLowerCase() === 'contact.bellbasket1@gmail.com' || 
-                          user?.email?.trim().toLowerCase() === 'contact.belllbasket1@gmail.com' ||
+      const isAdminOrHr = user?.email?.trim().toLowerCase() === 'contact@bellbasket.com' || 
                           user?.email?.trim().toLowerCase() === 'ceo@bellbasket.com' ||
                           user?.email?.trim().toLowerCase() === 'hr@bellbasket.com';
                           
@@ -178,8 +176,7 @@ const Auth = () => {
         // Sign up logic for Google
         let hasSetupStore = false;
 
-        const isMasterAdminEmail = (user.email?.trim().toLowerCase() === 'contact.bellbasket1@gmail.com' || 
-                                    user.email?.trim().toLowerCase() === 'contact.belllbasket1@gmail.com' ||
+        const isMasterAdminEmail = (user.email?.trim().toLowerCase() === 'contact@bellbasket.com' || 
                                     user.email?.trim().toLowerCase() === 'ceo@bellbasket.com');
 
         const newUser = {
@@ -239,8 +236,7 @@ const Auth = () => {
         return;
       }
 
-      const isAdminEmail = sanitizedEmail === 'contact.bellbasket1@gmail.com' || 
-                           sanitizedEmail === 'contact.belllbasket1@gmail.com' || 
+      const isAdminEmail = sanitizedEmail === 'contact@bellbasket.com' || 
                            sanitizedEmail === 'ceo@bellbasket.com' ||
                            sanitizedEmail === 'hr@bellbasket.com';
  
@@ -250,7 +246,7 @@ const Auth = () => {
          });
  
          const isValidAdmin = (sanitizedEmail === 'ceo@bellbasket.com' && password.trim() === 'Pradeep@123') ||
-                              ((sanitizedEmail === 'contact.bellbasket1@gmail.com' || sanitizedEmail === 'contact.belllbasket1@gmail.com') && password.trim() === 'admin123');
+                              (sanitizedEmail === 'contact@bellbasket.com' && password.trim() === 'admin123');
          const isValidHr = (sanitizedEmail === 'hr@bellbasket.com' && password.trim() === 'Vortex@hr');
 
          if (isValidAdmin || isValidHr) {
@@ -474,6 +470,25 @@ const Auth = () => {
 
   return (
     <div className="h-screen overflow-hidden gradient-warm relative flex items-center justify-center px-4 w-full">
+      {/* Theme Toggle Button */}
+      <motion.button
+        whileTap={{ scale: 0.9 }}
+        onClick={toggleTheme}
+        className="fixed top-6 right-6 z-50 w-12 h-12 rounded-full glass border border-white/20 flex items-center justify-center shadow-xl text-foreground hover:bg-white/10 transition-colors"
+        title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+      >
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={theme}
+            initial={{ rotate: -90, opacity: 0 }}
+            animate={{ rotate: 0, opacity: 1 }}
+            exit={{ rotate: 90, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+          </motion.div>
+        </AnimatePresence>
+      </motion.button>
       <Helmet>
         <title>{showForgotPassword ? 'Reset Password' : (isLogin ? 'Sign In' : 'Sign Up')} - BellBasket</title>
         <meta name="description" content="Secure login and register for BellBasket. Join our community marketplace." />
@@ -484,13 +499,13 @@ const Auth = () => {
         <div className="absolute inset-0 bg-gradient-to-b from-background/20 via-background/40 to-background/95" />
       </div>
 
-      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-lg relative z-10 max-h-[95vh] overflow-y-auto scrollbar-hide py-8">
-        <div className="text-center mb-10">
-          <span className="text-4xl font-black block tracking-tight">BellBasket</span>
-          <p className="text-xs font-bold text-primary uppercase mt-2 opacity-80 tracking-widest">Find It. Grab It.</p>
+      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-md relative z-10 max-h-[98vh] overflow-y-auto scrollbar-hide py-4 sm:py-8">
+        <div className="text-center mb-6 sm:mb-10">
+          <span className="text-3xl sm:text-4xl font-black block tracking-tight">BellBasket</span>
+          <p className="text-[10px] sm:text-xs font-bold text-primary uppercase mt-2 opacity-80 tracking-widest">Find It. Grab It.</p>
         </div>
 
-        <div className="glass rounded-3xl p-6 md:p-8 space-y-6">
+        <div className="glass rounded-[2rem] p-5 sm:p-8 space-y-4 sm:space-y-6">
           <div className="text-center space-y-1">
             <h2 className="text-xl font-bold text-foreground">
               {showForgotPassword ? 'Reset Password' : (isLogin ? 'Sign In' : 'Sign Up')}
@@ -529,7 +544,7 @@ const Auth = () => {
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 placeholder="Email Address"
-                className="w-full pl-12 pr-4 py-4 rounded-2xl bg-secondary/50 border-0 outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm font-medium"
+                className="w-full pl-12 pr-4 py-3.5 sm:py-4 rounded-2xl bg-secondary/50 border-0 outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm font-medium"
                 required
               />
               {isAdminEmail && (
@@ -561,7 +576,7 @@ const Auth = () => {
                         value={phone}
                         onChange={e => setPhone(e.target.value)}
                         placeholder="Phone Number (e.g. +91 98XXX XXXXX)"
-                        className="w-full pl-12 pr-4 py-4 rounded-2xl bg-secondary/50 border-0 outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm font-medium"
+                        className="w-full pl-12 pr-4 py-3.5 sm:py-4 rounded-2xl bg-secondary/50 border-0 outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm font-medium"
                         required
                       />
                     </div>
@@ -576,7 +591,7 @@ const Auth = () => {
                     value={password}
                     onChange={e => setPassword(e.target.value)}
                     placeholder="Password"
-                    className="w-full pl-12 pr-12 py-4 rounded-2xl bg-secondary/50 border-0 outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm font-medium"
+                    className="w-full pl-12 pr-12 py-3.5 sm:py-4 rounded-2xl bg-secondary/50 border-0 outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm font-medium"
                     required
                   />
                   <button
@@ -638,7 +653,7 @@ const Auth = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full gradient-primary text-primary-foreground py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-all shadow-lg shadow-primary/20 mt-2 active:scale-[0.98] disabled:opacity-50"
+              className="w-full gradient-primary text-primary-foreground py-3.5 sm:py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-all shadow-lg shadow-primary/20 mt-2 active:scale-[0.98] disabled:opacity-50"
             >
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (showForgotPassword ? 'Send Reset Link' : (isLogin ? 'Sign In' : 'Sign Up'))}
               {!loading && <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />}
@@ -705,3 +720,4 @@ const Auth = () => {
 };
 
 export default Auth;
+

@@ -56,7 +56,7 @@ const HrLayout = () => {
                                 flex items-center gap-4 px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all group
                                 ${isActive 
                                     ? 'bg-primary text-white shadow-xl shadow-primary/20' 
-                                    : 'text-muted-foreground hover:bg-white/50 hover:text-foreground'
+                                    : 'text-muted-foreground hover:bg-white/05 hover:text-foreground'
                                 }
                             `}
                         >
@@ -129,7 +129,7 @@ const HrLayout = () => {
                                                 flex items-center gap-4 px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all
                                                 ${isActive 
                                                     ? 'bg-primary text-white shadow-xl shadow-primary/20' 
-                                                    : 'text-muted-foreground hover:bg-white/50 hover:text-foreground'
+                                                    : 'text-muted-foreground hover:bg-white/05 hover:text-foreground'
                                                 }
                                             `}
                                         >
@@ -203,3 +203,5 @@ const HrLayout = () => {
 };
 
 export default HrLayout;
+
+

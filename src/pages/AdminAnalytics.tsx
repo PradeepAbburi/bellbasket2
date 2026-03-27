@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useApp } from "@/context/appStore";
+import { useApp } from "@/context/AppContext";
 import { useNavigate } from "react-router-dom";
 import { db } from "@/lib/firebase";
 import { collection, onSnapshot, doc, updateDoc, query, orderBy, limit, getDocs } from "firebase/firestore";
@@ -852,11 +852,11 @@ const AdminAnalytics = () => {
                                                     <div className="flex flex-col items-end gap-1">
                                                         <button
                                                             onClick={() => {
-                                                                if (u.role !== 'admin' && u.email !== 'contact.bellbasket1@gmail.com') {
+                                                                if (u.role !== 'admin' && u.email !== 'contact@bellbasket.com') {
                                                                     handleToggleBlock(u.id, !!u.isBlocked);
                                                                 }
                                                             }}
-                                                            disabled={isProcessing === u.id || u.role === 'admin' || u.email === 'contact.bellbasket1@gmail.com'}
+                                                            disabled={isProcessing === u.id || u.role === 'admin' || u.email === 'contact@bellbasket.com'}
                                                             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${u.isBlocked ? 'bg-destructive' : 'bg-green-500'} ${isProcessing === u.id || u.role === 'admin' ? 'opacity-20 cursor-not-allowed' : 'cursor-pointer'}`}
                                                         >
                                                             <span
@@ -883,3 +883,4 @@ const AdminAnalytics = () => {
 };
 
 export default AdminAnalytics;
+

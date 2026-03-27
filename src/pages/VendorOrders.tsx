@@ -1,19 +1,19 @@
 import { useState, useEffect, useMemo } from 'react';
-import { motion } from 'framer-motion';
-import { ArrowLeft, Check, Package, Shield, Key, Phone, KeyRound, X, Trash2, RefreshCcw, MapPin } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowLeft, ArrowRight, Check, Package, Shield, Key, Phone, KeyRound, X, Trash2, RefreshCcw, MapPin, Clock, Share2 } from 'lucide-react';
 
 import PullToRefresh from '@/components/ui/PullToRefresh';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import { toast } from 'sonner';
 import { Order } from '@/types';
-import { useApp } from '@/context/appStore';
+import { useApp } from '@/context/AppContext';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { useTranslation } from 'react-i18next';
 import { sendInAppNotification, playBellSound } from '@/utils/notifications';
 
-const statusFlow = ['pending', 'accepted', 'packed', 'completed'] as const;
+const statusFlow = ['pending', 'accepted', 'ready', 'completed'] as const;
 
 const VendorOrders = () => {
   const navigate = useNavigate();
@@ -23,6 +23,22 @@ const VendorOrders = () => {
   const [view, setView] = useState<'active' | 'past'>('active');
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  // Selection Mode State
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [longPressTimer, setLongPressTimer] = useState<any>(null);
+
+  // Hide BottomNav when modal is open
+  useEffect(() => {
+    const nav = document.getElementById('bottom-nav');
+    if (selectedOrderId) {
+      nav?.style.setProperty('display', 'none', 'important');
+    } else {
+      nav?.style.removeProperty('display');
+    }
+    return () => { nav?.style.removeProperty('display'); };
+  }, [selectedOrderId]);
 
   const handleRefresh = () => {
     setIsRefreshing(true);
@@ -87,7 +103,8 @@ const VendorOrders = () => {
           const statusMessages: Record<string, string> = {
             accepted: `✅ Your order from ${order.storeName} has been accepted!`,
             packed: `📦 Your order from ${order.storeName} is being packed.`,
-            completed: `🎉 Your order from ${order.storeName} is ready for pickup!`,
+            ready: `🔔 Your order from ${order.storeName} is ready for pickup!`,
+            completed: `🎉 Your order from ${order.storeName} has been completed!`,
           };
           const body = statusMessages[next] || `Your order status updated to: ${next}`;
           sendInAppNotification(order.userId, {
@@ -100,7 +117,7 @@ const VendorOrders = () => {
         }
 
         toast.success(`${t('vendor_orders.status_updated')}: ${next}`);
-        if (next === 'packed' && selectedOrderId === orderId) {
+        if (selectedOrderId === orderId) {
           setSelectedOrderId(null);
         }
       } catch (error) {
@@ -156,6 +173,64 @@ const VendorOrders = () => {
     }
   };
 
+  // Selection Logic
+  const toggleSelection = (id: string) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+      if (newSelected.size === 0) setIsSelectionMode(false);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const startLongPress = (id: string) => {
+    const timer = setTimeout(() => {
+      setIsSelectionMode(true);
+      toggleSelection(id);
+      if (window.navigator.vibrate) window.navigator.vibrate(50); // Haptic feedback if supported
+    }, 600);
+    setLongPressTimer(timer);
+  };
+
+  const cancelLongPress = () => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      setLongPressTimer(null);
+    }
+  };
+
+  const handleSelectAll = () => {
+    if (selectedIds.size === displayOrders.length) {
+      setSelectedIds(new Set());
+      setIsSelectionMode(false);
+    } else {
+      setSelectedIds(new Set(displayOrders.map(o => o.id)));
+      setIsSelectionMode(true);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    if (!window.confirm(`Permanently remove ${selectedIds.size} ${view} items from your view?`)) return;
+
+    const loadingToast = toast.loading(`Deleting ${selectedIds.size} items...`);
+    try {
+      const promises = Array.from(selectedIds).map(id =>
+        updateDoc(doc(db, 'orders', id), { deletedByVendor: true })
+      );
+      await Promise.all(promises);
+      toast.dismiss(loadingToast);
+      toast.success(`${selectedIds.size} items removed`);
+      setSelectedIds(new Set());
+      setIsSelectionMode(false);
+    } catch (e) {
+      toast.dismiss(loadingToast);
+      toast.error("Deletion failed");
+    }
+  };
+
   return (
     <div className="min-h-screen gradient-warm">
       <Header />
@@ -169,30 +244,58 @@ const VendorOrders = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div className="space-y-1">
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-foreground">{t('vendor_orders.title')} ({activeOrders.length})</h1>
-              <button 
-                onClick={handleRefresh}
-                disabled={isRefreshing}
-                className={`p-2 rounded-full bg-secondary text-primary hover:bg-primary hover:text-white transition-all shadow-sm ${isRefreshing ? 'opacity-50' : 'active:scale-95'}`}
-              >
-                <RefreshCcw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-              </button>
+              <h1 className="text-2xl font-bold text-foreground">
+                {isSelectionMode ? `Selected (${selectedIds.size})` : `${t('vendor_orders.title')} (${activeOrders.length})`}
+              </h1>
+              {!isSelectionMode && (
+                <button 
+                  onClick={handleRefresh}
+                  disabled={isRefreshing}
+                  className={`p-2 rounded-full bg-secondary text-primary hover:bg-primary hover:text-white transition-all shadow-sm ${isRefreshing ? 'opacity-50' : 'active:scale-95'}`}
+                >
+                  <RefreshCcw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                </button>
+              )}
             </div>
           </div>
-          <div className="bg-secondary p-1 rounded-xl flex items-center gap-1 w-fit">
+          
+          {isSelectionMode ? (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleSelectAll}
+                className="px-4 py-2 rounded-xl bg-secondary text-foreground text-xs font-black uppercase tracking-widest hover:bg-secondary/80 transition-all border border-border/50"
+              >
+                {selectedIds.size === displayOrders.length ? 'Deselect All' : 'Select All'}
+              </button>
+              <button
+                onClick={handleBulkDelete}
+                className="px-4 py-2 rounded-xl bg-destructive text-white text-xs font-black uppercase tracking-widest hover:bg-destructive/90 transition-all shadow-lg shadow-destructive/20"
+              >
+                Delete ({selectedIds.size})
+              </button>
+              <button
+                onClick={() => { setIsSelectionMode(false); setSelectedIds(new Set()); }}
+                className="p-2 rounded-xl bg-secondary text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <div className="bg-secondary p-1.5 rounded-2xl flex items-center gap-1 w-fit shadow-inner">
             <button
               onClick={() => setView('active')}
-              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${view === 'active' ? 'bg-white shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+              className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${view === 'active' ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-105' : 'text-muted-foreground hover:text-foreground'}`}
             >
               {t('vendor_orders.active')} ({activeOrders.length})
             </button>
             <button
               onClick={() => setView('past')}
-              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${view === 'past' ? 'bg-white shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+              className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${view === 'past' ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-105' : 'text-muted-foreground hover:text-foreground'}`}
             >
               {t('vendor_orders.history')} ({pastOrders.length})
             </button>
-          </div>
+            </div>
+          )}
         </div>
 
         <div className="space-y-4">
@@ -208,17 +311,48 @@ const VendorOrders = () => {
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.08 }}
-                className="glass rounded-2xl p-5"
+                onPointerDown={() => !isSelectionMode && startLongPress(order.id)}
+                onPointerUp={cancelLongPress}
+                onPointerLeave={cancelLongPress}
+                onClick={() => {
+                  if (isSelectionMode) {
+                    toggleSelection(order.id);
+                  } else {
+                    navigate(`/receipt/${order.id}`);
+                  }
+                }}
+                className={`rounded-2xl p-5 border shadow-sm transition-all cursor-pointer relative overflow-hidden ${
+                  selectedIds.has(order.id) 
+                    ? 'bg-primary/5 border-primary ring-2 ring-primary/20' 
+                    : 'bg-card dark:bg-[#202020] border-border/50 hover:border-border'
+                }`}
               >
+                {isSelectionMode && (
+                  <div className="absolute top-4 right-4 z-10">
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                      selectedIds.has(order.id) ? 'bg-primary border-primary' : 'bg-transparent border-muted-foreground/30'
+                    }`}>
+                      {selectedIds.has(order.id) && <Check className="w-3 h-3 text-white" />}
+                    </div>
+                  </div>
+                )}
+                
                 <div className="flex items-start justify-between mb-3">
                   <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[10px] font-mono font-bold bg-secondary px-2 py-0.5 rounded text-muted-foreground">{order.id}</span>
-                      <span className="text-[10px] font-medium text-muted-foreground flex items-center gap-1">
-                        {new Date(order.date).toLocaleDateString()}
-                        <span className="w-1 h-1 rounded-full bg-border" />
-                        {new Date(order.date).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })}
+                    <div className="flex items-center gap-3 mb-2 flex-wrap">
+                      <span className="text-[10px] font-black font-mono tracking-tighter bg-secondary/80 text-secondary-foreground px-2 py-0.5 rounded-md border border-border/40 shadow-sm transition-all hover:bg-secondary">
+                        {order.id.slice(-8).toUpperCase()}
                       </span>
+                      <div className="flex items-center gap-1.5 bg-secondary/40 px-2 py-0.5 rounded-md border border-border/20">
+                        <Clock className="w-2.5 h-2.5 text-muted-foreground" />
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest whitespace-nowrap">
+                           {new Date(order.date).toLocaleDateString()}
+                        </span>
+                        <span className="w-1 h-1 rounded-full bg-border" />
+                        <span className="text-[10px] font-black text-foreground uppercase tracking-wider whitespace-nowrap">
+                           {new Date(order.date).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })}
+                        </span>
+                      </div>
                     </div>
                     <p className="font-semibold text-foreground text-sm">{order.items.length} {t('common.items')} · ₹{order.total}</p>
                     <div className="flex items-center gap-3 mt-1 text-[10px] font-bold text-primary">
@@ -231,23 +365,18 @@ const VendorOrders = () => {
                       {order.paymentMethod === 'online' ? `💳 ${t('common.pay_online')}` : order.deliveryMethod === 'delivery' ? `💵 ${t('common.pay_on_delivery')}` : `💵 ${t('common.pay_on_pickup')}`}
                     </p>
                   </div>
-                  <span className={`text-xs font-bold px-3 py-1 rounded-full capitalize border ${order.status === 'completed' ? 'bg-green-100 text-green-700 border-green-200' :
-                    order.status === 'packed' ? 'bg-blue-100 text-blue-700 border-blue-200' :
-                      order.status === 'accepted' ? 'bg-amber-100 text-amber-700 border-amber-200' :
-                        order.status === 'rejected' ? 'bg-destructive/10 text-destructive border-destructive/20' :
-                          'bg-primary/10 text-primary border-primary/20'
+                  <div className="flex flex-col items-end gap-3 shrink-0">
+                    <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full border shadow-sm ${
+                      order.status === 'completed' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
+                      order.status === 'ready' ? 'bg-emerald-400/10 text-emerald-400 border-emerald-400/20' :
+                      order.status === 'packed' ? 'bg-blue-500/10 text-blue-500 border-blue-500/20' :
+                      order.status === 'accepted' ? 'bg-sky-500/10 text-sky-500 border-sky-500/20' :
+                      order.status === 'rejected' ? 'bg-rose-500/10 text-rose-500 border-rose-500/20' :
+                      'bg-amber-500/10 text-amber-500 border-amber-500/20'
                     }`}>
-                    {t(`common.order_status.${order.status}`, { defaultValue: order.status })}
-                  </span>
-                  {view === 'past' && (
-                    <button
-                      onClick={() => handleDeleteOrder(order.id)}
-                      className="p-2 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive hover:text-white transition-all shadow-sm border border-destructive/20 ml-2"
-                      title="Remove from history"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
+                      {order.status === 'ready' ? 'READY' : t(`common.order_status.${order.status}`, { defaultValue: order.status.toUpperCase() })}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Customer Details */}
@@ -315,8 +444,7 @@ const VendorOrders = () => {
 
                 {/* Items */}
                 <div
-                  onClick={() => ['pending', 'accepted'].includes(order.status) ? setSelectedOrderId(order.id) : null}
-                  className={`space-y-1 mb-3 ${['pending', 'accepted'].includes(order.status) ? 'cursor-pointer p-3 bg-secondary/20 hover:bg-secondary/40 rounded-xl transition-colors border border-border/50' : ''}`}
+                  className={`space-y-1 mb-3 ${['pending', 'accepted'].includes(order.status) ? 'p-3 bg-secondary/20 rounded-xl border border-border/50' : ''}`}
                 >
                   {['pending', 'accepted'].includes(order.status) && (
                     <div className="flex justify-between items-center mb-2 pb-2 border-b border-border/50">
@@ -333,20 +461,20 @@ const VendorOrders = () => {
                   ))}
                 </div>
 
-                {order.status !== 'completed' && order.status !== 'rejected' && (
+          {order.status !== 'completed' && order.status !== 'rejected' && (
                   <div className="flex items-center gap-2 mt-4 pt-4 border-t border-border/50 w-full justify-end">
-                    {order.status === 'packed' ? (
+                    {order.status === 'ready' ? (
                       <>
                         <button
-                          onClick={() => cancelOrderWithPin(order.id, order.pickupCode || '')}
-                          className="bg-destructive/10 text-destructive text-xs font-semibold px-4 py-2 rounded-lg hover:bg-destructive/20 transition-colors flex items-center gap-1.5"
+                          onClick={(e) => { e.stopPropagation(); cancelOrderWithPin(order.id, order.pickupCode || ''); }}
+                          className="bg-destructive/10 text-destructive text-xs font-semibold px-4 py-1.5 rounded-lg hover:bg-destructive/20 transition-colors flex items-center gap-1.5"
                         >
                           <X className="w-3 h-3" />
                           Cancel
                         </button>
                         <button
-                          onClick={() => advanceStatus(order.id)}
-                          className="gradient-primary text-primary-foreground text-xs font-semibold px-4 py-2 rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1.5"
+                          onClick={(e) => { e.stopPropagation(); advanceStatus(order.id); }}
+                          className="gradient-primary text-primary-foreground text-xs font-semibold px-4 py-1.5 rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1.5"
                         >
                           <Check className="w-3 h-3" />
                           Complete
@@ -354,11 +482,14 @@ const VendorOrders = () => {
                       </>
                     ) : (
                       <button
-                        onClick={() => setSelectedOrderId(order.id)}
-                        className="gradient-primary text-primary-foreground w-full py-3 text-sm font-bold rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedOrderId(order.id);
+                        }}
+                        className="gradient-primary text-primary-foreground w-full py-2.5 text-xs font-bold rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
                       >
                         <Package className="w-4 h-4" />
-                        {order.status === 'pending' ? 'Review & Accept' : 'Review & Pack'}
+                        {order.status === 'pending' ? 'Review & Accept' : 'Pack Order'}
                       </button>
                     )}
                   </div>
@@ -367,87 +498,114 @@ const VendorOrders = () => {
             ))
           )}
         </div>
-      
-      {/* Products Modal */}
-      {selectedOrder && (
-        <>
-          <style>{`
-            @media (max-width: 768px) {
-              #bottom-nav { display: none !important; }
-            }
-          `}</style>
-          <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4 sm:p-0 bg-background/80 backdrop-blur-sm shadow-2xl">
 
+      {/* Products Modal */}
+      <AnimatePresence>
+        {selectedOrder && (
+          <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm">
             <motion.div
-              initial={{ opacity: 0, y: 100 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 100 }}
-              className="bg-card w-full max-w-md rounded-3xl shadow-2xl overflow-hidden border border-border flex flex-col max-h-[85vh] sm:max-h-[90vh]"
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              className="bg-white dark:bg-[#151515] w-full max-w-lg rounded-t-[2.5rem] sm:rounded-[2.5rem] flex flex-col max-h-[90vh] shadow-2xl overflow-hidden border-t sm:border border-border/50"
             >
-              <div className="p-5 border-b border-border flex justify-between items-center bg-secondary/30">
-                <div>
-                  <h3 className="font-bold text-lg text-foreground">Review Order</h3>
-                  <p className="text-xs text-muted-foreground font-mono">{selectedOrder.id}</p>
+              <div className="p-6 border-b border-border/50 flex items-center justify-between bg-card/50">
+                <div className="space-y-1">
+                  <h2 className="text-xl font-black text-foreground tracking-tight uppercase">Review Order</h2>
+                  <div className="flex items-center gap-2">
+                    <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest bg-secondary/50 px-2 py-0.5 rounded-md w-fit">#{selectedOrder.id.slice(-8).toUpperCase()}</p>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/receipt/${selectedOrder.id}`);
+                      }}
+                      className="text-[10px] text-primary font-black uppercase tracking-widest hover:underline flex items-center gap-1"
+                    >
+                      View Receipt
+                      <ArrowRight className="w-2.5 h-2.5" />
+                    </button>
+                  </div>
                 </div>
-                <button onClick={() => setSelectedOrderId(null)} className="p-2 hover:bg-secondary rounded-full transition-colors bg-secondary/50">
-                  <X className="w-5 h-5 text-muted-foreground" />
+                <button
+                  onClick={() => setSelectedOrderId(null)}
+                  className="p-2.5 rounded-full bg-secondary text-muted-foreground hover:text-foreground transition-all active:scale-90"
+                >
+                  <X className="w-5 h-5" />
                 </button>
               </div>
 
-              <div className="p-4 overflow-y-auto flex-1 space-y-3">
-                <div className="flex items-center gap-2 mb-2">
-                  <Package className="w-4 h-4 text-primary" />
-                  <h4 className="font-bold text-sm text-foreground">Items ({selectedOrder.items.length})</h4>
+              <div className="p-6 overflow-y-auto flex-1 space-y-6">
+                {/* Product Review List */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Package className="w-5 h-5 text-primary" />
+                    <h3 className="font-black text-xs text-foreground uppercase tracking-widest">Order Products ({selectedOrder.items.length})</h3>
+                  </div>
+                  <div className="space-y-3">
+                    {selectedOrder.items.map(item => (
+                      <div key={item.product.id} className="flex justify-between items-center p-3.5 bg-secondary/30 rounded-2xl border border-border/40 shadow-sm transition-all hover:bg-secondary/40">
+                        <div className="flex items-center gap-4">
+                          <div className="w-14 h-14 bg-white dark:bg-black rounded-xl flex items-center justify-center overflow-hidden border border-border/50 shadow-sm p-1.5 shrink-0">
+                            {item.product.image ? (
+                              <img src={item.product.image} alt={item.product.name} className="w-full h-full object-contain rounded-lg" />
+                            ) : (
+                              <Package className="w-6 h-6 text-muted-foreground opacity-30" />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-bold text-sm text-foreground leading-tight break-words">{t(`products.${item.product.name}`, { defaultValue: item.product.name })}</p>
+                            {item.product.quantity && (
+                              <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mt-1 opacity-80">{item.product.quantity}</p>
+                            )}
+                            <p className="text-[10px] font-black text-primary mt-1.5 opacity-90">₹{item.product.price} / unit</p>
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-1 shrink-0 ml-4">
+                           <div className="font-mono font-black text-xl text-primary bg-primary/5 px-3 py-1.5 rounded-xl border border-primary/10">
+                            x{item.quantity}
+                          </div>
+                          <p className="text-[10px] font-bold text-muted-foreground">₹{item.product.price * item.quantity}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
-                {selectedOrder.items.map(item => (
-                  <div key={item.product.id} className="flex justify-between items-center p-3 bg-secondary/20 rounded-2xl border border-border/50">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-white dark:bg-black rounded-xl flex items-center justify-center overflow-hidden border border-border/50 shadow-sm p-1">
-                        {item.product.image ? (
-                          <img src={item.product.image} alt={item.product.name} className="w-full h-full object-contain rounded-lg" />
-                        ) : (
-                          <Package className="w-6 h-6 text-muted-foreground opacity-50" />
-                        )}
-                      </div>
-                      <div>
-                        <p className="font-bold text-sm text-foreground">{t(`products.${item.product.name}`, { defaultValue: item.product.name })}</p>
-                        {item.product.quantity && (
-                          <p className="text-xs text-muted-foreground font-medium">{item.product.quantity}</p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="font-mono font-black text-lg bg-background px-3 py-1.5 rounded-xl border border-border shadow-sm text-primary">
-                      x{item.quantity}
-                    </div>
-                  </div>
-                ))}
+                {/* Summary Info */}
+                <div className="p-4 rounded-2xl bg-primary/5 border border-primary/10 space-y-2">
+                   <div className="flex justify-between items-center text-xs font-bold">
+                    <span className="text-muted-foreground uppercase tracking-widest">Subtotal</span>
+                    <span className="text-foreground">₹{selectedOrder.total}</span>
+                   </div>
+                   <div className="flex justify-between items-center text-sm font-black pt-2 border-t border-primary/20">
+                    <span className="text-primary uppercase tracking-widest">Order Total</span>
+                    <span className="text-primary text-lg">₹{selectedOrder.total}</span>
+                   </div>
+                </div>
               </div>
 
-              {selectedOrder.status !== 'completed' && selectedOrder.status !== 'rejected' && (
-                <div className="p-5 border-t border-border bg-card/50 flex flex-col sm:flex-row items-center gap-3 backdrop-blur-md">
+              <div className="p-6 border-t border-border/50 bg-card/50">
+                <div className="flex items-center gap-3">
                   <button
                     onClick={() => cancelOrderWithPin(selectedOrder.id, selectedOrder.pickupCode || '')}
-                    className="w-full sm:flex-1 bg-destructive/10 text-destructive font-bold py-3.5 rounded-xl hover:bg-destructive/20 transition-colors flex items-center justify-center gap-2"
+                    className="flex-1 bg-destructive/10 text-destructive font-bold py-4 rounded-2xl hover:bg-destructive/20 transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-widest border border-destructive/20 shadow-sm active:scale-95"
                   >
                     <X className="w-5 h-5" />
                     Reject
                   </button>
-
                   <button
                     onClick={() => advanceStatus(selectedOrder.id)}
-                    className="w-full sm:flex-1 gradient-primary text-primary-foreground font-black py-3.5 rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98]"
+                    className="flex-[2] gradient-primary text-primary-foreground font-black py-4 rounded-2xl hover:opacity-90 transition-all flex items-center justify-center gap-2 shadow-xl shadow-primary/20 text-sm uppercase tracking-widest active:scale-[0.98]"
                   >
                     <Check className="w-5 h-5" />
-                    {selectedOrder.status === 'pending' && 'Accept Order'}
-                    {selectedOrder.status === 'accepted' && 'Pack Order'}
+                    {selectedOrder.status === 'pending' ? 'Pack and Continue' : 'Pack Order'}
                   </button>
                 </div>
-              )}
+              </div>
             </motion.div>
           </div>
-        </>
-      )}
+        )}
+      </AnimatePresence>
       </PullToRefresh>
     </div>
   );

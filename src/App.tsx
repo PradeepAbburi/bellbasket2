@@ -6,6 +6,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AppProvider, useApp } from "@/context/AppContext";
 import Index from "./pages/Index";
+import NotificationsPage from "./pages/Notifications";
+import ReceiptDetail from "./pages/ReceiptDetail";
 import About from "./pages/About";
 import Auth from "./pages/Auth";
 import CustomerHome from "./pages/CustomerHome";
@@ -55,6 +57,7 @@ import BottomNav from "./components/BottomNav";
 import OnlineStatusProvider from "./components/OnlineStatusProvider";
 import Onboarding from "./components/Onboarding";
 import NotificationPrompt from "./components/NotificationPrompt";
+import PWAInstallPrompt from "./components/PWAInstallPrompt";
 
 const queryClient = new QueryClient();
 
@@ -134,7 +137,9 @@ const AppContent = () => {
           <Route path="/stores/:slug" element={<StoreDetail />} />
           <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
           <Route path="/receipts" element={<ProtectedRoute><Receipts /></ProtectedRoute>} />
+          <Route path="/receipt/:id" element={<ReceiptDetail />} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+          <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
 
           <Route path="/vendor" element={<VendorProtectedRoute><VendorDashboard /></VendorProtectedRoute>} />
           <Route path="/vendor/products" element={<VendorProtectedRoute><VendorProducts /></VendorProtectedRoute>} />
@@ -160,7 +165,7 @@ const AppContent = () => {
           <Route path="/team-lead" element={<TeamLeadProtectedRoute><TeamLeadDashboard /></TeamLeadProtectedRoute>} />
           <Route path="/team-lead/login" element={<TeamLeadLogin />} />
           <Route path="/support/chat/:id" element={<ProtectedRoute><SupportChat /></ProtectedRoute>} />
-          <Route path="/support" element={<ProtectedRoute><HelpSupport /></ProtectedRoute>} />
+          <Route path="/support" element={<HelpSupport />} />
           <Route path="/download" element={<Download />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsAndConditions />} />
@@ -185,6 +190,7 @@ const AppContent = () => {
         <BottomNav />
         {user && user.isVerified && user.role !== 'admin' && !user.hasCompletedOnboarding && sessionStorage.getItem('allow_onboarding') === 'true' && <Onboarding />}
         <NotificationPrompt />
+        <PWAInstallPrompt />
       </div>
     </BrowserRouter>
   );

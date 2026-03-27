@@ -18,7 +18,7 @@ import { useTranslation } from 'react-i18next';
 import QRCodeWithLogo from '@/components/ui/qr-code-with-logo';
 import Header from '@/components/Header';
 import ReviewModal from '@/components/ReviewModal';
-import { useApp } from '@/context/appStore';
+import { useApp } from '@/context/AppContext';
 import { toast } from 'sonner';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, doc, getDoc, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
@@ -706,7 +706,7 @@ const StoreDetail = () => {
 
 
         {/* Search Bar inside Store */}
-        <div className="mb-10 sticky top-16 z-30 py-3 -mx-4 px-4 bg-white/95 dark:bg-[#202020]/95 backdrop-blur-md border-b border-border/10 shadow-sm">
+        <div className="sticky top-16 z-30 py-3 -mx-4 px-4 bg-white/95 dark:bg-[#202020]/95 backdrop-blur-md border-b border-border/10 shadow-sm">
           <div className="relative group flex gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
@@ -778,14 +778,13 @@ const StoreDetail = () => {
               )}
             </button>
           </div>
+        </div>
           
-          
-          <div className="mt-4 flex items-center justify-end">
-            <SortOptions 
-              priceSort={priceSort}
-              onPriceSortChange={setPriceSort}
-            />
-          </div>
+        <div className="mt-4 flex items-center justify-end mb-8">
+          <SortOptions 
+            priceSort={priceSort}
+            onPriceSortChange={setPriceSort}
+          />
         </div>
 
         <AnimatePresence>

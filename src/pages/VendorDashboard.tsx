@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Store as StoreIcon, Power, PowerOff, Package, TrendingUp, ShoppingCart, Crown, Check, Star, MessageSquare, Send, Zap, Building2, BarChart3, Clock, Scissors, Settings, MessageCircle, ArrowRight, Image as ImageIcon, Lock, Save, Mail, XCircle, Share2, Phone, ShoppingBasket, Camera, Upload, MapPin, Search, Navigation, X, KeyRound, ShieldAlert, BellRing } from 'lucide-react';
-import { getStoreVisualStatus } from '@/utils/storeStatus';
+import { getStoreVisualStatus } from '@/utils/store-status';
 import Loader from '@/components/ui/loader-animation';
 import Header from '@/components/Header';
 import { useApp } from '@/context/AppContext';
@@ -138,8 +138,7 @@ const VendorDashboard = () => {
       }
     } else if (OneSignal) {
        toast.info("Requesting Web Notification Slidedown...");
-       if (OneSignal.login && user?.id) OneSignal.login(user.id);
-       OneSignal.Slidedown.show({ force: true });
+        OneSignal.Slidedown.promptPush();
     } else {
       toast.error("OneSignal SDK not found.", {
         description: "If you just deployed, please refresh the page and wait a few seconds."
@@ -315,6 +314,9 @@ const VendorDashboard = () => {
   };
 
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
   const storeUrl = vendorStore?.slug
     ? `${window.location.origin}/stores/${vendorStore.slug}`
     : `${window.location.origin}/store/${user?.id}`;
@@ -361,30 +363,38 @@ const VendorDashboard = () => {
     }
   };
 
-  const handleDeleteStore = async () => {
-    if (!user) return;
-    const confirmDelete = window.confirm(
-      "Are you sure you want to delete your store? This action is permanent and will remove all your products and data from the marketplace."
-    );
+  const handleDeleteStore = () => {
+    setShowDeleteModal(true);
+    setDeleteConfirmText('');
+  };
 
-    if (confirmDelete) {
-      try {
-        // 1. Delete from stores collection
-        await deleteDoc(doc(db, 'stores', user.id));
+  const executeDeleteStore = async () => {
+    if (!user || deleteConfirmText !== 'DELETE MY STORE') return;
+    
+    setIsDeleting(true);
+    const loadingToast = toast.loading('Permenantly deleting your store data...');
+    
+    try {
+      // 1. Delete from stores collection
+      await deleteDoc(doc(db, 'stores', user.id));
 
-        // 2. Update user profile flag
-        await setDoc(doc(db, 'users', user.id), {
-          hasSetupStore: false
-        }, { merge: true });
+      // 2. Update user profile flag
+      await setDoc(doc(db, 'users', user.id), {
+        hasSetupStore: false
+      }, { merge: true });
 
-        toast.success('Store deleted successfully');
+      toast.dismiss(loadingToast);
+      toast.success('Store deleted successfully');
+      setShowDeleteModal(false);
 
-        // 3. Force navigate to home or setup
-        window.location.href = '/vendor/setup';
-      } catch (error) {
-        console.error("Delete failed:", error);
-        toast.error('Failed to delete store. Check your database permissions.');
-      }
+      // 3. Force navigate to setup
+      window.location.href = '/vendor/setup';
+    } catch (error) {
+      console.error("Delete failed:", error);
+      toast.dismiss(loadingToast);
+      toast.error('Failed to delete store. Check your database permissions.');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -677,7 +687,7 @@ const VendorDashboard = () => {
       </AnimatePresence>
 
       <PullToRefresh onRefresh={refreshData} className="pt-20 pb-40 lg:pb-8 px-4 max-w-4xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-y-5 mb-8 pt-4">
           <div className="space-y-1">
             <h1 className="text-2xl font-bold text-foreground">{t('common.dashboard')}</h1>
           </div>
@@ -746,43 +756,28 @@ const VendorDashboard = () => {
                 <div className={`w-1.5 h-1.5 rounded-full bg-white relative z-10`} />
               </div>
             </motion.button>
+            {notificationPermission === 'denied' && (
+              <div className="flex items-center gap-2 px-3 sm:px-4 py-2.5 rounded-xl bg-destructive/10 text-destructive text-[10px] sm:text-xs font-black uppercase tracking-widest border border-destructive/20 animate-pulse">
+                <BellRing className="w-4 h-4" /> Blocked! Please allow in browser settings
+              </div>
+            )}
+            {notificationPermission === 'default' && (
+              <button
+                onClick={async () => {
+                  await requestPushNotifications();
+                  if (typeof Notification !== 'undefined') {
+                    setNotificationPermission(Notification.permission);
+                  }
+                }}
+                className="flex items-center gap-2 px-3 sm:px-4 py-2.5 rounded-xl bg-primary/10 text-primary text-xs font-bold hover:bg-primary hover:text-white transition-all shadow-sm border border-primary/20"
+              >
+                <BellRing className="w-4 h-4" /> <span className="hidden xs:inline">Enable Alerts</span>
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Push Notification Banner */}
-        {notificationPermission !== 'granted' && !loading && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="mb-8 bg-white dark:bg-[#202020] rounded-[2rem] p-6 border-2 border-primary/20 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl relative overflow-hidden group"
-          >
-             <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:scale-110 transition-transform duration-500">
-               <BellRing className="w-32 h-32" />
-             </div>
-             
-             <div className="flex items-center gap-5 relative z-10 text-center md:text-left">
-               <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
-                 <BellRing className="w-8 h-8 text-primary animate-bounce-gentle" />
-               </div>
-               <div>
-                  <h2 className="text-xl font-black text-foreground uppercase tracking-tight">Stay Alerts Ready</h2>
-                  <p className="text-sm text-muted-foreground font-medium mt-1">Get instant push notifications for every new order. Don't miss a beat!</p>
-               </div>
-             </div>
-             
-             <button
-               onClick={async () => {
-                 await requestPushNotifications();
-                 if (typeof Notification !== 'undefined') {
-                   setNotificationPermission(Notification.permission);
-                 }
-               }}
-               className="w-full md:w-auto px-8 py-3.5 rounded-2xl gradient-primary text-white font-black text-xs uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all relative z-10"
-             >
-               Allow Notifications
-             </button>
-          </motion.div>
-        )}
+        {/* Removed Banner */}
         
         {/* Blocked Account Alert */}
         {user?.isBlocked && (
@@ -802,7 +797,7 @@ const VendorDashboard = () => {
             </div>
             <button
                onClick={requestSupport}
-               className="px-8 py-3.5 rounded-2xl bg-white text-destructive font-black text-xs uppercase tracking-widest shadow-xl hover:scale-105 active:scale-95 transition-all w-full md:w-auto"
+               className="px-8 py-3.5 rounded-2xl bg-white dark:bg-[#202020] text-destructive font-black text-xs uppercase tracking-widest shadow-xl hover:scale-105 active:scale-95 transition-all w-full md:w-auto border border-border"
             >
               Contact Support
             </button>
@@ -972,72 +967,6 @@ const VendorDashboard = () => {
           ))}
         </div>
 
-        {/* Push Status Diagnostic Card */}
-        <div className="mb-10 bg-white dark:bg-[#202020] rounded-3xl p-6 border-2 border-primary/10 shadow-xl overflow-hidden relative">
-          <div className="absolute top-0 right-0 p-6 opacity-5">
-            <BellRing className="w-20 h-20" />
-          </div>
-          
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-6 relative z-10">
-            <div className="flex items-center gap-5">
-              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${playerInfo.synced ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
-                {playerInfo.synced ? <Check className="w-7 h-7" /> : <ShieldAlert className="w-7 h-7" />}
-              </div>
-              <div>
-                 <h3 className="text-lg font-black text-foreground uppercase tracking-tight">Push Notification Status</h3>
-                 <div className="flex items-center gap-2 mt-1">
-                    <div className={`w-2 h-2 rounded-full ${playerInfo.synced ? 'bg-emerald-500' : 'bg-rose-500'} animate-pulse`} />
-                    <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest">
-                      {playerInfo.synced ? 'Connected & Synced' : 'Not Connected'}
-                    </p>
-                 </div>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={refreshPushStatus}
-                className="px-6 py-2.5 rounded-xl bg-secondary text-foreground text-xs font-black uppercase tracking-widest hover:bg-secondary/80 transition-all border border-border"
-              >
-                Refresh Status
-              </button>
-              <button
-                onClick={sendTestPush}
-                disabled={!playerInfo.synced}
-                className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all border ${playerInfo.synced ? 'bg-primary/10 text-primary border-primary/20 hover:bg-primary/20' : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'}`}
-              >
-                Send Test Push
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-6 pt-6 border-t border-border/50">
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-secondary/30 p-4 rounded-2xl">
-                   <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">OneSignal Player ID</p>
-                   <p className="text-[11px] font-mono font-bold text-foreground break-all">{playerInfo.id || 'Not found'}</p>
-                </div>
-                <div className="bg-secondary/30 p-4 rounded-2xl">
-                   <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Last Sync Check</p>
-                   <p className="text-[11px] font-bold text-foreground">{new Date().toLocaleTimeString()}</p>
-                </div>
-             </div>
-             
-             {!playerInfo.synced && (
-                <div className="mt-4 space-y-2">
-                  <p className="text-[10px] text-rose-500 font-bold bg-rose-500/5 p-3 rounded-xl border border-rose-500/10">
-                    ⚠️ {ua.includes('Median') || ua.includes('GoNative') 
-                        ? "Native ID missing. Please ensure your mobile app has notifications enabled." 
-                        : "Web Push ID missing. Please accept the notification prompt if shown."}
-                  </p>
-                  <div className="bg-secondary/20 p-3 rounded-xl border border-border/50">
-                    <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-1">Identity Details (UA)</p>
-                    <p className="text-[9px] font-mono text-muted-foreground break-all">{ua}</p>
-                  </div>
-                </div>
-             )}
-          </div>
-        </div>
 
         {/* Analytics Section - Gated for Growth+ */}
         <div className="mb-10">
@@ -1052,7 +981,7 @@ const VendorDashboard = () => {
           {user?.plan && user.plan !== 'basic' ? (
             <div
               onClick={() => navigate('/vendor/analytics')}
-              className="bg-white dark:bg-[#202020] rounded-3xl p-8 text-center border-primary/20 bg-primary/5 cursor-pointer hover:shadow-xl hover:scale-[1.01] transition-all group"
+              className="bg-white dark:bg-[#202020] rounded-3xl p-8 text-center border-primary/20 bg-primary/5 cursor-pointer hover:shadow-xl hover:scale-[1.01] active:brightness-90 transition-all group"
             >
               <BarChart3 className="w-10 h-10 text-primary mx-auto mb-4 group-hover:scale-110 transition-transform" />
               <p className="text-foreground font-bold">{t('common.view_full_analytics')}</p>
@@ -1106,7 +1035,7 @@ const VendorDashboard = () => {
             </div>
           ) : (
             (!isServiceStore ? vendorOrders : serviceBookings).slice(0, 3).map(item => (
-              <div key={item.id} className="bg-white dark:bg-[#202020] rounded-2xl p-4 flex items-center justify-between hover:bg-secondary dark:hover:bg-[#333333] transition-colors cursor-pointer" onClick={() => isServiceStore ? navigate('/vendor/bookings') : navigate('/vendor/orders')}>
+              <div key={item.id} className="bg-white dark:bg-[#202020] rounded-2xl p-4 flex items-center justify-between hover:bg-secondary dark:hover:bg-[#333333] active:brightness-90 transition-all cursor-pointer" onClick={() => isServiceStore ? navigate('/vendor/bookings') : navigate('/vendor/orders')}>
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-[10px] font-mono font-bold bg-secondary px-2 py-0.5 rounded text-muted-foreground">{item.id.slice(-6)}</span>
@@ -1175,7 +1104,7 @@ const VendorDashboard = () => {
                   key={review.id}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="bg-white dark:bg-[#202020] rounded-2xl p-5 space-y-4 border border-border/50 shadow-sm"
+                  className="bg-white dark:bg-[#202020] rounded-2xl p-5 space-y-4 border border-border/50 shadow-sm active:brightness-95 transition-all"
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-3">
@@ -1350,7 +1279,7 @@ const VendorDashboard = () => {
                   </div>
 
                   {/* Business Contact */}
-                  <div className="bg-white dark:bg-[#202020] rounded-3xl p-6 relative overflow-hidden transition-all border border-border">
+                  <div className="bg-white dark:bg-[#202020] rounded-3xl p-6 relative overflow-hidden transition-all border border-border cursor-pointer active:brightness-95" onClick={() => navigate('/vendor/editor')}>
                     <div className="flex items-start justify-between mb-6">
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-600">
@@ -1395,7 +1324,7 @@ const VendorDashboard = () => {
 
 
                   {/* Delivery Options */}
-                  <div className="bg-white dark:bg-[#202020] rounded-3xl p-6 relative overflow-hidden transition-all border border-border opacity-100">
+                  <div className="bg-white dark:bg-[#202020] rounded-3xl p-6 relative overflow-hidden transition-all border border-border opacity-100 cursor-pointer active:brightness-95" onClick={() => navigate('/vendor/editor')}>
                     <div className="flex items-start justify-between mb-6">
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded-2xl bg-green-500/10 flex items-center justify-center text-green-600">
@@ -1694,10 +1623,10 @@ const VendorDashboard = () => {
                     </p>
                   </div>
 
-                  <div className="w-full bg-secondary/50 p-6 rounded-2xl border border-border/50 transition-all hover:bg-secondary/80 group cursor-pointer" onClick={() => window.location.href = "mailto:contact.belllbasket1@gmail.com"}>
+                  <div className="w-full bg-secondary/50 p-6 rounded-2xl border border-border/50 transition-all hover:bg-secondary/80 group cursor-pointer" onClick={() => window.location.href = "mailto:contact@bellbasket.com"}>
                     <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">Official Channel</p>
-                    <a href="mailto:contact.belllbasket1@gmail.com" className="text-xl font-black text-primary group-hover:underline break-all">
-                      contact.belllbasket1@gmail.com
+                    <a href="mailto:contact@bellbasket.com" className="text-xl font-black text-primary group-hover:underline break-all">
+                      contact@bellbasket.com
                     </a>
                   </div>
 
@@ -1712,9 +1641,94 @@ const VendorDashboard = () => {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Delete Confirmation Modal */}
+        <AnimatePresence>
+          {showDeleteModal && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4"
+              onClick={() => !isDeleting && setShowDeleteModal(false)}
+            >
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0, y: 20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.95, opacity: 0, y: 20 }}
+                onClick={e => e.stopPropagation()}
+                className="bg-background rounded-[2.5rem] max-w-sm w-full p-8 shadow-2xl border border-destructive/20 relative overflow-hidden"
+              >
+                <div className="absolute top-0 left-0 right-0 h-2 bg-destructive" />
+                
+                <button 
+                  onClick={() => setShowDeleteModal(false)}
+                  className="absolute top-6 right-6 p-2 rounded-full hover:bg-secondary/50 text-muted-foreground transition-colors"
+                  disabled={isDeleting}
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
+                <div className="flex flex-col items-center text-center space-y-6">
+                  <div className="w-20 h-20 rounded-2xl bg-destructive/10 flex items-center justify-center text-destructive shadow-inner mb-2 animate-bounce-gentle">
+                    <ShieldAlert className="w-10 h-10" />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <h2 className="text-2xl font-black text-foreground tracking-tight">Are you absolutely sure?</h2>
+                    <p className="text-sm text-muted-foreground font-medium leading-relaxed">
+                      This will <span className="text-destructive font-bold underline">permanently delete</span> your store, all products, and your brand presence from BellBasket.
+                    </p>
+                  </div>
+
+                  <div className="w-full space-y-4">
+                    <div className="bg-destructive/5 rounded-xl p-4 border border-destructive/10">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-destructive mb-3">Type the following to confirm:</p>
+                      <p className="text-lg font-black text-destructive select-none mb-4 tracking-widest">DELETE MY STORE</p>
+                      <input 
+                        type="text"
+                        value={deleteConfirmText}
+                        onChange={(e) => setDeleteConfirmText(e.target.value)}
+                        placeholder="Type here..."
+                        className="w-full bg-background border-2 border-destructive/10 focus:border-destructive rounded-xl px-4 py-3 text-center text-sm font-bold uppercase tracking-widest outline-none transition-all placeholder:text-muted-foreground/30"
+                        disabled={isDeleting}
+                        autoFocus
+                      />
+                    </div>
+
+                    <button
+                      onClick={executeDeleteStore}
+                      disabled={deleteConfirmText !== 'DELETE MY STORE' || isDeleting}
+                      className="w-full py-4 rounded-xl bg-destructive text-white font-black text-xs uppercase tracking-widest shadow-xl shadow-destructive/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-30 disabled:grayscale disabled:scale-100 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {isDeleting ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Deleting...
+                        </>
+                      ) : (
+                        "Permanently Delete Store"
+                      )}
+                    </button>
+                    
+                    <button
+                      onClick={() => setShowDeleteModal(false)}
+                      disabled={isDeleting}
+                      className="w-full py-3 text-[10px] font-black text-muted-foreground uppercase tracking-widest hover:text-foreground transition-colors"
+                    >
+                      Wait, Keep My Store
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </PullToRefresh>
     </div>
   );
 };
 
 export default VendorDashboard;
+ 
+

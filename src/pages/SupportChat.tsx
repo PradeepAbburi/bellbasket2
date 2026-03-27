@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useApp } from '@/context/appStore';
+import { useApp } from '@/context/AppContext';
 import { doc, getDoc, updateDoc, arrayUnion, onSnapshot, collection, query, where, orderBy, getDocs, addDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { toast } from 'sonner';
@@ -215,7 +215,7 @@ const SupportChat = () => {
 
             // Bot Reply Logic
             setTimeout(() => {
-                let replyText = "I've logged your request. For urgent matters, please email contact.belllbasket1@gmail.com.";
+                let replyText = "I've logged your request. For urgent matters, please email contact@bellbasket.com.";
                 const lower = text.toLowerCase();
                 let nextOptions: string[] | undefined = undefined;
 
@@ -556,3 +556,4 @@ const SupportChat = () => {
 };
 
 export default SupportChat;
+

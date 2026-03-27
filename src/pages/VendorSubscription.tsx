@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Crown, Check, ArrowRight, Star, ShieldCheck, Zap, Sparkles, Building2, CreditCard, Lock, Loader2, X, Shield, Ticket } from 'lucide-react';
 import Header from '@/components/Header';
-import { useApp } from '@/context/appStore';
+import { useApp } from '@/context/AppContext';
 import { toast } from 'sonner';
 import { db, auth } from '@/lib/firebase';
 import { collection, query, where, getDocs, doc, updateDoc, getDoc } from 'firebase/firestore';
@@ -87,7 +87,7 @@ const VendorSubscription = () => {
                     'Higher ranking in search',
                     '“Featured Store” badge',
                     'Sales analytics (graphs)',
-                    'Priority customer support',
+                    'Priority Support (support@bellbasket.com)',
                     'Custom store timings'
                 ]
             },
@@ -108,7 +108,8 @@ const VendorSubscription = () => {
                     'Customer repeat analytics',
                     'Downloadable sales reports (PDF)',
                     'Custom discount tags',
-                    'Store logo watermark'
+                    'Store logo watermark',
+                    'Priority Support (support@bellbasket.com)'
                 ]
             }
         ];
@@ -535,9 +536,9 @@ const VendorSubscription = () => {
                             animate={{ scale: 1, opacity: 1 }}
                             exit={{ scale: 0.95, opacity: 0 }}
                             onClick={e => e.stopPropagation()}
-                            className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl relative overflow-hidden"
+                            className="glass-strong rounded-[2rem] p-8 max-w-sm w-full shadow-2xl relative overflow-hidden"
                         >
-                            <div className="absolute top-0 left-0 right-0 h-2 gradient-primary" />
+                            <div className={`absolute top-0 left-0 right-0 h-2 bg-gradient-to-r ${selectedPlan.color} rounded-t-[2rem]`} />
                             <button
                                 onClick={() => setShowPayment(false)}
                                 className="absolute top-4 right-4 p-2 hover:bg-secondary rounded-full transition-colors"

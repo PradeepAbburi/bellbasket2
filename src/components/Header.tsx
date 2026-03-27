@@ -224,11 +224,11 @@ const Header = () => {
                               initial={{ opacity: 0, scale: 0.95, y: 10 }}
                               animate={{ opacity: 1, scale: 1, y: 0 }}
                               exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                              className="absolute top-full right-0 mt-2 w-80 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-border/50 overflow-hidden z-50 origin-top-right flex flex-col"
+                              className="absolute top-full right-0 mt-2 w-80 bg-[#202020] rounded-2xl shadow-xl border border-border/50 overflow-hidden z-50 origin-top-right flex flex-col"
                             >
                               <div className="p-4 border-b border-border/50 flex flex-col gap-2 bg-secondary/20">
                                 <div className="flex items-center justify-between">
-                                  <h3 className="font-bold text-foreground">Notifications</h3>
+                                  <h3 className="font-bold text-white">Notifications</h3>
                                   {unreadCount > 0 && (
                                     <button onClick={markAllNotificationsRead} className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline">
                                       Mark all read
@@ -240,45 +240,56 @@ const Header = () => {
                                 {notifications.length === 0 ? (
                                   <div className="p-8 text-center text-muted-foreground flex flex-col items-center">
                                     <Bell className="w-8 h-8 opacity-20 mb-2" />
-                                    <span className="text-sm font-medium">No new notifications</span>
+                                    <span className="text-sm font-medium text-white/50">No new notifications</span>
                                   </div>
                                 ) : (
                                   <div className="divide-y divide-border/20">
-                                    {notifications.map((notif: any) => (
-                                      <div
-                                        key={notif.id}
-                                        onClick={() => {
-                                          setShowNotifs(false);
-                                          if (notif.url) {
-                                            navigate(notif.url);
-                                          } else if (user?.role === 'vendor') {
-                                            navigate('/vendor/orders');
-                                          } else {
-                                            navigate('/receipts');
-                                          }
-                                        }}
-                                        className={`p-4 hover:bg-secondary/30 transition-colors cursor-pointer ${!notif.read && notif.id !== 'welcome' ? 'bg-primary/5' : ''}`}
-                                      >
-                                        <div className="flex justify-between items-start gap-2">
-                                          <p className={`font-bold text-sm text-foreground mb-0.5 ${!notif.read && notif.id !== 'welcome' ? 'text-primary' : ''}`}>
-                                            {notif.title}
-                                          </p>
-                                          {!notif.read && notif.id !== 'welcome' && (
-                                            <span className="w-2 h-2 rounded-full bg-primary flex-shrink-0 mt-1.5" />
+                                      {notifications.map((notif: any) => (
+                                        <div
+                                          key={notif.id}
+                                          onClick={() => {
+                                            setShowNotifs(false);
+                                            if (notif.url) {
+                                              navigate(notif.url);
+                                            } else if (user?.role === 'vendor') {
+                                              navigate('/vendor/orders');
+                                            } else {
+                                              navigate('/receipts');
+                                            }
+                                          }}
+                                          className={`p-4 hover:bg-secondary/30 transition-colors cursor-pointer ${!notif.read && notif.id !== 'welcome' ? 'bg-primary/5' : ''}`}
+                                        >
+                                          <div className="flex justify-between items-start gap-2">
+                                            <p className={`font-bold text-sm text-foreground mb-0.5 ${!notif.read && notif.id !== 'welcome' ? 'text-primary' : ''}`}>
+                                              {notif.title}
+                                            </p>
+                                            {!notif.read && notif.id !== 'welcome' && (
+                                              <span className="w-2 h-2 rounded-full bg-primary flex-shrink-0 mt-1.5" />
+                                            )}
+                                          </div>
+                                          <p className="text-xs text-white/70 leading-snug text-left">{notif.body}</p>
+                                          {notif.time && (
+                                            <p className="text-[10px] text-white/30 mt-1 uppercase tracking-wider font-bold text-left">
+                                              {new Date(notif.time).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })}
+                                            </p>
                                           )}
                                         </div>
-                                        <p className="text-xs text-muted-foreground leading-snug">{notif.body}</p>
-                                        {notif.time && (
-                                          <p className="text-[10px] text-muted-foreground/50 mt-1 uppercase tracking-wider font-bold">
-                                            {new Date(notif.time).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })}
-                                          </p>
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            </motion.div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="p-2 border-t border-border/50 bg-secondary/10">
+                                  <button
+                                    onClick={() => {
+                                      setShowNotifs(false);
+                                      navigate('/notifications');
+                                    }}
+                                    className="w-full py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/10 transition-all active:scale-95"
+                                  >
+                                    View All Notifications
+                                  </button>
+                                </div>
+                              </motion.div>
                           </>
                         )}
                       </AnimatePresence>
@@ -296,8 +307,8 @@ const Header = () => {
 
                   <button
                     onClick={() => { logout(); navigate('/'); }}
-                    className="hidden md:flex p-2.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl transition-all active:scale-95"
-                    title={t('common.logout')}
+                    className="hidden md:flex p-2.5 text-red-600 bg-white hover:bg-red-50 rounded-xl transition-all active:scale-95 border border-red-50"
+                    title="Sign Out"
                   >
                     <LogOut className="w-4.5 h-4.5" />
                   </button>
@@ -449,10 +460,10 @@ const Header = () => {
                   <>
                     <button
                       onClick={() => { initAudio(); logout(); navigate('/'); setMenuOpen(false); }}
-                      className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-destructive/5 text-destructive transition-colors"
+                      className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-white text-red-600 border border-red-100 hover:bg-red-50 transition-colors shadow-sm"
                     >
                       <LogOut className="w-5 h-5" />
-                      <span className="font-bold text-sm">Logout</span>
+                      <span className="font-bold text-sm">Sign Out</span>
                     </button>
                   </>
                 ) : (

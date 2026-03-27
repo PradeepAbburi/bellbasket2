@@ -321,7 +321,7 @@ const Careers = () => {
                                         className={`px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
                                             appTab === tab 
                                             ? 'bg-primary text-white shadow-lg shadow-primary/20' 
-                                            : 'glass border border-border/10 text-muted-foreground hover:bg-white/50'
+                                            : 'glass border border-border/10 text-muted-foreground hover:bg-white/05'
                                         }`}
                                     >
                                         {tab} ({applications.filter(a => (a.status || 'pending') === tab).length})
@@ -473,27 +473,6 @@ const Careers = () => {
                                 Work with high-quality humans on high-impact problems. We're hiring across engineering, design, and operations.
                             </p>
 
-                            {/* Mission & Vision Mini Section */}
-                            <div className="grid md:grid-cols-2 gap-6 pt-12">
-                                <div className="glass p-8 rounded-[2rem] border border-primary/10 text-left space-y-4">
-                                    <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
-                                        <Rocket className="w-6 h-6" />
-                                    </div>
-                                    <h3 className="text-xl font-black text-foreground tracking-tight">Our Mission</h3>
-                                    <p className="text-sm text-muted-foreground leading-relaxed">
-                                        Digitizing Bharat's neighborhood stores, giving every local vendor the digital tools to thrive and every customer the convenience of local shopping.
-                                    </p>
-                                </div>
-                                <div className="glass p-8 rounded-[2rem] border border-accent/10 text-left space-y-4">
-                                    <div className="w-12 h-12 rounded-2xl bg-accent/10 flex items-center justify-center text-accent">
-                                        <Sparkles className="w-6 h-6" />
-                                    </div>
-                                    <h3 className="text-xl font-black text-foreground tracking-tight">Our Vision</h3>
-                                    <p className="text-sm text-muted-foreground leading-relaxed">
-                                        To create a hyper-local ecosystem where technology preserves the charm of local commerce while enabling limitless scale.
-                                    </p>
-                                </div>
-                            </div>
                         </div>
 
                         {/* Search & Filter Bar */}
@@ -609,7 +588,7 @@ const Careers = () => {
                                                         </button>
                                                         <button 
                                                             onClick={() => navigate(`/careers/job/${job.id}`)}
-                                                            className="glass px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white/50 transition-all border border-border/10"
+                                                            className="glass px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white/05 transition-all border border-border/10"
                                                         >
                                                             Details
                                                         </button>
@@ -754,3 +733,5 @@ const Careers = () => {
 };
 
 export default Careers;
+
+

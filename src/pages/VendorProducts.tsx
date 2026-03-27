@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Pencil, Trash2, X, ArrowLeft, Package, Upload, Camera, Loader2, Image as ImageIcon, RotateCcw, AlertCircle, PackageX, ChevronDown, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
-import { useApp } from '@/context/appStore';
+import { useApp } from '@/context/AppContext';
 import { Product } from '@/types';
 import { CATEGORY_METADATA } from '@/constants/categories';
 import { toast } from 'sonner';
@@ -45,6 +45,13 @@ const VendorProducts = () => {
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  
+  // Confirmation Modal States
+  const [confirmModal, setConfirmModal] = useState<{
+    show: boolean;
+    type: 'delete' | 'edit' | null;
+    product: Product | null;
+  }>({ show: false, type: null, product: null });
 
   const processImageFile = async (file: File) => {
     if (!file.type.startsWith('image/')) {
@@ -210,6 +217,13 @@ const VendorProducts = () => {
       toast.error('Email verification required');
       return;
     }
+    setConfirmModal({ show: true, type: 'edit', product: p });
+  };
+
+  const confirmEdit = () => {
+    const p = confirmModal.product;
+    if (!p) return;
+    
     setEditProduct(p);
     const vendorCategories = [...new Set(products.map(prod => prod.category).filter(Boolean))];
     const isExisting = vendorCategories.includes(p.category);
@@ -229,6 +243,7 @@ const VendorProducts = () => {
     setIsCustomCategory(!isExisting);
     setCustomCategory(!isExisting ? p.category : '');
     setShowForm(true);
+    setConfirmModal({ show: false, type: null, product: null });
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -436,12 +451,19 @@ const VendorProducts = () => {
   };
   ;
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm(`Are you sure you want to delete this ${entityName.toLowerCase()}?`)) return;
+  const handleDelete = (p: Product) => {
+    setConfirmModal({ show: true, type: 'delete', product: p });
+  };
+
+  const confirmDelete = async () => {
+    const p = confirmModal.product;
+    if (!p) return;
+    
     try {
-      await deleteDoc(doc(db, 'products', id));
+      await deleteDoc(doc(db, 'products', p.id));
       await fetchProducts();
       toast.success(`${entityName} removed`);
+      setConfirmModal({ show: false, type: null, product: null });
     } catch (error) {
       toast.error(`Failed to remove ${entityName.toLowerCase()}`);
     }
@@ -508,13 +530,13 @@ const VendorProducts = () => {
                     initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.04 }}
-                    className={`glass rounded-2xl p-4 flex gap-4 group transition-all ${!p.inStock ? 'ring-2 ring-red-300/50 bg-red-50/30' : 'hover:bg-white/40'}`}
+                    className={`glass rounded-2xl p-4 flex gap-4 group transition-all ${!p.inStock ? 'ring-2 ring-slate-400/30 bg-slate-50/50' : 'hover:bg-white/05'}`}
                   >
                     <div className="relative">
                       <img src={p.image} alt={p.name} className={`w-16 h-16 rounded-xl object-cover transition-all ${!p.inStock ? 'opacity-40 grayscale' : ''}`} />
                       {!p.inStock && (
                         <div className="absolute inset-0 flex items-center justify-center">
-                          <PackageX className="w-6 h-6 text-red-500" />
+                          <PackageX className="w-6 h-6 text-slate-400" />
                         </div>
                       )}
                       {p.quantity && (
@@ -531,13 +553,13 @@ const VendorProducts = () => {
 
                             <button
                               onClick={(e) => { e.stopPropagation(); toggleStock(p); }}
-                              className={`shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider transition-all ${p.inStock
-                                ? 'bg-emerald-100/50 text-emerald-700 hover:bg-red-100 hover:text-red-600'
-                                : 'bg-red-100 text-red-600 hover:bg-emerald-100 hover:text-emerald-700'
+                              className={`shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider transition-all shadow-sm ${p.inStock
+                                ? 'bg-rose-500 text-white hover:bg-rose-600 shadow-rose-200'
+                                : 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-emerald-200'
                                 }`}
                             >
                               <PackageX className="w-2.5 h-2.5" />
-                              {p.inStock ? 'Mark Out of Stock' : 'Restore'}
+                              {p.inStock ? 'Mark Out of Stock' : 'Restore Stock'}
                             </button>
                           </div>
                           {p.discountedPrice && p.price > p.discountedPrice && p.inStock && (
@@ -559,10 +581,10 @@ const VendorProducts = () => {
                       </div>
 
                       <div className="flex justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity mt-2">
-                        <button onClick={(e) => { e.stopPropagation(); openEdit(p); }} className="w-8 h-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center hover:opacity-90 transition-opacity">
+                        <button onClick={(e) => { e.stopPropagation(); openEdit(p); }} className="w-8 h-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center hover:opacity-90 transition-opacity" title="Edit Item">
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
-                        <button onClick={(e) => { e.stopPropagation(); handleDelete(p.id); }} className="w-8 h-8 rounded-lg bg-destructive/10 text-destructive flex items-center justify-center hover:bg-destructive/20 transition-colors">
+                        <button onClick={(e) => { e.stopPropagation(); handleDelete(p); }} className="w-8 h-8 rounded-lg bg-destructive/10 text-destructive flex items-center justify-center hover:bg-destructive/20 transition-colors" title="Delete Item">
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
@@ -826,14 +848,14 @@ const VendorProducts = () => {
                   <div className="flex justify-between items-start">
                     <button
                       onClick={switchCamera}
-                      className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white border border-white/20 hover:bg-white/20 transition-all"
+                      className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white border border-white/20 hover:bg-white/05 transition-all"
                       title="Switch Camera"
                     >
                       <RotateCcw className="w-6 h-6" />
                     </button>
                     <button
                       onClick={stopCamera}
-                      className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white border border-white/20 hover:bg-white/20 transition-all"
+                      className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white border border-white/20 hover:bg-white/05 transition-all"
                     >
                       <X className="w-6 h-6" />
                     </button>
@@ -958,6 +980,55 @@ const VendorProducts = () => {
               </motion.div>
             </motion.div>
           )}
+          {confirmModal.show && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-md px-4"
+              onClick={() => setConfirmModal({ show: false, type: null, product: null })}
+            >
+              <style>{`#bottom-nav { display: none !important; }`}</style>
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                onClick={e => e.stopPropagation()}
+                className="glass-strong rounded-[32px] w-full max-w-sm p-8 text-center space-y-6 shadow-2xl border border-white/20"
+              >
+                <div className={`w-20 h-20 rounded-3xl mx-auto flex items-center justify-center ${confirmModal.type === 'delete' ? 'bg-destructive/10 text-destructive' : 'bg-primary/10 text-primary'}`}>
+                  {confirmModal.type === 'delete' ? <Trash2 className="w-10 h-10" /> : <Pencil className="w-10 h-10" />}
+                </div>
+                
+                <div className="space-y-2">
+                  <h3 className="text-xl font-black text-foreground">
+                    {confirmModal.type === 'delete' ? `Delete ${entityName}?` : `Edit ${entityName}?`}
+                  </h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    {confirmModal.type === 'delete' 
+                      ? `Are you sure you want to permanently remove "${confirmModal.product?.name}"? This action cannot be undone.`
+                      : `Do you want to open the editor for "${confirmModal.product?.name}"?`
+                    }
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => setConfirmModal({ show: false, type: null, product: null })}
+                    className="px-6 py-4 rounded-2xl bg-secondary text-foreground font-bold text-sm hover:bg-secondary/80 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={confirmModal.type === 'delete' ? confirmDelete : confirmEdit}
+                    className={`px-6 py-4 rounded-2xl font-bold text-sm text-white shadow-lg transition-all active:scale-95 ${confirmModal.type === 'delete' ? 'bg-destructive hover:bg-destructive/90 shadow-destructive/20' : 'bg-primary hover:bg-primary/90 shadow-primary/20'}`}
+                  >
+                    {confirmModal.type === 'delete' ? 'Yes, Delete' : 'Yes, Edit'}
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
         </AnimatePresence>
       </div>
     </div>
@@ -965,3 +1036,5 @@ const VendorProducts = () => {
 };
 
 export default VendorProducts;
+
+

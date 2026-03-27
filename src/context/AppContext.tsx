@@ -164,12 +164,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         }
         if (tokens.length > 5) tokens = tokens.slice(-5);
 
-        await updateDoc(userRef, {
+        await setDoc(userRef, {
           fcmToken: token, // Stores the most recent OneSignal ID
           fcmTokens: tokens,
           deviceType: type,
           lastTokenRefresh: new Date().toISOString()
-        });
+        }, { merge: true });
         console.log(`✅ [OneSignal] ${type} ID synced to cloud profile`);
       } catch (err) {
         console.error("❌ Failed to sync token:", err);
@@ -180,41 +180,69 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const initWebOneSignal = async () => {
       const OneSignal = (window as any).OneSignal;
       if (!OneSignal) return;
+
+      // Singleton check to prevent multiple initializations
+      if ((window as any)._oneSignalInitialized) {
+        // Even if inited, we should ensure identity is linked if user changed
+        if (OneSignal.login && user?.id && OneSignal.User?.externalId !== user.id) {
+           if (!(window as any)._oneSignalLoggingIn) {
+             (window as any)._oneSignalLoggingIn = true;
+             try { 
+               await OneSignal.login(user.id); 
+               console.log("✅ [OneSignal] Context-triggered login success");
+             } catch(e) {
+               console.warn("⚠️ [OneSignal] Identity conflict or sync error:", e);
+             } finally {
+               (window as any)._oneSignalLoggingIn = false;
+             }
+           }
+        }
+        return;
+      }
       
-      const OS_APP_ID = import.meta.env.VITE_ONESIGNAL_APP_ID || "317c3713-88c6-4173-b31d-469ced947d19";
+      const OS_APP_ID = (import.meta.env.VITE_ONESIGNAL_APP_ID || "317c3713-88c6-4173-b31d-469ced947d19").trim();
       
       try {
         await OneSignal.init({
           appId: OS_APP_ID,
           allowLocalhostAsSecureOrigin: true,
-          notifyButton: { enable: false }
+          notifyButton: { enable: false },
+          serviceWorkerParam: { scope: "/" },
+          serviceWorkerPath: "OneSignalSDKWorker.js"
         });
 
-        // 🆔 Identity Linking: Sync UID as an External ID to solve "0 matched recipients"
-        if (OneSignal.login && user.id) {
-           console.log("🆔 [OneSignal] Linking login session to UID:", user.id);
-           await OneSignal.login(user.id);
+        (window as any)._oneSignalInitialized = true;
+
+        // 🆔 Identity Linking: Sync UID as an External ID
+        if (OneSignal.login && user?.id) {
+          try {
+            // Check if identity is already linked to avoid 409 Conflict error
+            const currentExternalId = OneSignal.User?.externalId;
+            if (currentExternalId !== user.id && !(window as any)._oneSignalLoggingIn) {
+              (window as any)._oneSignalLoggingIn = true;
+              await OneSignal.login(user.id);
+              (window as any)._oneSignalLoggingIn = false;
+              console.log("✅ [OneSignal] Initial login success");
+            }
+          } catch (loginErr: any) {
+            (window as any)._oneSignalLoggingIn = false;
+            console.warn("⚠️ [OneSignal] Initial login conflict:", loginErr);
+          }
         }
 
         // Listen for subscription changes
         OneSignal.User.PushSubscription.addEventListener("change", (e: any) => {
-           console.log("🔔 [OneSignal] Subscription changed:", e.current.id);
-           if (e.current.id) {
+           if (e.current?.id) {
               syncTokenToFirebase(e.current.id, 'web_push');
            }
         });
 
         // Check if already subscribed
-        const subId = OneSignal.User.PushSubscription.id;
+        const subId = OneSignal.User.PushSubscription?.id;
         if (subId) {
-          console.log("🔔 [OneSignal] Existing subscription found:", subId);
           syncTokenToFirebase(subId, 'web_push');
-        } else {
-          console.log("🔔 [OneSignal] No active subscription on this device yet.");
         }
-      } catch (e) {
-        console.warn("⚠️ OneSignal Web SDK Error:", e);
-      }
+      } catch (e) {}
     };
 
     // 2. Native Bridge Setup (Median/GoNative)
@@ -241,14 +269,36 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     (window as any).median_onesignal_info = handleNativeToken;
     (window as any).gonative_onesignal_info = handleNativeToken;
     
-    // Fallback Polling for Native Bridge
+    // Fallback Polling for Native Bridge (Median/GoNative)
+    let pollCount = 0;
     const pollForToken = setInterval(() => {
-      const isNative = (window as any).median || (window as any).gonative;
+      const isNative = (window as any).median || (window as any).gonative || (window as any).webkit?.messageHandlers;
       if (isNative) {
+        // Median OneSignal Commands
         if ((window as any).median?.oneSignal?.info) (window as any).median.oneSignal.info();
-        else if ((window as any).gonative?.oneSignal?.id) (window as any).gonative.oneSignal.id();
+        else if ((window as any).median?.oneSignal?.getUserId) (window as any).median.oneSignal.getUserId();
+        
+        // GoNative OneSignal Commands
+        if ((window as any).gonative?.oneSignal?.id) (window as any).gonative.oneSignal.id();
+        else if ((window as any).gonative?.oneSignal?.info) (window as any).gonative.oneSignal.info();
+
+        // OneSignal Web SDK check if running in a WebView that supports it
+        const OneSignal = (window as any).OneSignal;
+        if (OneSignal?.User?.PushSubscription?.id) {
+           syncTokenToFirebase(OneSignal.User.PushSubscription.id, 'web_push');
+        }
       }
-    }, 20000);
+      
+      // Stop aggressive polling after 2 minutes, slow down to every 60s
+      pollCount++;
+      if (pollCount > 12) { // 12 * 10s = 120s
+        clearInterval(pollForToken);
+        setInterval(() => {
+          if ((window as any).median?.oneSignal?.info) (window as any).median.oneSignal.info();
+          else if ((window as any).gonative?.oneSignal?.id) (window as any).gonative.oneSignal.id();
+        }, 60000);
+      }
+    }, 10000); // 10s intervals initially
 
     initWebOneSignal();
 
@@ -635,7 +685,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
              if (change.type === 'modified') {
                const prevStatus = prevOrdersMap.current[data.id];
                if (prevStatus && prevStatus !== data.status) {
-                 playBellSound(data.status === 'accepted' || data.status === 'completed');
+                 playBellSound(data.status === 'accepted' || data.status === 'ready' || data.status === 'completed');
                  
                  // Send personal in-app notification for status updates
                  if (user.role === 'customer' && data.userId === user.id) {
@@ -962,15 +1012,18 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       // 1. Audio Initialization (Always needed for bell sound)
       initAudio();
 
-      // 2. OneSignal Web SDK check (for browser/PWA)
       const OneSignal = (window as any).OneSignal;
-      if (OneSignal) {
+      if ("Notification" in window) {
         try {
-          await OneSignal.Slidedown.show({ force: true });
-          return;
-        } catch (e) {
-          console.warn("OneSignal Slidedown failed, falling back to native checks", e);
-        }
+          // Native browser permission first
+          const permission = await Notification.requestPermission();
+          if (permission === 'granted' && OneSignal) {
+             // If OneSignal supports explicit notification trigger, do it silently
+             if (OneSignal.Notifications?.requestPermission) {
+               await OneSignal.Notifications.requestPermission();
+             }
+          }
+        } catch (e) {}
       }
 
       // 3. Mobile Native Bridge Check (Median/GoNative OneSignal)

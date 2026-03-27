@@ -19,7 +19,7 @@ import PullToRefresh from '@/components/ui/PullToRefresh';
 import { Store, Product } from '@/types';
 import { CATEGORY_METADATA } from '@/constants/categories';
 import { toast } from 'sonner';
-import { useApp } from '@/context/appStore';
+import { useApp } from '@/context/AppContext';
 import MapView from '@/components/MapView';
 import { Helmet } from 'react-helmet';
 import { useTranslation } from 'react-i18next';
@@ -76,6 +76,7 @@ const CustomerHome = () => {
   const [activeMode, setActiveMode] = useState<'product' | 'service'>(() => (localStorage.getItem('active_mode') as 'product' | 'service') || 'product');
   const [priceSort, setPriceSort] = useState<'none' | 'low-high' | 'high-low'>('none');
   const [ratingSort, setRatingSort] = useState<'none' | 'top-rated' | 'low-rated'>('none');
+  const [maxDistance, setMaxDistance] = useState<number>(20);
 
   const searchSuggestions = useMemo(() => {
     if (!search.trim() || isSearching || activeSearch === search) return [];
@@ -408,7 +409,7 @@ const CustomerHome = () => {
 
       const distance = getDistanceKm(userLat, userLng, store.lat, store.lng);
 
-      let allowedByLocation = distance <= 20;
+      let allowedByLocation = distance <= maxDistance;
 
       // Allow matches by City/State/District name if location is set
       if (!allowedByLocation && locationName && locationName !== 'Current Location') {
@@ -488,7 +489,7 @@ const CustomerHome = () => {
       filteredStores: sortedStores as (Store & { distance?: number })[],
       storeMatchingProducts: matchingGroups
     };
-  }, [activeSearch, selectedCategory, userLat, userLng, allStores, allProducts, locationName, activeMode]);
+  }, [activeSearch, selectedCategory, userLat, userLng, allStores, allProducts, locationName, activeMode, maxDistance, priceSort, ratingSort, storeMinPrices]);
 
   const handleSearchTrigger = (val?: string) => {
     const query = val !== undefined ? val : search;
@@ -576,7 +577,7 @@ const CustomerHome = () => {
                     value={locationSearch}
                     onChange={e => handleLocationSearch(e.target.value)}
                     placeholder="Search for your area or city..."
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white border border-border/50 text-foreground text-sm outline-none focus:ring-2 focus:ring-primary/30"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white dark:bg-[#202020] border border-border/50 text-foreground dark:text-white text-sm outline-none focus:ring-2 focus:ring-primary/30"
                     autoFocus
                   />
                 </div>
@@ -777,10 +778,10 @@ const CustomerHome = () => {
                   exit={{ opacity: 0, height: 0 }}
                   className="space-y-4 overflow-hidden"
                 >
-                  <div className="flex items-center justify-between gap-2 mb-6">
-                    <h2 className="text-lg md:text-xl font-black text-foreground tracking-tight shrink-0">{t('home.shop_by_category')}</h2>
-                    
-                    <div className="flex items-center gap-2">
+                  <div className="flex flex-col gap-3 mb-6">
+                    <div className="flex items-center justify-between gap-2">
+                      <h2 className="text-lg md:text-xl font-black text-foreground tracking-tight shrink-0">{t('home.shop_by_category')}</h2>
+                      
                       <div className="flex bg-secondary/80 backdrop-blur-sm p-1 rounded-xl items-center gap-1 border border-border shadow-inner w-fit">
                         <button
                           onClick={() => handleModeChange('product')}
@@ -795,16 +796,17 @@ const CustomerHome = () => {
                           Services
                         </button>
                       </div>
-                      
-                      {selectedCategory && (
-                        <button
-                          onClick={() => setSelectedCategory(null)}
-                          className="text-xs font-bold text-muted-foreground hover:text-primary transition-colors bg-white px-3 py-1.5 rounded-lg shadow-sm border border-border"
-                        >
-                          {t('home.clear_filter')}
-                        </button>
-                      )}
                     </div>
+
+                    {selectedCategory && (
+                      <button
+                        onClick={() => setSelectedCategory(null)}
+                        className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-primary bg-primary/10 hover:bg-primary/20 px-3 md:px-4 py-1.5 rounded-xl transition-all active:scale-95 border border-primary/20 shadow-sm w-fit inline-flex items-center gap-1.5 h-auto group"
+                      >
+                        <X className="w-2.5 h-2.5 text-primary group-hover:rotate-90 transition-transform duration-300" />
+                        {t('home.clear_filter')}
+                      </button>
+                    )}
                   </div>
 
                   <div className="relative">
@@ -842,7 +844,7 @@ const CustomerHome = () => {
                                       onClick={() => setSelectedCategory(null)}
                                       className="flex flex-col items-center gap-2 group transition-all"
                                     >
-                                      <div className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-300 ${!selectedCategory ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-105' : 'bg-white shadow-sm text-muted-foreground hover:bg-primary/5 hover:border-primary/30 border border-border'}`}>
+                                      <div className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-300 ${!selectedCategory ? 'bg-gradient-to-br from-yellow-400 to-amber-500 text-black shadow-lg shadow-yellow-500/20 scale-105' : 'bg-yellow-400 text-black shadow-sm hover:bg-yellow-500 border border-yellow-300'}`}>
                                         <StoreIcon className="w-7 h-7" />
                                       </div>
                                       <span className={`text-[9px] font-black uppercase tracking-wider text-center transition-colors ${!selectedCategory ? 'text-primary' : 'text-muted-foreground group-hover:text-primary'}`}>{activeMode === 'product' ? t('home.all_shops') : 'All Services'}</span>
@@ -923,7 +925,7 @@ const CustomerHome = () => {
                                       onClick={() => setSelectedCategory(null)}
                                       className="flex flex-col items-center gap-2 group transition-all"
                                     >
-                                      <div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center transition-all duration-300 ${!selectedCategory ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-105' : 'bg-white shadow-sm text-muted-foreground hover:bg-primary/5 hover:border-primary/30 border border-border'}`}>
+                                      <div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center transition-all duration-300 ${!selectedCategory ? 'bg-gradient-to-br from-yellow-400 to-amber-500 text-black shadow-lg shadow-yellow-500/20 scale-105' : 'bg-yellow-400 text-black shadow-sm hover:bg-yellow-500 border border-yellow-300'}`}>
                                         <StoreIcon className="w-6 h-6 sm:w-7 sm:h-7" />
                                       </div>
                                       <span className={`text-[9px] font-black uppercase tracking-wider text-center transition-colors ${!selectedCategory ? 'text-primary' : 'text-muted-foreground group-hover:text-primary'}`}>{activeMode === 'product' ? t('home.all_shops') : 'All Services'}</span>
@@ -998,6 +1000,8 @@ const CustomerHome = () => {
                   showRating={true}
                   ratingSort={ratingSort}
                   onRatingSortChange={setRatingSort}
+                  maxDistance={maxDistance}
+                  onMaxDistanceChange={setMaxDistance}
                 />
               </div>
             </div>
@@ -1192,7 +1196,7 @@ const CustomerHome = () => {
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <p className="text-xs font-black uppercase tracking-widest text-primary">{t('common.active_order')}</p>
+                    <p className="text-xs font-black uppercase tracking-widest text-primary">Active Order</p>
                     <span className="w-1 h-1 rounded-full bg-border" />
                     <p className="text-[10px] font-bold text-muted-foreground">{activeOrders[0].storeName}</p>
                   </div>
@@ -1228,8 +1232,8 @@ const CustomerHome = () => {
           <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex flex-col md:flex-row items-center gap-4">
               <span className="font-bold text-sm text-foreground">BellBasket</span>
-              <a href="mailto:contact.belllbasket1@gmail.com" className="text-xs text-muted-foreground hover:text-primary transition-colors">
-                Support: contact.belllbasket1@gmail.com
+              <a href="mailto:contact@bellbasket.com" className="text-xs text-muted-foreground hover:text-primary transition-colors">
+                Support: contact@bellbasket.com
               </a>
             </div>
             <p className="text-xs text-muted-foreground">© 2026 BellBasket. All rights reserved.</p>
@@ -1241,3 +1245,4 @@ const CustomerHome = () => {
 };
 
 export default CustomerHome;
+

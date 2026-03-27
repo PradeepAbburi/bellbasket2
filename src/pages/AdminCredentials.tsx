@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useApp } from "@/context/appStore";
+import { useApp } from "@/context/AppContext";
 import { useNavigate } from "react-router-dom";
 import {
     Shield,
@@ -40,7 +40,7 @@ const AdminCredentials = () => {
         {
             id: '1',
             label: 'Main Deployment Admin',
-            email: 'contact.bellbasket1@gmail.com',
+            email: 'contact@bellbasket.com',
             pass: 'admin123',
             lastUsed: '2026-02-19T10:00:00Z',
             role: 'super_admin',
@@ -294,3 +294,4 @@ const AdminCredentials = () => {
 };
 
 export default AdminCredentials;
+

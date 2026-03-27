@@ -85,6 +85,9 @@ const MapView = ({ stores, center, onStoreClick, onMapClick, showRoute = false, 
       const store = stores[0];
 
       routingControlRef.current = Routing.control({
+        router: Routing.osrmv1({
+          serviceUrl: 'https://router.project-osrm.org/route/v1'
+        }),
         waypoints: [
           L.latLng(center[0], center[1]),
           L.latLng(store.lat, store.lng)

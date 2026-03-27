@@ -77,7 +77,7 @@ export interface Order {
   storeName: string;
   items: CartItem[];
   total: number;
-  status: 'pending' | 'accepted' | 'packed' | 'completed' | 'rejected';
+  status: 'pending' | 'accepted' | 'packed' | 'ready' | 'completed' | 'rejected';
   paymentMethod: 'online' | 'pickup' | 'delivery';
   deliveryMethod?: 'pickup' | 'delivery';
   deliveryFee?: number;

@@ -393,7 +393,7 @@ const TeamLeadDashboard = () => {
                                                 const phone = v.phone || store?.phone || "No Phone";
 
                                                 return (
-                                                    <tr key={v.id} className="border-b border-border/30 hover:bg-white/40 transition-all group">
+                                                    <tr key={v.id} className="border-b border-border/30 hover:bg-white/05 transition-all group">
                                                         <td className="p-8">
                                                             <div className="flex items-center gap-4">
                                                                 <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center font-black text-indigo-600">
@@ -763,3 +763,5 @@ const TeamLeadDashboard = () => {
 };
 
 export default TeamLeadDashboard;
+
+

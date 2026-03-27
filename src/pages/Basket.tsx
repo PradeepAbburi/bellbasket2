@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Minus, Plus, Trash2, CreditCard, Wallet, ArrowLeft, CheckCircle, AlertCircle, Clock, Phone } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
-import { useApp } from '@/context/appStore';
+import { useApp } from '@/context/AppContext';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 
@@ -282,7 +282,7 @@ const Cart = () => {
                   {isPlacing ? (
                     <>
                       <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      {t('common.processing')}
+                      Processing...
                     </>
                   ) : (
                     t('common.yes_place_order')
@@ -313,9 +313,9 @@ const Cart = () => {
                 initial={{ scale: 0 }}
                 animate={{ scale: [0, 1.2, 1] }}
                 transition={{ duration: 0.5, times: [0, 0.7, 1] }}
-                className="w-24 h-24 rounded-full bg-[#000080]/20 flex items-center justify-center mx-auto mb-6"
+                className="w-24 h-24 rounded-full bg-primary/20 flex items-center justify-center mx-auto mb-6"
               >
-                <CheckCircle className="w-12 h-12 text-[#000080]" />
+                <CheckCircle className="w-12 h-12 text-primary" />
               </motion.div>
               <motion.h2
                 initial={{ opacity: 0, y: 10 }}

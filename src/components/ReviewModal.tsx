@@ -34,8 +34,9 @@ const ReviewModal = ({ isOpen, onClose, reviews = [], storeName }: ReviewModalPr
     }, [reviews]);
 
     const filteredReviews = useMemo(() => {
-        if (selectedStar === null) return reviews;
-        return reviews.filter(r => Math.round(Number(r.rating) || 0) === selectedStar);
+        const withComment = reviews.filter(r => r.comment && r.comment.trim() !== '');
+        if (selectedStar === null) return withComment;
+        return withComment.filter(r => Math.round(Number(r.rating) || 0) === selectedStar);
     }, [reviews, selectedStar]);
 
     const averageRating = useMemo(() => {
@@ -159,9 +160,11 @@ const ReviewModal = ({ isOpen, onClose, reviews = [], storeName }: ReviewModalPr
                                                     ))}
                                                 </div>
                                             </div>
-                                            <p className="text-sm text-foreground/90 font-medium leading-relaxed pl-10 border-l-2 ml-4 py-1 border-primary/10">
-                                                {review.comment ? t(`reviews.${review.id}`, { defaultValue: review.comment }) : t('common.excellent_service')}
-                                            </p>
+                                            {review.comment && (
+                                                <p className="text-sm text-foreground/90 font-medium leading-relaxed pl-10 border-l-2 ml-4 py-1 border-primary/10">
+                                                    {t(`reviews.${review.id}`, { defaultValue: review.comment })}
+                                                </p>
+                                            )}
 
                                             {/* Vendor Reply Thread */}
                                             {review.reply && (

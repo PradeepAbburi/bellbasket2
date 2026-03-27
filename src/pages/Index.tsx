@@ -1,19 +1,19 @@
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { Bell, MapPin, ShoppingCart, Store, ArrowRight, Sparkles, Smartphone, ChevronRight } from 'lucide-react';
+import { Bell, MapPin, ShoppingCart, Store, ArrowRight, Sparkles, Smartphone, ChevronRight, Menu, X, Sun, Moon } from 'lucide-react';
 import heroBg from '@/assets/hero-bg.jpg';
-import { useApp } from '@/context/appStore';
+import { useApp } from '@/context/AppContext';
 import QRCodeWithLogo from '@/components/ui/qr-code-with-logo';
-
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 
 const Index = () => {
   const navigate = useNavigate();
+  const { theme, toggleTheme } = useApp();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
-    // Redirect mobile users to browse page immediately
-    const isMobile = window.innerWidth <= 768; // standard mobile breakpoint
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     if (isMobile) {
       navigate('/browse', { replace: true });
     }
@@ -66,23 +66,69 @@ const Index = () => {
         </div>
 
         {/* Landing Header */}
-        <div className="absolute top-0 left-0 right-0 z-10 p-6">
+        <div className="absolute top-0 left-0 right-0 z-50 p-6">
           <div className="max-w-6xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-2 glass px-4 py-2 rounded-full border border-white/20">
               <span className="text-xl font-black text-foreground tracking-tighter">BellBasket</span>
             </div>
-            <div className="flex items-center gap-3">
-              <Link to="/careers" className="text-sm font-bold text-primary hover:text-primary/80 transition-colors glass px-4 py-2 rounded-full border border-primary/20">
-                Careers
-              </Link>
-              <Link to="/about" className="text-sm font-bold text-foreground/80 hover:text-foreground transition-colors glass px-4 py-2 rounded-full border border-white/20">
-                About
-              </Link>
-              <Link to="/auth" className="text-sm font-bold text-foreground/80 hover:text-foreground transition-colors glass px-4 py-2 rounded-full border border-white/20">
-                Sign In
-              </Link>
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="flex items-center gap-0.5 glass rounded-full p-1 border border-white/20">
+                <button
+                  onClick={() => theme === 'dark' && toggleTheme()}
+                  className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${theme === 'light' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
+                  title="Light Mode"
+                >
+                  <Sun className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => theme === 'light' && toggleTheme()}
+                  className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${theme === 'dark' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
+                  title="Dark Mode"
+                >
+                  <Moon className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              {/* Desktop Menu */}
+              <div className="hidden md:flex items-center gap-3">
+                <Link to="/careers" className="text-sm font-bold text-primary hover:text-primary/80 transition-colors glass px-4 py-2 rounded-full border border-primary/20">
+                  Careers
+                </Link>
+                <Link to="/about" className="text-sm font-bold text-foreground/80 hover:text-foreground transition-colors glass px-4 py-2 rounded-full border border-white/20">
+                  About
+                </Link>
+                <Link to="/auth" className="text-sm font-bold text-foreground/80 hover:text-foreground transition-colors glass px-4 py-2 rounded-full border border-white/20">
+                  Sign In
+                </Link>
+              </div>
+
+              {/* Mobile Menu Toggle */}
+              <button 
+                onClick={() => setMenuOpen(!menuOpen)}
+                className="md:hidden w-10 h-10 flex items-center justify-center rounded-xl glass border border-white/20 text-foreground active:scale-95 transition-all"
+              >
+                {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              </button>
             </div>
           </div>
+
+          {/* Mobile Menu Drawer */}
+          <AnimatePresence>
+            {menuOpen && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="md:hidden mt-2 glass rounded-2xl overflow-hidden border border-white/20 max-w-[200px] ml-auto"
+              >
+                <div className="p-2 flex flex-col">
+                  <Link to="/careers" className="px-4 py-2.5 rounded-xl hover:bg-primary/5 font-bold text-sm text-foreground transition-colors">Careers</Link>
+                  <Link to="/about" className="px-4 py-2.5 rounded-xl hover:bg-white/05 font-bold text-sm text-foreground transition-colors">About</Link>
+                  <Link to="/auth" className="mt-1 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground font-black text-xs text-center uppercase tracking-widest">Sign In</Link>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         <div className="relative max-w-6xl mx-auto px-4 py-20">
@@ -247,27 +293,6 @@ const Index = () => {
               </Link>
             </div>
           </div>
-          
-          <div className="mt-16 bg-white/40 dark:bg-slate-900/40 rounded-[3rem] p-8 md:p-12 border border-white/50 text-center">
-            <h3 className="text-2xl font-black mb-6">Popular Localities in India</h3>
-            <div className="flex flex-wrap justify-center gap-3">
-              {["Visakhapatnam", "Hyderabad", "Bengaluru", "Chennai", "Kochi", "Vijayawada", "Guntur", "Warangal", "Mumbai", "Delhi"].map(city => (
-                <button 
-                  key={city}
-                  onClick={() => {
-                    localStorage.setItem('user_location_name', city);
-                    navigate('/browse');
-                  }}
-                  className="px-6 py-2 rounded-full glass border border-border/10 text-sm font-bold hover:bg-primary hover:text-white transition-all"
-                >
-                  {city}
-                </button>
-              ))}
-            </div>
-            <p className="mt-8 text-sm text-muted-foreground leading-relaxed max-w-3xl mx-auto">
-              BellBasket is expanding across India to help local vendors reach customers digitally. We are currently live in the states of Andhra Pradesh, Telangana, Karnataka, and Tamil Nadu. Our platform bridges the gap between traditional kirana stores and the modern online shopper, ensuring <strong>fast delivery</strong> and <strong>secure payments</strong>.
-            </p>
-          </div>
         </div>
       </section>
 
@@ -404,7 +429,7 @@ const Index = () => {
               <li><Link to="/terms" className="text-sm text-muted-foreground hover:text-primary transition-colors">Terms & Conditions</Link></li>
               <li><Link to="/auth" className="text-sm text-muted-foreground hover:text-primary transition-colors">Sign In</Link></li>
               <li><Link to="/auth?role=vendor" className="text-sm text-muted-foreground hover:text-primary transition-colors">Become a Vendor</Link></li>
-              <li><a href="mailto:contact.belllbasket1@gmail.com" className="text-sm text-muted-foreground hover:text-primary transition-colors">Contact Us</a></li>
+              <li><Link to="/support" className="text-sm text-muted-foreground hover:text-primary transition-colors">Contact Us</Link></li>
             </ul>
           </div>
           <div>
@@ -428,3 +453,5 @@ const Index = () => {
 };
 
 export default Index;
+
+

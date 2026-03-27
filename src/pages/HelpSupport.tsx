@@ -52,10 +52,10 @@ const HelpSupport = () => {
                         We are here to help! For any questions or assistance, please reach out to our official support email.
                     </p>
 
-                    <div className="bg-gradient-to-br from-primary/5 to-purple-500/5 p-8 rounded-3xl border border-primary/10 shadow-lg" onClick={() => window.location.href = "mailto:contact.belllbasket1@gmail.com"}>
+                    <div className="bg-gradient-to-br from-primary/5 to-purple-500/5 p-8 rounded-3xl border border-primary/10 shadow-lg" onClick={() => window.location.href = "mailto:contact@bellbasket.com"}>
                         <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground mb-3">Official Support Email</p>
-                        <a href="mailto:contact.belllbasket1@gmail.com" className="text-xl md:text-2xl font-black text-primary hover:underline break-all">
-                            contact.belllbasket1@gmail.com
+                        <a href="mailto:contact@bellbasket.com" className="text-xl md:text-2xl font-black text-primary hover:underline break-all">
+                            contact@bellbasket.com
                         </a>
                     </div>
                 </div>
@@ -66,7 +66,7 @@ const HelpSupport = () => {
                         Quick Topics
                     </h3>
                     {['Account Recovery', 'Payment Issues', 'Vendor Verification', 'Bug Report'].map(topic => (
-                        <div key={topic} className="p-4 rounded-xl border border-border flex items-center justify-between hover:bg-secondary/50 cursor-pointer transition-colors group" onClick={() => window.location.href = "mailto:contact.belllbasket1@gmail.com?subject=" + encodeURIComponent(topic)}>
+                        <div key={topic} className="p-4 rounded-xl border border-border flex items-center justify-between hover:bg-secondary/50 cursor-pointer transition-colors group" onClick={() => window.location.href = "mailto:contact@bellbasket.com?subject=" + encodeURIComponent(topic)}>
                             <span className="font-medium text-sm group-hover:text-primary transition-colors">{topic}</span>
                             <ExternalLink className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
                         </div>
@@ -82,3 +82,4 @@ const HelpSupport = () => {
 };
 
 export default HelpSupport;
+

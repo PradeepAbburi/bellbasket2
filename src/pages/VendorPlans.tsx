@@ -2,15 +2,17 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Crown, Check, ArrowRight, Star, ShieldCheck, Zap, Sparkles, Building2, CreditCard, Lock, Loader2, X, Shield, Ticket, Calendar, Gift } from 'lucide-react';
 import Header from '@/components/Header';
-import { useApp } from '@/context/appStore';
+import { useApp } from '@/context/AppContext';
 import { toast } from 'sonner';
 import { db, auth } from '@/lib/firebase';
 import { collection, query, where, getDocs, doc, updateDoc, getDoc } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 
 const VendorPlans = () => {
-    const { user, updatePlan } = useApp();
+    const { user, updatePlan, stores } = useApp();
     const navigate = useNavigate();
+    const isServiceStore = stores?.find(s => s.vendorId === user?.id)?.storeType === 'service';
+
     const [selectedPlan, setSelectedPlan] = useState<any>(null);
     const [showPayment, setShowPayment] = useState(false);
     const [processing, setProcessing] = useState(false);
@@ -42,25 +44,106 @@ const VendorPlans = () => {
         }
     }, []);
 
-    const plans = [
+    type PricingPlan = {
+        id: string;
+        tier: string;
+        months: number;
+        name: string;
+        price: string;
+        period: string;
+        description: string;
+        icon: any;
+        color: string;
+        popular?: boolean;
+        features: string[];
+        discount?: string;
+        originalPrice?: string;
+    };
+
+    const productPlans: PricingPlan[] = [
+        {
+            id: 'basic',
+            tier: 'basic',
+            months: 1,
+            name: 'Basic Plan',
+            price: '₹99',
+            period: 'for 1 month',
+            description: 'For small shops and local sellers.',
+            icon: Building2,
+            color: 'from-orange-700/50 to-orange-900/50',
+            features: [
+                '30 Product Listings',
+                'Store listing in locality',
+                'Digital Inventory',
+                'Order management',
+                'Pickup order system',
+                'Basic sales history',
+                'Customer phone visibility'
+            ]
+        },
+        {
+            id: 'growth',
+            tier: 'growth',
+            months: 1,
+            name: 'Growth Plan',
+            price: '₹199',
+            period: 'for 1 month',
+            description: 'For stores that want more visibility.',
+            icon: Zap,
+            color: 'from-blue-500 to-indigo-600',
+            popular: true,
+            features: [
+                'Everything in Basic +',
+                '60 Product Listings',
+                'Higher ranking in search',
+                '“Featured Store” badge',
+                'Sales analytics (graphs)',
+                'Priority Support (support@bellbasket.com)',
+                'Custom store timings'
+            ]
+        },
+        {
+            id: 'pro',
+            tier: 'pro',
+            months: 1,
+            name: 'Pro Plan',
+            price: '₹399',
+            period: 'for 1 month',
+            description: 'For serious supermarkets.',
+            icon: Crown,
+            color: 'from-amber-400 to-yellow-600',
+            features: [
+                'Everything in Growth +',
+                'Unlimited Product Listings',
+                'Highlighted listing at top',
+                'Sponsored placement',
+                'Store Branding (Logo)',
+                'Customer repeat analytics',
+                'Exportable sales reports',
+                'Custom discount tags'
+            ]
+        }
+    ];
+
+    const servicePlans: PricingPlan[] = [
         {
             id: 'monthly',
             tier: 'pro',
             months: 1,
             name: 'Monthly Pro',
-            price: '₹199',
+            price: '₹399',
             period: 'for 1 month',
             description: 'Essential tools for your digital store.',
             icon: Zap,
             color: 'from-blue-500 to-indigo-600',
             features: [
-                'Unlimited Product Listings',
+                'Unlimited Service Listings',
                 'Featured Store Badge',
                 'Priority Local Ranking',
                 'Sales Analytics & Graphs',
                 'Customer repeat analytics',
                 'Store Branding (Logo/Watermark)',
-                'Priority Support'
+                'Priority Support (support@bellbasket.com)'
             ]
         },
         {
@@ -68,8 +151,8 @@ const VendorPlans = () => {
             tier: 'pro',
             months: 6,
             name: '6 Months Pro',
-            price: '₹999',
-            originalPrice: '₹1194',
+            price: '₹1999',
+            originalPrice: '₹2394',
             period: 'for 6 months',
             discount: 'Save 16%',
             description: 'Best for growing businesses looking for stability.',
@@ -82,7 +165,7 @@ const VendorPlans = () => {
                 'Locked-in Rate',
                 'Premium "Verified" Badge',
                 'Custom Discount Tags',
-                'Exportable Sales Reports (PDF)',
+                'Exportable Appointment Reports',
                 'Advanced SEO visibility'
             ]
         },
@@ -91,11 +174,11 @@ const VendorPlans = () => {
             tier: 'pro',
             months: 12,
             name: 'Annual Pro',
-            price: '₹1799',
-            originalPrice: '₹2388',
+            price: '₹3599',
+            originalPrice: '₹4788',
             period: 'for 12 months',
             discount: 'Save 25%',
-            description: 'Maximum value for serious supermarkets.',
+            description: 'Maximum value for serious businesses.',
             icon: Sparkles,
             color: 'from-purple-500 to-pink-600',
             features: [
@@ -109,6 +192,9 @@ const VendorPlans = () => {
             ]
         }
     ];
+
+    const plans = isServiceStore ? servicePlans : productPlans;
+
 
     const handlePayment = async () => {
         if (!selectedPlan || !user) return;
@@ -397,9 +483,9 @@ const VendorPlans = () => {
                             animate={{ scale: 1, opacity: 1 }}
                             exit={{ scale: 0.95, opacity: 0 }}
                             onClick={e => e.stopPropagation()}
-                            className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl relative"
+                            className="glass-strong rounded-[2rem] p-8 max-w-sm w-full shadow-2xl relative overflow-hidden"
                         >
-                            <div className="absolute top-0 left-0 right-0 h-2 gradient-primary rounded-t-3xl" />
+                            <div className={`absolute top-0 left-0 right-0 h-2 bg-gradient-to-r ${selectedPlan.color} rounded-t-[2rem]`} />
                             <button onClick={() => setShowPayment(false)} className="absolute top-4 right-4 p-2 hover:bg-secondary rounded-full">
                                 <X className="w-5 h-5 text-muted-foreground" />
                             </button>

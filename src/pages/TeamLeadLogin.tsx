@@ -2,12 +2,14 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { db } from "@/lib/firebase";
 import { collection, query, where, getDocs } from "firebase/firestore";
-import { UserCircle, Loader2, ArrowLeft, Eye, EyeOff } from "lucide-react";
+import { UserCircle, Loader2, ArrowLeft, Eye, EyeOff, Sun, Moon } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
+import { useApp } from "@/context/AppContext";
 import Header from "@/components/Header";
 
 const TeamLeadLogin = () => {
+    const { theme, toggleTheme } = useApp();
     const [loginId, setLoginId] = useState("");
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
@@ -82,7 +84,7 @@ const TeamLeadLogin = () => {
                 // Check if they are trying to use Admin credentials on the Staff page
                 const isAdminCreds = (trimmedLoginId.toLowerCase() === 'ceo@bellbasket.com' && trimmedPassword === 'Pradeep@123') ||
                                      (trimmedLoginId.toLowerCase() === 'hr@bellbasket.com' && trimmedPassword === 'Vortex@hr') ||
-                                     ((trimmedLoginId.toLowerCase() === 'contact.bellbasket1@gmail.com' || trimmedLoginId.toLowerCase() === 'contact.belllbasket1@gmail.com') && trimmedPassword === 'admin123');
+                                     (trimmedLoginId.toLowerCase() === 'contact@bellbasket.com' && trimmedPassword === 'admin123');
 
                 if (isAdminCreds) {
                     toast.error("Administrative Login Detected", {
@@ -116,6 +118,15 @@ const TeamLeadLogin = () => {
                     animate={{ opacity: 1, scale: 1 }}
                     className="glass-strong rounded-[40px] p-8 sm:p-12 w-full max-w-lg shadow-2xl border-white/20 relative overflow-hidden"
                 >
+                    {/* Theme Toggle Button */}
+                    <div className="absolute top-6 right-6 z-50">
+                        <button
+                            onClick={toggleTheme}
+                            className="w-10 h-10 rounded-xl glass flex items-center justify-center text-foreground hover:bg-primary/10 transition-all border border-white/20"
+                        >
+                            {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-primary" />}
+                        </button>
+                    </div>
                     <div className="absolute top-0 right-0 p-8 opacity-10">
                         <UserCircle className="w-32 h-32" />
                     </div>
@@ -136,7 +147,7 @@ const TeamLeadLogin = () => {
                                 value={loginId}
                                 onChange={(e) => setLoginId(e.target.value)}
                                 placeholder="Required"
-                                className="w-full px-6 py-5 rounded-2xl bg-white/60 border border-border outline-none focus:ring-4 focus:ring-primary/10 font-bold transition-all text-lg"
+                                className="w-full px-6 py-4 sm:py-5 rounded-2xl bg-white/60 border border-border outline-none focus:ring-4 focus:ring-primary/10 font-bold transition-all text-lg"
                             />
                         </div>
                         <div className="space-y-2 relative">
@@ -146,7 +157,7 @@ const TeamLeadLogin = () => {
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 placeholder="••••••••"
-                                className="w-full px-6 py-5 rounded-2xl bg-white/60 border border-border outline-none focus:ring-4 focus:ring-primary/10 font-bold transition-all text-lg pr-16"
+                                className="w-full px-6 py-4 sm:py-5 rounded-2xl bg-white/60 border border-border outline-none focus:ring-4 focus:ring-primary/10 font-bold transition-all text-lg pr-16"
                             />
                             <button
                                 type="button"
@@ -182,3 +193,4 @@ const TeamLeadLogin = () => {
 };
 
 export default TeamLeadLogin;
+

@@ -105,8 +105,8 @@ const PrivacyPolicy = () => {
                             </p>
                             <p className="text-sm text-muted-foreground">
                                 If you have any questions or concerns, please reach out to us at{' '}
-                                <a href="mailto:contact.belllbasket1@gmail.com" className="text-primary font-black hover:underline tracking-tight">
-                                    contact.belllbasket1@gmail.com
+                                <a href="mailto:contact@bellbasket.com" className="text-primary font-black hover:underline tracking-tight">
+                                    contact@bellbasket.com
                                 </a>
                             </p>
                         </div>
@@ -119,3 +119,4 @@ const PrivacyPolicy = () => {
 
 
 export default PrivacyPolicy;
+

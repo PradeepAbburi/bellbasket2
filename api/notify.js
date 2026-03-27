@@ -97,7 +97,7 @@ export default async function handler(req, res) {
 
     const protocol = req.headers['x-forwarded-proto'] || 'https';
     const host = req.headers.host;
-    const absoluteBase = `${protocol}://${host}`;
+    const absoluteBase = process.env.APP_URL || `${protocol}://${host}`;
     const fullWebUrl = dataUrl.startsWith('http') ? dataUrl : `${absoluteBase}${dataUrl}`;
 
     const notificationPayload = {
@@ -105,7 +105,6 @@ export default async function handler(req, res) {
       // Target by both specific subscription IDs and the user's unique Firestore ID (External ID)
       // This provides a robust fallback if the subscription ID has changed in the browser.
       include_subscription_ids: validOneSignalIds,
-      include_player_ids: validOneSignalIds, 
       include_external_user_ids: [vendorId], 
       headings: { 
         en: title || (notificationType === 'booking' ? 'New Booking!' : 'New Order!') 

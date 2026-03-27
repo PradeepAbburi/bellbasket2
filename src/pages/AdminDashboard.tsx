@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useApp } from "@/context/appStore";
+import { useApp } from "@/context/AppContext";
 import { useNavigate } from "react-router-dom";
 import { db, auth } from "@/lib/firebase";
 import { collection, getDocs, query, orderBy, limit, onSnapshot, doc, updateDoc, addDoc, serverTimestamp, setDoc, writeBatch, getDoc, deleteDoc } from "firebase/firestore";
@@ -307,7 +307,7 @@ const AdminDashboard = () => {
                 } catch (e) { console.error("Local ticket parse error", e); }
             }
 
-            const seedEmail = 'contact.bellbasket1@gmail.com';
+            const seedEmail = 'contact@bellbasket.com';
             if (!parsed.some((t: any) => t.userEmail === seedEmail)) {
                 const seedTicket = {
                     id: 'local-seed-' + Date.now(),
@@ -719,7 +719,7 @@ const AdminDashboard = () => {
                             { id: 'referrals', label: 'Staff', icon: UserCircle },
                             { id: 'analytics', label: 'Analytics', icon: BarChart2 },
                         ].filter(tab => user?.role === 'admin' || tab.id === 'referrals').map((tab) => (
-                            <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all whitespace-nowrap ${activeTab === tab.id ? 'bg-white text-primary shadow-lg scale-105' : 'text-muted-foreground hover:text-foreground hover:bg-white/50'}`}>
+                            <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all whitespace-nowrap ${activeTab === tab.id ? 'bg-white text-primary shadow-lg scale-105' : 'text-muted-foreground hover:text-foreground hover:bg-white/05'}`}>
                                 <tab.icon className="w-4 h-4" /> {tab.label}
                             </button>
                         ))}
@@ -1460,3 +1460,6 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
+
+
+

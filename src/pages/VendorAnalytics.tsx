@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { TrendingUp, Users, ShoppingBag, DollarSign, ArrowUpRight, ArrowDownRight, BarChart3, PieChart, Activity, Calendar, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import Header from '@/components/Header';
-import { useApp } from '@/context/appStore';
+import { useApp } from '@/context/AppContext';
 
 const VendorAnalytics = () => {
     const { user, orders: allOrders } = useApp();

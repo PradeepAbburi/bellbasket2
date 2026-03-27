@@ -1,19 +1,19 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bell, BellRing, X, ShieldCheck, Zap } from 'lucide-react';
+import { BellRing, X, Sparkles, ShieldCheck } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { initAudio } from '@/utils/notifications';
 
 const NotificationPrompt = () => {
   const { user, orders, serviceBookings, requestPushNotifications } = useApp();
   const [show, setShow] = useState(false);
+  const [permission, setPermission] = useState<string>(
+    typeof Notification !== 'undefined' ? Notification.permission : 'granted'
+  );
 
   useEffect(() => {
-    // Only show to logged in users
-    if (!user) return;
-
-    // Check if notifications are already granted or denied
-    if (!("Notification" in window) || Notification.permission !== 'default') {
+    // Check if notifications are already asked
+    if (typeof Notification === 'undefined' || Notification.permission !== 'default') {
       return;
     }
 
@@ -22,16 +22,15 @@ const NotificationPrompt = () => {
       return;
     }
 
-    // Important context check:
-    // Show if they are a vendor (needs orders) 
-    // OR if they are an admin 
-    // OR if they are a customer with active orders
+    if (!user) return;
+
+    // Show if they are a vendor 
+    // OR if they have active orders/bookings
     const hasActiveOrders = orders.some(o => !['completed', 'rejected'].includes(o.status));
     const hasActiveBookings = serviceBookings.some(b => !['completed', 'rejected'].includes(b.status));
     
     if (user.role === 'vendor' || user.role === 'admin' || hasActiveOrders || hasActiveBookings) {
-      // Small delay for better UX
-      const timer = setTimeout(() => setShow(true), 3000);
+      const timer = setTimeout(() => setShow(true), 4000);
       return () => clearTimeout(timer);
     }
   }, [user, orders, serviceBookings]);
@@ -39,79 +38,81 @@ const NotificationPrompt = () => {
   const handleEnable = async () => {
     initAudio();
     await requestPushNotifications();
-    setShow(false);
+    sessionStorage.setItem('notification_prompt_dismissed', 'true');
+    if (typeof Notification !== 'undefined') {
+      setPermission(Notification.permission);
+      if (Notification.permission === 'granted') {
+        setShow(false);
+      }
+    }
   };
 
   const handleDismiss = () => {
-    sessionStorage.setItem('notification_prompt_dismissed', 'true');
     setShow(false);
+    sessionStorage.setItem('notification_prompt_dismissed', 'true');
   };
 
   return (
     <AnimatePresence>
       {show && (
-        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4 pointer-events-none">
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-background/40 backdrop-blur-[2px] pointer-events-auto"
-            onClick={handleDismiss}
-          />
-          
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9, y: 50 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 50 }}
-            className="relative w-full max-w-sm glass-strong rounded-[2.5rem] p-6 shadow-2xl pointer-events-auto border border-white/20 bg-white/95 dark:bg-slate-900/95"
-          >
+        <motion.div
+          initial={{ opacity: 0, y: 100, scale: 0.9 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 100, scale: 0.9 }}
+          className="fixed bottom-24 left-4 right-4 z-[999] md:left-auto md:right-8 md:w-96"
+        >
+          <div className="bg-white dark:bg-[#1A1A1A] rounded-[2.5rem] p-8 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] border border-primary/20 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:scale-110 transition-transform duration-700">
+              <BellRing className="w-32 h-32" />
+            </div>
+            
             <button 
               onClick={handleDismiss}
-              className="absolute top-4 right-4 p-2.5 rounded-full hover:bg-secondary/80 text-muted-foreground transition-colors"
+              className="absolute top-6 right-6 p-2 rounded-full hover:bg-secondary/80 text-muted-foreground transition-colors"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4" />
             </button>
 
-            <div className="flex flex-col items-center text-center space-y-6">
-              <div className="relative">
-                <div className="w-20 h-20 rounded-3xl bg-primary/10 flex items-center justify-center">
-                  <BellRing className="w-10 h-10 text-primary animate-bounce shadow-primary/20" />
+            <div className="space-y-6 relative z-10">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-[1.5rem] bg-primary/10 flex items-center justify-center shrink-0">
+                  <BellRing className="w-8 h-8 text-primary animate-bounce-gentle" />
                 </div>
-                <div className="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-accent flex items-center justify-center text-white border-4 border-background shadow-lg">
-                  <Zap className="w-4 h-4 fill-current" />
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-primary bg-primary/10 px-2 py-0.5 rounded-full">Recommended</span>
+                    <Sparkles className="w-3 h-3 text-amber-500 animate-pulse" />
+                  </div>
+                  <h3 className="text-xl font-black text-foreground uppercase tracking-tight">Stay Alerts Ready</h3>
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <h2 className="text-2xl font-black text-foreground tracking-tight">Stay Updated</h2>
-                <p className="text-sm text-muted-foreground leading-relaxed px-4">
-                  Enable push notifications to receive real-time updates on your <span className="text-foreground font-bold italic">orders, status changes, and critical alerts.</span>
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground font-medium leading-relaxed">
+                  Get instant push notifications for every new order. Don't miss a beat!
                 </p>
+                <div className="flex items-center gap-2 text-[10px] font-bold text-emerald-500 bg-emerald-500/5 px-3 py-1.5 rounded-xl w-fit">
+                  <ShieldCheck className="w-3 h-3" /> Real-time Order Tracking Enabled
+                </div>
               </div>
 
-              <div className="flex flex-col w-full gap-3 pt-2">
+              <div className="flex flex-col gap-3 pt-2">
                 <button
                   onClick={handleEnable}
-                  className="w-full gradient-primary text-white py-4 rounded-2xl font-bold shadow-lg shadow-primary/25 hover:shadow-primary/40 active:scale-95 transition-all flex items-center justify-center gap-2"
+                  className="w-full py-4 rounded-2xl gradient-primary text-white font-black text-xs uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all"
                 >
-                  Enable Notifications <ShieldCheck className="w-5 h-5" />
+                  Allow Notifications
                 </button>
                 <button
                   onClick={handleDismiss}
-                  className="w-full py-3 rounded-xl text-xs font-bold text-muted-foreground hover:text-foreground transition-colors"
+                  className="w-full py-3 rounded-2xl bg-secondary/50 text-muted-foreground font-bold text-xs uppercase tracking-widest hover:bg-secondary transition-all"
                 >
-                  Maybe later
+                  Maybe Later
                 </button>
               </div>
-
-              <div className="flex items-center gap-2 text-[10px] text-muted-foreground/60 uppercase tracking-widest font-black">
-                <div className="w-1 h-1 rounded-full bg-muted-foreground/30" />
-                Safe & Secure Delivery Updates
-                <div className="w-1 h-1 rounded-full bg-muted-foreground/30" />
-              </div>
             </div>
-          </motion.div>
-        </div>
+          </div>
+        </motion.div>
       )}
     </AnimatePresence>
   );

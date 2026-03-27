@@ -1,4 +1,4 @@
-import { useApp } from '@/context/appStore';
+import { useApp } from '@/context/AppContext';
 import { useNavigate } from 'react-router-dom';
 import { User, Mail, Shield, LogOut, ChevronRight, MapPin, Bell, BellRing, Phone, Lock, Edit2, CheckCircle2, X, Loader2, Sparkles, Crown, Zap, Building2, KeyRound, HelpCircle, Languages, Search, Image as ImageIcon, Camera, Upload, Clock, FileText, Eye, EyeOff, XCircle, Moon, Sun } from 'lucide-react';
 import Header from '@/components/Header';
@@ -24,6 +24,9 @@ const Profile = () => {
     const [showLanguageSettings, setShowLanguageSettings] = useState(false);
     const [editing, setEditing] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const [notificationPermission, setNotificationPermission] = useState<string>(
+        typeof Notification !== 'undefined' ? Notification.permission : 'default'
+    );
     const [showStoreSettings, setShowStoreSettings] = useState(false);
     const [tempBanner, setTempBanner] = useState('');
     const [availableTimeSlots, setAvailableTimeSlots] = useState<string[]>([]);
@@ -40,6 +43,15 @@ const Profile = () => {
             setAvailableTimeSlots(vendorStore.availableTimeSlots);
         }
     }, [vendorStore]);
+
+    useEffect(() => {
+        if (typeof Notification === 'undefined') return;
+        const checkPermission = () => {
+            setNotificationPermission(Notification.permission);
+        };
+        window.addEventListener('focus', checkPermission);
+        return () => window.removeEventListener('focus', checkPermission);
+    }, []);
 
     // Profile Edit State
     const [newName, setNewName] = useState(user?.name || '');
@@ -262,7 +274,7 @@ const Profile = () => {
 
                     <div
                         onClick={() => setShowEditProfile(true)}
-                        className="glass rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:bg-white/40 transition-colors group"
+                        className="glass rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:bg-white/05 transition-colors group"
                     >
                         <div className="flex items-center gap-4">
                             <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -278,7 +290,7 @@ const Profile = () => {
 
                     <div
                         onClick={() => setShowChangePassword(true)}
-                        className="glass rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:bg-white/40 transition-colors group"
+                        className="glass rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:bg-white/05 transition-colors group"
                     >
                         <div className="flex items-center gap-4">
                             <div className="w-10 h-10 rounded-xl bg-destructive/10 flex items-center justify-center">
@@ -294,7 +306,7 @@ const Profile = () => {
 
                     <div
                         onClick={() => navigate('/support')}
-                        className="glass rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:bg-white/40 transition-colors group"
+                        className="glass rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:bg-white/05 transition-colors group"
                     >
                         <div className="flex items-center gap-4">
                             <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center">
@@ -311,7 +323,7 @@ const Profile = () => {
 
                     <div
                         onClick={() => setShowLanguageSettings(true)}
-                        className="glass rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:bg-white/40 transition-colors group"
+                        className="glass rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:bg-white/05 transition-colors group"
                     >
                         <div className="flex items-center gap-4">
                             <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center">
@@ -327,11 +339,11 @@ const Profile = () => {
 
                     <div
                         onClick={toggleTheme}
-                        className="glass rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:bg-white/40 transition-colors group"
+                        className="glass rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:bg-white/05 transition-colors group"
                     >
                         <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-xl bg-slate-500/10 flex items-center justify-center">
-                                {theme === 'dark' ? <Moon className="w-5 h-5 text-slate-800" /> : <Sun className="w-5 h-5 text-orange-500" />}
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${theme === 'dark' ? 'bg-indigo-500/10' : 'bg-orange-500/10'}`}>
+                                {theme === 'dark' ? <Moon className="w-5 h-5 text-indigo-400" /> : <Sun className="w-5 h-5 text-orange-500" />}
                             </div>
                             <div>
                                 <p className="text-sm font-bold text-foreground">Dark Theme</p>
@@ -343,25 +355,32 @@ const Profile = () => {
                         </div>
                     </div>
 
-                    <div
-                        onClick={requestPushNotifications}
-                        className="glass rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:bg-white/40 transition-colors group"
-                    >
-                        <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                                <BellRing className="w-5 h-5 text-primary" />
+                    {notificationPermission !== 'granted' && (
+                        <div
+                            onClick={async () => {
+                                await requestPushNotifications();
+                                if (typeof Notification !== 'undefined') {
+                                    setNotificationPermission(Notification.permission);
+                                }
+                            }}
+                            className="glass rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:bg-white/05 transition-colors group"
+                        >
+                            <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                                    <BellRing className="w-5 h-5 text-primary" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-bold text-foreground">Turn On Notifications</p>
+                                    <p className="text-xs text-muted-foreground">Tap to receive instant alerts</p>
+                                </div>
                             </div>
-                            <div>
-                                <p className="text-sm font-bold text-foreground">Push Notifications</p>
-                                <p className="text-xs text-muted-foreground">Enable alerts for new orders</p>
-                            </div>
+                            <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
                         </div>
-                        <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
-                    </div>
+                    )}
 
                     <div
                         onClick={() => navigate('/privacy')}
-                        className="glass rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:bg-white/40 transition-colors group"
+                        className="glass rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:bg-white/05 transition-colors group"
                     >
                         <div className="flex items-center gap-4">
                             <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center">
@@ -377,7 +396,7 @@ const Profile = () => {
 
                     <div
                         onClick={() => navigate('/terms')}
-                        className="glass rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:bg-white/40 transition-colors group"
+                        className="glass rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:bg-white/05 transition-colors group"
                     >
                         <div className="flex items-center gap-4">
                             <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
@@ -394,7 +413,7 @@ const Profile = () => {
                     {user.role === 'vendor' && (
                         <div
                             onClick={() => setShowStoreSettings(true)}
-                            className="glass rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:bg-white/40 transition-colors group"
+                            className="glass rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:bg-white/05 transition-colors group"
                         >
                             <div className="flex items-center gap-4">
                                 <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
@@ -413,15 +432,15 @@ const Profile = () => {
                 {/* Sign Out */}
                 <button
                     onClick={() => { logout(); navigate('/'); }}
-                    className="w-full glass rounded-2xl p-4 flex items-center justify-between text-destructive hover:bg-destructive/10 transition-colors group"
+                    className="w-full bg-white dark:bg-white rounded-2xl p-4 flex items-center justify-between text-red-600 hover:bg-red-50 transition-colors group shadow-sm border border-red-100"
                 >
                     <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-destructive/10 flex items-center justify-center">
-                            <LogOut className="w-5 h-5" />
+                        <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center">
+                            <LogOut className="w-5 h-5 text-red-600" />
                         </div>
-                        <p className="text-sm font-bold">{t('common.logout')}</p>
+                        <p className="text-sm font-bold">Sign Out</p>
                     </div>
-                    <ChevronRight className="w-5 h-5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <ChevronRight className="w-5 h-5 text-red-300 group-hover:text-red-600 transition-colors" />
                 </button>
             </main>
 
@@ -672,3 +691,5 @@ const Profile = () => {
 };
 
 export default Profile;
+
+

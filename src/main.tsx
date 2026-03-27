@@ -3,11 +3,14 @@ import App from "./App.tsx";
 import "./index.css";
 import "./i18n";
 
+
+// Critical: Clear any existing Service Workers to resolve OneSignal/Firebase conflicts
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/firebase-messaging-sw.js')
-      .then(reg => console.log('SW Registered', reg))
-      .catch(err => console.log('SW Registration Failed', err));
+  navigator.serviceWorker.getRegistrations().then(registrations => {
+    for (const registration of registrations) {
+      if (registration.active?.scriptURL.includes('OneSignalSDKWorker.js')) continue;
+      registration.unregister().then(() => console.log('Cleaned old SW:', registration.scope));
+    }
   });
 }
 

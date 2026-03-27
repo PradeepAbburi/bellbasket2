@@ -11,6 +11,7 @@ const TEAM_MEMBERS = [
         image: '/assets/team/pradeep.png',
         icon: Zap,
         color: 'bg-amber-500',
+        email: 'pradeep.abburi@bellbasket.com',
         linkedin: 'https://www.linkedin.com/in/pradeep-abburi-a88929252/',
         x: 'https://x.com/'
     },
@@ -20,6 +21,7 @@ const TEAM_MEMBERS = [
         bio: 'Strategic lead for market expansion and brand growth. Focused on building a hyper-local ecosystem that connects millions of customers with local creators.',
         icon: Code2,
         color: 'bg-blue-500',
+        email: 'afrid.basha@bellbasket.com',
         linkedin: 'https://www.linkedin.com/in/mohammed-afrid-basha-a47876292/',
         x: 'https://x.com/'
     }
@@ -98,23 +100,35 @@ const Leadership = () => {
                             </p>
 
                             <div className="flex items-center gap-4 pt-2 relative z-10">
+                                {member.email && (
+                                    <a 
+                                        href={`mailto:${member.email}`}
+                                        className="p-2 rounded-xl bg-secondary hover:bg-primary/10 hover:text-primary transition-colors cursor-pointer"
+                                    >
+                                        <Mail className="w-4 h-4" />
+                                    </a>
+                                )}
                                 {member.linkedin && (
-                                    <button 
-                                        onClick={() => window.open(member.linkedin, '_blank')}
+                                    <a 
+                                        href={member.linkedin}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
                                         className="p-2 rounded-xl bg-secondary hover:bg-primary/10 hover:text-primary transition-colors cursor-pointer"
                                     >
                                         <Linkedin className="w-4 h-4" />
-                                    </button>
+                                    </a>
                                 )}
                                 {member.x && (
-                                    <button 
-                                        onClick={() => window.open(member.x, '_blank')}
-                                        className="p-2 rounded-xl bg-secondary hover:bg-primary/10 hover:text-primary transition-colors h-8 w-8 flex items-center justify-center"
+                                    <a 
+                                        href={member.x}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="p-2 rounded-xl bg-secondary hover:bg-primary/10 hover:text-primary transition-colors h-8 w-8 flex items-center justify-center cursor-pointer"
                                     >
                                         <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current">
                                             <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
                                         </svg>
-                                    </button>
+                                    </a>
                                 )}
                             </div>
                         </motion.div>

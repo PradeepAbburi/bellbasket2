@@ -42,12 +42,10 @@ export const initAudio = async () => {
 
         if (!sharedAudioCtx) {
             sharedAudioCtx = new AudioContextClass();
-            console.log('🔊 [Audio] New context created');
         }
 
         if (sharedAudioCtx.state === 'suspended') {
             await sharedAudioCtx.resume();
-            console.log('🔊 [Audio] Context resumed');
         }
 
         // 🌡️ Hardware Priming: Play a short, silent buffer to wake up the DAC on mobile
@@ -58,7 +56,10 @@ export const initAudio = async () => {
         source.connect(sharedAudioCtx.destination);
         source.start(0);
         
-        console.log('🔊 [Audio] Primed and Ready. Status:', sharedAudioCtx.state);
+        if (!isAudioPrimed) {
+            isAudioPrimed = true;
+            console.log('🔊 [Audio] System Primed and Ready');
+        }
         notifyListeners();
     } catch (e) {
         console.warn('❌ [Audio] Init failed:', e);
@@ -174,19 +175,13 @@ export const sendInAppNotification = async (
             read: false
         };
 
-        // If an ID (orderId/bookingId) is provided, use a deterministic doc ID 
-        // to prevent duplicate notification entries for the same order/booking status updates.
-        // This ensures the user only sees the LATEST update for a given order.
-        if (notification.id) {
-            const customId = `notif_${targetUserId}_${notification.id}_${notification.type || 'order'}`;
-            await setDoc(doc(db, 'notifications', customId), notificationData);
-            console.log(`[Notification] In-app alert updated/set for order/booking ${notification.id}`);
-        } else {
-            await addDoc(collection(db, 'notifications'), notificationData);
-            console.log(`[Notification] In-app alert queued for user ${targetUserId}`);
-        }
+        // Send as a new document each time to bypass update permissions restrictors 
+        // and ensure the customer gets a historical record of status updates.
+        await addDoc(collection(db, 'notifications'), notificationData);
+        console.log(`[Notification] In-app alert queued for user ${targetUserId} (Type: ${notification.type})`);
 
-        // Also trigger Push Notification (FCM) via backend
+        // Attempt push notification via backend. 
+        // Note: This 404s on local 'npm run dev' unless a backend server is running on port 8080.
         fetch('/api/notify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

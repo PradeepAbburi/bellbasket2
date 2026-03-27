@@ -27,6 +27,8 @@ interface SortOptionsProps {
   ratingSort?: 'none' | 'top-rated' | 'low-rated';
   onRatingSortChange?: (value: 'none' | 'top-rated' | 'low-rated') => void;
   showRating?: boolean;
+  maxDistance?: number;
+  onMaxDistanceChange?: (value: number) => void;
 }
 
 const SortOptions: React.FC<SortOptionsProps> = ({
@@ -34,7 +36,9 @@ const SortOptions: React.FC<SortOptionsProps> = ({
   onPriceSortChange,
   ratingSort,
   onRatingSortChange,
-  showRating = false
+  showRating = false,
+  maxDistance = 20,
+  onMaxDistanceChange
 }) => {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
@@ -111,6 +115,28 @@ const SortOptions: React.FC<SortOptionsProps> = ({
             ))}
           </div>
         </section>
+
+        {onMaxDistanceChange && (
+          <section className="bg-secondary/5 p-4 rounded-xl border border-border/20 space-y-3">
+             <div className="flex items-center justify-between">
+               <label className="text-[8px] font-black uppercase tracking-[0.2em] text-primary block">Search Range</label>
+               <span className="text-[10px] font-black text-primary bg-primary/10 px-2 py-0.5 rounded-full">{maxDistance}km</span>
+             </div>
+             <input 
+               type="range"
+               min="3"
+               max="20"
+               step="1"
+               value={maxDistance}
+               onChange={(e) => onMaxDistanceChange(parseInt(e.target.value))}
+               className="w-full h-1.5 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary"
+             />
+             <div className="flex justify-between text-[7px] font-black text-muted-foreground uppercase tracking-widest px-1">
+               <span>3km</span>
+               <span>20km</span>
+             </div>
+          </section>
+        )}
 
         {showRating && onRatingSortChange && (
           <section>
@@ -194,6 +220,25 @@ const SortOptions: React.FC<SortOptionsProps> = ({
             ))}
           </div>
         </section>
+
+        {onMaxDistanceChange && (
+          <section className="px-3 py-2 space-y-2 bg-primary/5 mx-1 rounded-lg border border-primary/10">
+            <div className="flex items-center justify-between pointer-events-none">
+               <label className="text-[8px] font-black uppercase tracking-widest text-primary/70">Distance Range</label>
+               <span className="text-[10px] font-black text-primary">{maxDistance}km</span>
+            </div>
+            <input 
+              type="range"
+              min="3"
+              max="20"
+              step="1"
+              value={maxDistance}
+              onChange={(e) => onMaxDistanceChange(parseInt(e.target.value))}
+              onMouseDown={(e) => e.stopPropagation()}
+              className="w-full h-1 bg-primary/20 rounded-lg appearance-none cursor-pointer accent-primary"
+            />
+          </section>
+        )}
 
         {showRating && onRatingSortChange && (
           <section>

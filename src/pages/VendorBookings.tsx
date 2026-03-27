@@ -1,10 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Check, Calendar, Phone, MapPin, X, Loader2, KeyRound, Navigation, Trash2 } from 'lucide-react';
+import { ArrowLeft, Check, Calendar, Phone, MapPin, X, Loader2, KeyRound, Navigation, Trash2, Clock, Share2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import { toast } from 'sonner';
-import { useApp } from '@/context/appStore';
+import { useApp } from '@/context/AppContext';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc, collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
 import { useTranslation } from 'react-i18next';
@@ -19,6 +19,22 @@ const VendorBookings = () => {
     const { user, serviceBookings: bookings, loading } = useApp();
     const [view, setView] = useState<'active' | 'past'>('active');
     const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
+    
+    // Selection Mode Statex
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [isSelectionMode, setIsSelectionMode] = useState(false);
+    const [longPressTimer, setLongPressTimer] = useState<any>(null);
+
+    // Hide BottomNav when modal is open
+    useEffect(() => {
+        const nav = document.getElementById('bottom-nav');
+        if (selectedBookingId) {
+            nav?.style.setProperty('display', 'none', 'important');
+        } else {
+            nav?.style.removeProperty('display');
+        }
+        return () => { nav?.style.removeProperty('display'); };
+    }, [selectedBookingId]);
 
     const activeBookings = bookings.filter(b => b.status === 'pending' || b.status === 'accepted');
     const pastBookings = bookings.filter(b => b.status === 'completed' || b.status === 'rejected');
@@ -55,7 +71,8 @@ const VendorBookings = () => {
                 }
 
                 toast.success(`Booking status updated to: ${next}`);
-                if (next === 'completed' && selectedBookingId === bookingId) {
+                // Automatically close popup after action
+                if (selectedBookingId === bookingId) {
                     setSelectedBookingId(null);
                 }
             } catch (error) {
@@ -87,6 +104,7 @@ const VendorBookings = () => {
             }
 
             toast.success("Booking rejected");
+            // Automatically close popup after rejection
             if (selectedBookingId === bookingId) {
                 setSelectedBookingId(null);
             }
@@ -103,6 +121,64 @@ const VendorBookings = () => {
             toast.success("Booking removed from your view");
         } catch (e) {
             toast.error("Failed to remove booking");
+        }
+    };
+
+    // Selection Logic
+    const toggleSelection = (id: string) => {
+        const newSelected = new Set(selectedIds);
+        if (newSelected.has(id)) {
+            newSelected.delete(id);
+            if (newSelected.size === 0) setIsSelectionMode(false);
+        } else {
+            newSelected.add(id);
+        }
+        setSelectedIds(newSelected);
+    };
+
+    const startLongPress = (id: string) => {
+        const timer = setTimeout(() => {
+            setIsSelectionMode(true);
+            toggleSelection(id);
+            if (window.navigator.vibrate) window.navigator.vibrate(50);
+        }, 600);
+        setLongPressTimer(timer);
+    };
+
+    const cancelLongPress = () => {
+        if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            setLongPressTimer(null);
+        }
+    };
+
+    const handleSelectAll = () => {
+        if (selectedIds.size === displayBookings.length) {
+            setSelectedIds(new Set());
+            setIsSelectionMode(false);
+        } else {
+            setSelectedIds(new Set(displayBookings.map(b => b.id!)));
+            setIsSelectionMode(true);
+        }
+    };
+
+    const handleBulkDelete = async () => {
+        if (selectedIds.size === 0) return;
+        if (!window.confirm(`Permanently remove ${selectedIds.size} ${view} bookings from your view?`)) return;
+
+        const loadingToast = toast.loading(`Deleting ${selectedIds.size} bookings...`);
+        try {
+            const promises = Array.from(selectedIds).map(id =>
+                updateDoc(doc(db, 'serviceBookings', id), { deletedByVendor: true })
+            );
+            await Promise.all(promises);
+            toast.dismiss(loadingToast);
+            toast.success(`${selectedIds.size} items removed`);
+            setSelectedIds(new Set());
+            setIsSelectionMode(false);
+        } catch (e) {
+            toast.dismiss(loadingToast);
+            toast.error("Deletion failed");
         }
     };
 
@@ -126,22 +202,47 @@ const VendorBookings = () => {
 
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                     <div className="space-y-1">
-                        <h1 className="text-2xl font-bold text-foreground">Service Bookings ({activeBookings.length})</h1>
+                        <h1 className="text-2xl font-bold text-foreground">
+                            {isSelectionMode ? `Selected (${selectedIds.size})` : `Service Bookings (${activeBookings.length})`}
+                        </h1>
                     </div>
-                    <div className="bg-secondary p-1 rounded-xl flex items-center gap-1 w-fit">
-                        <button
-                            onClick={() => setView('active')}
-                            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${view === 'active' ? 'bg-white shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                        >
-                            Active ({activeBookings.length})
-                        </button>
-                        <button
-                            onClick={() => setView('past')}
-                            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${view === 'past' ? 'bg-white shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                        >
-                            History ({pastBookings.length})
-                        </button>
-                    </div>
+                    {isSelectionMode ? (
+                        <div className="flex items-center gap-2">
+                             <button
+                                onClick={handleSelectAll}
+                                className="px-4 py-2 rounded-xl bg-secondary text-foreground text-xs font-black uppercase tracking-widest hover:bg-secondary/80 transition-all border border-border/50"
+                            >
+                                {selectedIds.size === displayBookings.length ? 'Deselect All' : 'Select All'}
+                            </button>
+                            <button
+                                onClick={handleBulkDelete}
+                                className="px-4 py-2 rounded-xl bg-destructive text-white text-xs font-black uppercase tracking-widest hover:bg-destructive/90 transition-all shadow-lg shadow-destructive/20"
+                            >
+                                Delete ({selectedIds.size})
+                            </button>
+                            <button
+                                onClick={() => { setIsSelectionMode(false); setSelectedIds(new Set()); }}
+                                className="p-2 rounded-xl bg-secondary text-muted-foreground hover:text-foreground"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="bg-secondary p-1.5 rounded-2xl flex items-center gap-1 w-fit shadow-inner">
+                            <button
+                                onClick={() => setView('active')}
+                                className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${view === 'active' ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-105' : 'text-muted-foreground hover:text-foreground'}`}
+                            >
+                                Active ({activeBookings.length})
+                            </button>
+                            <button
+                                onClick={() => setView('past')}
+                                className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${view === 'past' ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-105' : 'text-muted-foreground hover:text-foreground'}`}
+                            >
+                                History ({pastBookings.length})
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 <div className="space-y-4">
@@ -157,34 +258,61 @@ const VendorBookings = () => {
                                 initial={{ opacity: 0, y: 15 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: i * 0.08 }}
-                                className="glass rounded-2xl p-5"
+                                onPointerDown={() => !isSelectionMode && startLongPress(booking.id!)}
+                                onPointerUp={cancelLongPress}
+                                onPointerLeave={cancelLongPress}
+                                onClick={() => {
+                                    if (isSelectionMode) {
+                                        toggleSelection(booking.id!);
+                                    } else {
+                                        navigate(`/receipt/${booking.id}`);
+                                    }
+                                }}
+                                className={`rounded-2xl p-4 border shadow-sm transition-all cursor-pointer relative overflow-hidden ${
+                                    selectedIds.has(booking.id!) 
+                                        ? 'bg-primary/5 border-primary ring-2 ring-primary/20' 
+                                        : 'glass border-border/50 hover:border-border'
+                                }`}
                             >
+                                {isSelectionMode && (
+                                    <div className="absolute top-4 right-4 z-10">
+                                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                                            selectedIds.has(booking.id!) ? 'bg-primary border-primary' : 'bg-transparent border-muted-foreground/30'
+                                        }`}>
+                                            {selectedIds.has(booking.id!) && <Check className="w-3 h-3 text-white" />}
+                                        </div>
+                                    </div>
+                                )}
+                                
                                 <div className="flex items-start justify-between mb-3">
                                     <div>
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <span className="text-[10px] font-mono font-bold bg-secondary px-2 py-0.5 rounded text-muted-foreground">{booking.id?.slice(0, 8)}...</span>
-                                            <span className="text-[10px] font-medium text-muted-foreground flex items-center gap-1">
-                                                {new Date(booking.createdAt).toLocaleDateString()}
+                                        <div className="flex items-center gap-3 mb-2 flex-wrap">
+                                            <span className="text-[10px] font-black font-mono tracking-tighter bg-secondary/80 text-secondary-foreground px-2 py-0.5 rounded-md border border-border/40 shadow-sm transition-all hover:bg-secondary">
+                                                {booking.id?.slice(-8).toUpperCase()}
                                             </span>
+                                            <div className="flex items-center gap-1.5 bg-secondary/40 px-2 py-0.5 rounded-md border border-border/20">
+                                                <Clock className="w-2.5 h-2.5 text-muted-foreground" />
+                                                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest whitespace-nowrap">
+                                                    {new Date(booking.createdAt).toLocaleDateString()}
+                                                </span>
+                                                <span className="w-1 h-1 rounded-full bg-border" />
+                                                <span className="text-[10px] font-black text-foreground uppercase tracking-wider whitespace-nowrap">
+                                                    {new Date(booking.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })}
+                                                </span>
+                                            </div>
                                         </div>
                                         <p className="font-semibold text-foreground text-base">{booking.serviceName}</p>
                                     </div>
-                                    <span className={`text-xs font-bold px-3 py-1 rounded-full capitalize border ${booking.status === 'completed' ? 'bg-green-100 text-green-700 border-green-200' :
-                                        booking.status === 'accepted' ? 'bg-blue-100 text-blue-700 border-blue-200' :
-                                            booking.status === 'rejected' ? 'bg-destructive/10 text-destructive border-destructive/20' :
-                                                'bg-amber-100 text-amber-700 border-amber-200'
+                                    <div className="flex flex-col items-end gap-3 shrink-0">
+                                        <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full border shadow-sm ${
+                                            booking.status === 'completed' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
+                                            booking.status === 'accepted' ? 'bg-blue-500/10 text-blue-500 border-blue-500/20' :
+                                            booking.status === 'rejected' ? 'bg-rose-500/10 text-rose-500 border-rose-500/20' :
+                                            'bg-amber-500/10 text-amber-500 border-amber-500/20'
                                         }`}>
-                                        {t(`common.order_status.${booking.status}`, { defaultValue: booking.status.toUpperCase() })}
-                                    </span>
-                                    {view === 'past' && (
-                                        <button
-                                            onClick={() => handleDeleteBooking(booking.id!)}
-                                            className="p-2 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive hover:text-white transition-all shadow-sm border border-destructive/20 ml-2"
-                                            title="Remove from history"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
-                                    )}
+                                            {t(`common.order_status.${booking.status}`, { defaultValue: booking.status.toUpperCase() })}
+                                        </span>
+                                    </div>
                                 </div>
 
                                 {/* Booking PIN - Matching Normal Orders */}
@@ -270,30 +398,31 @@ const VendorBookings = () => {
                                         {booking.status === 'accepted' ? (
                                             <>
                                                 <button
-                                                    onClick={() => advanceStatus(booking.id!)}
-                                                    className="gradient-primary text-primary-foreground text-xs font-semibold px-4 py-2 rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1.5"
+                                                    onClick={(e) => { e.stopPropagation(); rejectBooking(booking.id!); }}
+                                                    className="bg-destructive/10 text-destructive text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-xl hover:bg-destructive/20 transition-colors flex items-center gap-1.5"
                                                 >
-                                                    <Check className="w-3 h-3" />
-                                                    Mark Completed
+                                                    <X className="w-3.5 h-3.5" />
+                                                    Cancel
+                                                </button>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); advanceStatus(booking.id!); }}
+                                                    className="gradient-primary text-primary-foreground text-[10px] font-black uppercase tracking-widest px-6 py-2.5 rounded-xl hover:opacity-90 transition-opacity flex items-center gap-1.5 shadow-lg shadow-primary/20"
+                                                >
+                                                    <Check className="w-3.5 h-3.5" />
+                                                    Complete
                                                 </button>
                                             </>
                                         ) : (
-                                            <>
-                                                <button
-                                                    onClick={() => rejectBooking(booking.id!)}
-                                                    className="bg-destructive/10 text-destructive text-xs font-semibold px-4 py-2 rounded-lg hover:bg-destructive/20 transition-colors flex items-center gap-1.5"
-                                                >
-                                                    <X className="w-3 h-3" />
-                                                    Reject
-                                                </button>
-                                                <button
-                                                    onClick={() => advanceStatus(booking.id!)}
-                                                    className="gradient-primary text-primary-foreground text-xs font-semibold px-4 py-2 rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1.5"
-                                                >
-                                                    <Check className="w-3 h-3" />
-                                                    Accept Booking
-                                                </button>
-                                            </>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setSelectedBookingId(booking.id!);
+                                                }}
+                                                className="gradient-primary text-primary-foreground w-full py-3 text-[10px] font-black uppercase tracking-widest rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
+                                            >
+                                                <Calendar className="w-4 h-4" />
+                                                Review & Accept
+                                            </button>
                                         )}
                                     </div>
                                 )}
@@ -302,6 +431,108 @@ const VendorBookings = () => {
                     )}
                 </div>
             </div>
+
+            {/* Booking Review Modal */}
+            <AnimatePresence>
+                {selectedBooking && (
+                    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm">
+                        <motion.div
+                            initial={{ y: "100%" }}
+                            animate={{ y: 0 }}
+                            exit={{ y: "100%" }}
+                            className="bg-white dark:bg-[#151515] w-full max-w-lg rounded-t-[2.5rem] sm:rounded-[2.5rem] flex flex-col max-h-[75vh] shadow-2xl overflow-hidden border-t sm:border border-border/50"
+                        >
+                            <div className="p-5 border-b border-border/50 flex items-center justify-between bg-card/50">
+                                <div className="space-y-1">
+                                    <h2 className="text-lg font-black text-foreground tracking-tight uppercase">Review Booking</h2>
+                                    <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest bg-secondary/50 px-2 py-0.5 rounded-md w-fit">#{selectedBooking.id?.slice(-8).toUpperCase()}</p>
+                                </div>
+                                <button
+                                    onClick={() => setSelectedBookingId(null)}
+                                    className="p-2 rounded-full bg-secondary text-muted-foreground hover:text-foreground transition-all active:scale-90"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            <div className="p-5 overflow-y-auto flex-1 space-y-5">
+                                {/* Service Details */}
+                                <div className="space-y-3">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <Calendar className="w-4 h-4 text-primary" />
+                                        <h3 className="font-black text-[10px] text-foreground uppercase tracking-widest">Service Information</h3>
+                                    </div>
+                                    <div className="p-4 bg-secondary/30 rounded-2xl border border-border/40 space-y-3">
+                                        <div className="flex justify-between items-start">
+                                            <div>
+                                                <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest leading-none mb-1.5">Service Name</p>
+                                                <p className="font-bold text-base text-foreground">{selectedBooking.serviceName}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest leading-none mb-1.5">Date & Time</p>
+                                                <p className="font-bold text-xs text-foreground">{selectedBooking.date} · {selectedBooking.timeSlot}</p>
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="pt-3 border-t border-border/20">
+                                            <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest leading-none mb-1.5">Customer Location</p>
+                                            <div className="flex items-center gap-2 text-primary font-bold text-xs">
+                                                <MapPin className="w-3.5 h-3.5" />
+                                                <span className="break-all">{selectedBooking.location}</span>
+                                            </div>
+                                        </div>
+
+                                        {selectedBooking.description && (
+                                            <div className="pt-3 border-t border-border/20">
+                                                <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest leading-none mb-1.5">Customer Message / Note</p>
+                                                <p className="text-sm text-foreground italic leading-relaxed">"{selectedBooking.description}"</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Customer Quick Actions */}
+                                <div className="p-4 rounded-2xl bg-primary/5 border border-primary/10 flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-sm font-bold text-primary border border-primary/20">
+                                            {(selectedBooking.customerName || 'C').charAt(0).toUpperCase()}
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-bold text-foreground">{selectedBooking.customerName}</p>
+                                            <p className="text-[10px] font-mono font-medium text-muted-foreground">{selectedBooking.customerPhone}</p>
+                                        </div>
+                                    </div>
+                                    <a
+                                        href={`tel:${selectedBooking.customerPhone}`}
+                                        className="p-3 rounded-xl bg-white shadow-sm text-primary hover:scale-110 transition-transform border border-border/50 active:scale-95"
+                                    >
+                                        <Phone className="w-4 h-4" />
+                                    </a>
+                                </div>
+                            </div>
+
+                            <div className="p-5 border-t border-border/50 bg-card/50">
+                                <div className="flex items-center gap-3">
+                                    <button
+                                        onClick={() => rejectBooking(selectedBooking.id!)}
+                                        className="flex-1 bg-destructive/10 text-destructive font-black py-4 rounded-2xl hover:bg-destructive/20 transition-all flex items-center justify-center gap-2 text-[10px] uppercase tracking-widest border border-destructive/20 active:scale-95"
+                                    >
+                                        <X className="w-5 h-5" />
+                                        Reject
+                                    </button>
+                                    <button
+                                        onClick={() => advanceStatus(selectedBooking.id!)}
+                                        className="flex-[2] gradient-primary text-primary-foreground font-black py-4 rounded-2xl hover:opacity-90 transition-all flex items-center justify-center gap-2 shadow-xl shadow-primary/20 text-[10px] uppercase tracking-widest active:scale-[0.98]"
+                                    >
+                                        <Check className="w-5 h-5" />
+                                        Confirm & Accept
+                                    </button>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };

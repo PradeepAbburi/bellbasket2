@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Palette, Layout, Smartphone, Eye, Save, RotateCcw, ArrowLeft, ArrowRight, Check, Plus, Trash2, X, Upload, ImageIcon } from 'lucide-react';
 import Header from '@/components/Header';
-import { useApp } from '@/context/appStore';
+import { useApp } from '@/context/AppContext';
 import { toast } from 'sonner';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';

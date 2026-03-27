@@ -121,7 +121,7 @@ const StaffPayments = () => {
                                         className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all border ${
                                             selectedStaff?.id === staff.id 
                                             ? 'bg-primary text-white shadow-xl shadow-primary/20 border-primary scale-[1.02]' 
-                                            : 'glass border-white/40 hover:bg-white/50 text-foreground'
+                                            : 'glass border-white/40 hover:bg-white/05 text-foreground'
                                         }`}
                                     >
                                         <div className="w-10 h-10 rounded-xl bg-white/20 overflow-hidden flex-shrink-0">
@@ -272,7 +272,7 @@ const StaffPayments = () => {
                             </thead>
                             <tbody>
                                 {staffList.flatMap(s => (s.payments || []).map(p => ({ ...p, agentName: s.agentName, referralId: s.referralId }))).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 15).map((payment, i) => (
-                                    <tr key={i} className="border-b border-border/5 hover:bg-white/30 transition-colors group">
+                                    <tr key={i} className="border-b border-border/5 hover:bg-white/05 transition-colors group">
                                         <td className="px-6 md:px-8 py-4 md:py-6">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center font-black text-primary text-[10px]">
@@ -318,3 +318,5 @@ const StaffPayments = () => {
 };
 
 export default StaffPayments;
+
+

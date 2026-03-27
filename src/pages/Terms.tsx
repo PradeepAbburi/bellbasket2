@@ -99,8 +99,8 @@ const TermsAndConditions = () => {
                     <div className="mt-20 pt-10 border-t border-border/50 text-center relative z-10">
                         <p className="text-sm text-muted-foreground">
                             Questions about our terms? Contact our legal team at{' '}
-                            <a href="mailto:contact.belllbasket1@gmail.com" className="text-primary font-black hover:underline tracking-tight">
-                                contact.belllbasket1@gmail.com
+                            <a href="mailto:contact@bellbasket.com" className="text-primary font-black hover:underline tracking-tight">
+                                contact@bellbasket.com
                             </a>
                         </p>
                     </div>
@@ -111,3 +111,4 @@ const TermsAndConditions = () => {
 };
 
 export default TermsAndConditions;
+
