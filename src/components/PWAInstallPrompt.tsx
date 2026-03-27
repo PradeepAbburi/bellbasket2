@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Download, X, Smartphone, Sparkles, ArrowRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useLocation } from 'react-router-dom';
 
 const PWAInstallPrompt = () => {
     const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
     const [isVisible, setIsVisible] = useState(false);
     const { t } = useTranslation();
+    const location = useLocation();
 
     useEffect(() => {
         const handler = (e: any) => {
@@ -76,7 +78,7 @@ const PWAInstallPrompt = () => {
         sessionStorage.setItem('pwa_prompt_dismissed', 'true');
     };
 
-    if (!isVisible) return null;
+    if (!isVisible || location.pathname === '/auth') return null;
 
     return (
         <AnimatePresence>
