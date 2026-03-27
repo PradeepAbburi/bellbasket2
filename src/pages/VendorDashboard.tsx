@@ -1303,24 +1303,7 @@ const VendorDashboard = () => {
                       />
                     </div>
 
-                    <div className="mt-4 space-y-1.5">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Store Type</label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          onClick={() => setTempStoreType('product')}
-                          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${tempStoreType === 'product' ? 'bg-primary text-white shadow-lg' : 'bg-secondary/50 text-foreground hover:bg-secondary/80'}`}
-                        >
-                          Products
-                        </button>
-                        <button
-                          onClick={() => setTempStoreType('service')}
-                          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${tempStoreType === 'service' ? 'bg-primary text-white shadow-lg' : 'bg-secondary/50 text-foreground hover:bg-secondary/80'}`}
-                        >
-                          Services
-                        </button>
-                      </div>
                     </div>
-                  </div>
 
 
                   {/* Delivery Options */}

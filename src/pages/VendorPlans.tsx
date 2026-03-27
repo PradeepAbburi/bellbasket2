@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Crown, Check, ArrowRight, Star, ShieldCheck, Zap, Sparkles, Building2, CreditCard, Lock, Loader2, X, Shield, Ticket, Calendar, Gift } from 'lucide-react';
+import { Crown, Check, ArrowRight, Star, ShieldCheck, Zap, Sparkles, Building2, CreditCard, Lock, Loader2, X, Shield, Ticket, Calendar, Gift, CheckCircle2 } from 'lucide-react';
 import Header from '@/components/Header';
 import { useApp } from '@/context/AppContext';
 import { toast } from 'sonner';
@@ -333,7 +333,10 @@ const VendorPlans = () => {
 
             await updateDoc(doc(db, "coupons", couponDoc.id), updateData);
 
-            toast.success("Redeemed Successfully!");
+            toast.success("Successfully Redeemed!", {
+                description: `Your plan has been upgraded to ${couponData.plan.toUpperCase()} tier for ${couponData.months} months.`,
+                icon: <CheckCircle2 className="w-5 h-5 text-green-500" />
+            });
             setCouponCode("");
         } catch (e: any) {
             toast.error("Redemption Failed", { description: e.message });
@@ -363,7 +366,7 @@ const VendorPlans = () => {
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: i * 0.1 }}
                             className={`relative flex flex-col glass-strong rounded-[32px] overflow-hidden transition-all duration-500 cursor-pointer ${
-                                selectedPlan?.id === plan.id || (user?.plan === plan.tier && plan.months === 1) // Just a visual highlight for current tier
+                                (selectedPlan?.id === plan.id || user?.plan === plan.tier) 
                                 ? 'ring-4 ring-primary ring-offset-4 ring-offset-background scale-[1.05] z-10'
                                 : 'hover:scale-[1.02] opacity-80 hover:opacity-100'
                             } ${plan.popular ? 'shadow-2xl shadow-primary/20' : ''}`}
@@ -373,6 +376,15 @@ const VendorPlans = () => {
                                 <div className="absolute top-0 right-0">
                                     <div className="bg-primary text-primary-foreground text-[10px] font-black uppercase tracking-widest px-6 py-1.5 rounded-bl-2xl shadow-lg">
                                         Best Value
+                                    </div>
+                                </div>
+                            )}
+
+                            {user?.plan === plan.tier && (
+                                <div className="absolute top-0 left-0">
+                                    <div className="bg-green-600 text-white text-[10px] font-black uppercase tracking-widest px-6 py-1.5 rounded-br-2xl shadow-lg flex items-center gap-1.5">
+                                        <Check className="w-3 h-3" />
+                                        Current Plan
                                     </div>
                                 </div>
                             )}
@@ -390,6 +402,12 @@ const VendorPlans = () => {
                                     )}
                                 </div>
                                 <p className="text-sm text-muted-foreground leading-relaxed h-10">{plan.description}</p>
+                                {user?.plan === plan.tier && user?.subscriptionExpiry && (
+                                    <div className="mt-4 flex items-center gap-2 text-[10px] font-black text-green-600 uppercase tracking-widest bg-green-50 px-3 py-1.5 rounded-lg border border-green-100">
+                                        <Calendar className="w-3.5 h-3.5" />
+                                        <span>Expires: {new Date(user.subscriptionExpiry).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="p-8">
@@ -421,12 +439,15 @@ const VendorPlans = () => {
                                         setShowPayment(true);
                                     }}
                                     className={`w-full py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all group ${
-                                        plan.popular
-                                        ? 'gradient-primary text-primary-foreground shadow-xl shadow-primary/20 hover:shadow-2xl hover:scale-[1.02]'
-                                        : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                                        user?.plan === plan.tier
+                                        ? 'bg-green-600 text-white shadow-xl shadow-green-600/20'
+                                        : plan.popular
+                                          ? 'gradient-primary text-primary-foreground shadow-xl shadow-primary/20 hover:shadow-2xl hover:scale-[1.02]'
+                                          : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
                                     }`}
                                 >
-                                    Choose Plan <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                                    {user?.plan === plan.tier ? "Plan Active" : "Choose Plan"} 
+                                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                                 </button>
                             </div>
                         </motion.div>

@@ -93,9 +93,9 @@ const StoreEditor = () => {
             <DesktopBackground />
 
             {/* Top Toolbar */}
-            <div className="h-16 bg-white/80 backdrop-blur-md border-b border-border fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 lg:px-8">
+            <div className="h-16 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-border dark:border-white/10 fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 lg:px-8">
                 <div className="flex items-center gap-4">
-                    <button onClick={() => navigate('/vendor')} className="p-2 hover:bg-secondary rounded-full transition-colors text-muted-foreground hover:text-foreground">
+                    <button onClick={() => navigate('/vendor')} className="p-2 hover:bg-secondary dark:hover:bg-white/5 rounded-full transition-colors text-muted-foreground hover:text-foreground">
                         <ArrowLeft className="w-5 h-5" />
                     </button>
                     <div>
@@ -106,33 +106,33 @@ const StoreEditor = () => {
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <div className="hidden md:flex bg-secondary p-1 rounded-lg">
+                    <div className="hidden md:flex bg-secondary dark:bg-white/5 p-1 rounded-lg">
                         <button
                             onClick={() => setPreviewMode('mobile')}
-                            className={`p-2 rounded-md transition-all ${previewMode === 'mobile' ? 'bg-white shadow text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                            className={`p-2 rounded-md transition-all ${previewMode === 'mobile' ? 'bg-white dark:bg-slate-800 shadow text-primary' : 'text-muted-foreground hover:text-foreground'}`}
                         >
                             <Smartphone className="w-4 h-4" />
                         </button>
                         <button
                             onClick={() => setPreviewMode('desktop')}
-                            className={`p-2 rounded-md transition-all ${previewMode === 'desktop' ? 'bg-white shadow text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                            className={`p-2 rounded-md transition-all ${previewMode === 'desktop' ? 'bg-white dark:bg-slate-800 shadow text-primary' : 'text-muted-foreground hover:text-foreground'}`}
                         >
                             <Layout className="w-4 h-4" />
                         </button>
                     </div>
-                    <div className="h-6 w-px bg-border mx-2" />
+                    <div className="h-6 w-px bg-border dark:bg-white/10 mx-2" />
                     <button
                         onClick={() => {
                             window.open(`/store/${user?.id}?preview=true`, '_blank');
                         }}
-                        className="hidden md:flex items-center gap-2 px-4 py-2 text-xs font-bold text-muted-foreground hover:text-foreground bg-secondary/50 hover:bg-secondary rounded-xl transition-all"
+                        className="hidden md:flex items-center gap-2 px-4 py-2 text-xs font-bold text-muted-foreground hover:text-foreground bg-secondary/50 dark:bg-white/5 hover:bg-secondary rounded-xl transition-all"
                     >
                         <Eye className="w-4 h-4" /> Live Preview
                     </button>
                     <button
                         onClick={handleSave}
                         disabled={isSaving}
-                        className="flex items-center gap-2 px-6 py-2 bg-foreground text-background rounded-xl font-bold hover:opacity-90 transition-all shadow-lg active:scale-95"
+                        className="flex items-center gap-2 px-6 py-2 bg-foreground text-background dark:bg-white dark:text-black rounded-xl font-bold hover:opacity-90 transition-all shadow-lg active:scale-95"
                     >
                         {isSaving ? <RotateCcw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                         Save Changes
@@ -142,7 +142,7 @@ const StoreEditor = () => {
 
             <div className="flex flex-1 pt-16 overflow-hidden">
                 {/* Sidebar Controls */}
-                <div className="w-80 bg-white/50 backdrop-blur-sm border-r border-border overflow-y-auto hidden md:block">
+                <div className="w-80 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm border-r border-border dark:border-white/10 overflow-y-auto hidden md:block">
                     <div className="p-6 space-y-8 animate-in slide-in-from-left-4 duration-300">
                         {/* Branding Section */}
                         <div className="space-y-4">
@@ -157,7 +157,7 @@ const StoreEditor = () => {
                                 <div className="space-y-2">
                                     <div className="flex items-center gap-3">
                                         <div
-                                            className="w-16 h-16 rounded-xl border-2 border-dashed border-border flex items-center justify-center overflow-hidden bg-white group hover:border-primary/50 transition-colors relative cursor-pointer"
+                                            className="w-16 h-16 rounded-xl border-2 border-dashed border-border dark:border-white/10 flex items-center justify-center overflow-hidden bg-white dark:bg-slate-800 group hover:border-primary/50 transition-colors relative cursor-pointer"
                                             onClick={() => document.getElementById('logo-upload')?.click()}
                                         >
                                             {config.logo ? (
@@ -202,7 +202,7 @@ const StoreEditor = () => {
                                         type="text"
                                         value={config.brandText}
                                         onChange={e => setConfig(prev => ({ ...prev, brandText: e.target.value }))}
-                                        className="w-full bg-white border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground/50"
+                                        className="w-full bg-white dark:bg-slate-800 border border-border dark:border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground/50"
                                         placeholder="Store Name (for SEO/Alt text)"
                                     />
                                 </div>
@@ -220,7 +220,7 @@ const StoreEditor = () => {
                                 <textarea
                                     value={config.promoBanner}
                                     onChange={e => setConfig(prev => ({ ...prev, promoBanner: e.target.value }))}
-                                    className="w-full bg-white border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 min-h-[80px] resize-none shadow-sm"
+                                    className="w-full bg-white dark:bg-slate-800 border border-border dark:border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 min-h-[80px] resize-none shadow-sm"
                                     placeholder="Free delivery on orders above ₹500!"
                                 />
                             </div>
@@ -232,7 +232,7 @@ const StoreEditor = () => {
                                 <Layout className="w-4 h-4 text-primary" /> Product Card
                             </h3>
 
-                            <div className="bg-white border border-border rounded-xl divide-y divide-border shadow-sm">
+                            <div className="bg-white dark:bg-slate-800 border border-border dark:border-white/10 rounded-xl divide-y divide-border dark:divide-white/10 shadow-sm">
                                 <div className="flex items-center justify-between p-4">
                                     <div>
                                         <p className="text-sm font-bold text-foreground">Smart Pricing</p>
@@ -273,13 +273,13 @@ const StoreEditor = () => {
                 <div className="flex-1 overflow-y-auto bg-gradient-to-br from-secondary/50 to-background p-8 flex justify-center items-start">
                     {/* Page Preview */}
                     <div
-                        className={`transition-all duration-500 shadow-2xl overflow-hidden bg-white relative ${previewMode === 'mobile'
-                            ? 'w-[375px] h-[750px] rounded-[40px] border-[8px] border-slate-900'
-                            : 'w-full max-w-5xl h-fit min-h-[600px] rounded-xl border border-border/50'
+                        className={`transition-all duration-500 shadow-2xl overflow-hidden bg-white dark:bg-slate-900 relative ${previewMode === 'mobile'
+                            ? 'w-[375px] h-[750px] rounded-[40px] border-[8px] border-slate-900 dark:border-slate-800'
+                            : 'w-full max-w-5xl h-fit min-h-[600px] rounded-xl border border-border/50 dark:border-white/10'
                             }`}
                     >
                         {/* Simulated Mobile/Web Store View */}
-                        <div className="h-full overflow-y-auto custom-scrollbar bg-slate-50 relative">
+                        <div className="h-full overflow-y-auto custom-scrollbar bg-slate-50 dark:bg-slate-950 relative">
                             {/* Header Image Background */}
                             <div className="absolute top-0 left-0 right-0 h-48 bg-cover bg-center" style={{ backgroundImage: `url('https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=1000&auto=format&fit=crop')` }}>
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
@@ -292,7 +292,7 @@ const StoreEditor = () => {
                                 </div>
 
                                 {/* Store Info Card */}
-                                <div className="glass rounded-2xl p-4 shadow-xl border border-white/50 bg-white/80 backdrop-blur-md mb-6">
+                                <div className="glass rounded-2xl p-4 shadow-xl border border-white/50 dark:border-white/10 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md mb-6">
                                     <div className="flex justify-between items-start mb-2">
                                         <div className="flex items-center gap-3">
                                             {config.logo && (
@@ -306,7 +306,7 @@ const StoreEditor = () => {
                                             </div>
                                         </div>
                                         <div className="flex flex-col items-center bg-green-50 px-2 py-1 rounded-lg border border-green-100">
-                                            <div className="flex items-center gap-1 text-green-700 font-bold text-sm">
+                                            <div className="flex items-center gap-1 text-green-700 dark:text-green-400 font-bold text-sm">
                                                 4.8 <span className="text-[10px]">★</span>
                                             </div>
                                             <span className="text-[9px] text-green-600 uppercase font-bold tracking-wider">Rating</span>
@@ -346,8 +346,8 @@ const StoreEditor = () => {
                                 <div className="space-y-8">
                                     <div className="space-y-4">
                                         <div className="flex items-center justify-between">
-                                            <h2 className="text-lg font-bold text-slate-900">Featured Items</h2>
-                                            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">See All</span>
+                                            <h2 className="text-lg font-bold text-slate-900 dark:text-white">Featured Items</h2>
+                                            <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">See All</span>
                                         </div>
 
                                         {/* Horizontal Scroll Area */}
@@ -427,7 +427,7 @@ const StoreEditor = () => {
                                     {/* Another Category for visual fullness */}
                                     <div className="space-y-4">
                                         <div className="flex items-center justify-between">
-                                            <h2 className="text-lg font-bold text-slate-900">Bestsellers</h2>
+                                            <h2 className="text-lg font-bold text-slate-900 dark:text-white">Bestsellers</h2>
                                         </div>
                                         <div className="flex gap-4 overflow-x-auto pb-4 -mx-4 px-4 scrollbar-hide">
                                             {previewProducts.length === 0 ? (
