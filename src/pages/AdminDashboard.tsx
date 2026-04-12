@@ -11,6 +11,7 @@ import Header from "@/components/Header";
 import { toast } from "sonner";
 import Loader from "@/components/ui/loader-animation";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { CATEGORY_METADATA } from "@/constants/categories";
 
 const AdminDashboard = () => {
     const { user, loading, logout } = useApp();
@@ -813,7 +814,17 @@ const AdminDashboard = () => {
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="p-5"><span className="px-2 py-1 bg-secondary rounded-lg text-[8px] font-black uppercase tracking-widest">{s.category || 'General'}</span></td>
+                                            <td className="p-5">
+                                                <span 
+                                                    className="px-2 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest bg-white text-black flex items-center gap-1.5 w-fit border border-black/5"
+                                                >
+                                                    {CATEGORY_METADATA[s.category]?.icon && (() => {
+                                                        const Icon = CATEGORY_METADATA[s.category].icon;
+                                                        return <Icon className="w-2.5 h-2.5" style={{ color: CATEGORY_METADATA[s.category]?.color || 'inherit' }} />;
+                                                    })()}
+                                                    {s.category || 'General'}
+                                                </span>
+                                            </td>
                                             <td className="p-5">
                                                 <div className="flex items-center gap-2 mb-1">
                                                     <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-lg border ${s.plan === 'pro' ? 'bg-amber-100 text-amber-600 border-amber-200' : s.plan === 'growth' ? 'bg-blue-100 text-blue-600 border-blue-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>

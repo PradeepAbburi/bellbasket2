@@ -30,7 +30,8 @@ import {
     DollarSign,
     Ticket,
     Eye,
-    Calendar
+    Calendar,
+    Star
 } from "lucide-react";
 import { PlanTier, Coupon } from "@/types";
 import { motion, AnimatePresence } from "framer-motion";
@@ -131,15 +132,28 @@ const AdminAnalytics = () => {
 
     // Geographic Analysis Logic
     const parseGeo = (address: string) => {
-        if (!address) return { area: "Unknown", state: "N/A", country: "N/A", pincode: "" };
-        const pinRegex = /\b\d{5,7}\b/;
-        const pinMatch = address.match(pinRegex);
-        const pincode = pinMatch ? pinMatch[0] : "";
+        if (!address || address.length < 5) return { area: "Unknown", state: "N/A", country: "N/A", pincode: "N/A" };
+        
+        const cleanAddress = address.trim();
+        const pinRegex = /\b\d{6}\b/; // Standard Indian Pincode
+        const pinMatch = cleanAddress.match(pinRegex);
+        const pincode = pinMatch ? pinMatch[0] : "N/A";
 
-        const parts = address.replace(pincode, "").split(',').map(p => p.trim()).filter(p => !!p);
-        const country = parts.length > 0 ? parts[parts.length - 1] : "N/A";
+        // Filter out the pincode and split by comma
+        const parts = cleanAddress.replace(pincode, "").split(',').map(p => p.trim()).filter(p => p.length > 0);
+        
+        // Strategy: Country is usually last, State is second to last
+        const country = parts.length > 0 ? parts[parts.length - 1] : "India";
         const state = parts.length > 1 ? parts[parts.length - 2] : "N/A";
-        const area = parts.length > 2 ? parts.slice(0, parts.length - 2).join(", ") : (parts[0] || "Unknown");
+        
+        // Area is usually everything else OR the first part if specific
+        let area = "Unknown";
+        if (parts.length > 2) {
+            // Take the part before state
+            area = parts[parts.length - 3];
+        } else if (parts.length > 0) {
+            area = parts[0];
+        }
 
         return { area, state, country, pincode };
     };
@@ -190,7 +204,7 @@ const AdminAnalytics = () => {
                 a.country.toLowerCase().includes(geoSearchTerm.toLowerCase()) ||
                 a.pincode.includes(geoSearchTerm)
             )
-            .sort((a, b) => b.orders - a.orders || b.vendors - a.vendors);
+            .sort((a, b) => b.orders - a.orders || b.vendors - a.vendors || b.customers - a.customers);
     };
 
     const geoStats = getGeoAnalytics();
@@ -229,8 +243,11 @@ const AdminAnalytics = () => {
     };
 
     const subStats = getSubscriptionStats();
-    const platformFeeRevenue = Math.floor(orders.filter(o => o.status === 'completed').reduce((acc, curr) => acc + (curr.total || 0), 0) * 0.05);
-    const totalRevenue = subStats.reduce((acc, curr) => acc + curr.revenue, 0) + platformFeeRevenue;
+    const completedOrders = orders.filter(o => o.status === 'completed');
+    const totalOrderValue = completedOrders.reduce((acc, curr) => acc + (Number(curr.total) || 0), 0);
+    const platformFeeRevenue = Math.floor(totalOrderValue * 0.05);
+    const subscriptionRevenue = subStats.reduce((acc, curr) => acc + curr.revenue, 0);
+    const totalRevenue = subscriptionRevenue + platformFeeRevenue;
 
     // Derived trend data (Last 7 Days signups)
     const getTrendData = () => {
@@ -368,15 +385,13 @@ const AdminAnalytics = () => {
                     </button>
                 </div>
 
-                {/* Stats Summary Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 mb-10">
+                {/* Financial & Growth KPIs */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
                     {[
-                        { label: 'Total Users', value: totalUsers, icon: Users, color: 'text-blue-500', bg: 'bg-blue-500/10', trend: 'Global footprint' },
-                        { label: 'Live Stores', value: liveStoresCount, icon: Store, color: 'text-indigo-500', bg: 'bg-indigo-500/10', trend: 'Active merchants' },
-                        { label: 'Total Orders', value: orders.length, icon: ShoppingBag, color: 'text-rose-500', bg: 'bg-rose-500/10', trend: 'Lifetime volume' },
-                        { label: 'Redeemed Coupons', value: coupons.filter(c => c.isUsed).length, icon: Ticket, color: 'text-amber-500', bg: 'bg-amber-500/10', trend: 'Activation rate' },
-                        { label: 'Total Visits', value: totalVisits, icon: Eye, color: 'text-purple-500', bg: 'bg-purple-500/10', trend: 'All-time store views' },
-                        { label: 'Today\'s Visits', value: todayVisits, icon: Calendar, color: 'text-green-500', bg: 'bg-green-500/10', trend: 'Live today' },
+                        { label: 'Verified Revenue', value: `₹${totalRevenue.toLocaleString()}`, icon: Crown, color: 'text-amber-500', bg: 'bg-amber-500/10', trend: 'Subs + Fees' },
+                        { label: 'Platform Fees', value: `₹${platformFeeRevenue.toLocaleString()}`, icon: Zap, color: 'text-indigo-500', bg: 'bg-indigo-500/10', trend: '5% Comm.' },
+                        { label: 'Sub Income', value: `₹${subscriptionRevenue.toLocaleString()}`, icon: Star, color: 'text-emerald-500', bg: 'bg-emerald-500/10', trend: 'Recurring' },
+                        { label: 'Conversion Index', value: totalVisits > 0 ? ((orders.length / totalVisits) * 100).toFixed(1) + '%' : '0%', icon: Activity, color: 'text-rose-500', bg: 'bg-rose-500/10', trend: 'Order/Visit' },
                     ].map((stat, i) => (
                         <motion.div
                             key={stat.label}
@@ -390,15 +405,42 @@ const AdminAnalytics = () => {
                                     <stat.icon className="w-7 h-7" />
                                 </div>
                                 <div className="p-2 rounded-xl bg-secondary/30">
-                                    <Activity className="w-4 h-4 text-muted-foreground/40" />
+                                    <TrendingUp className="w-4 h-4 text-muted-foreground/40" />
                                 </div>
                             </div>
-                            <p className="text-3xl font-black text-foreground tracking-tight">{stat.value}</p>
-                            <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest mt-1">{stat.label}</p>
-                            <p className="text-[10px] font-bold text-green-500 mt-4 flex items-center gap-1">
-                                <TrendingUp className="w-3 h-3" />
+                            <p className="text-2xl font-black text-foreground tracking-tight">{stat.value}</p>
+                            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mt-1">{stat.label}</p>
+                            <p className="text-[10px] font-bold text-muted-foreground mt-4 flex items-center gap-1 opacity-60">
                                 {stat.trend}
                             </p>
+                        </motion.div>
+                    ))}
+                </div>
+
+                {/* Operations & Network KPIs */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+                    {[
+                        { label: 'Total Users', value: totalUsers, icon: Users, color: 'text-blue-500', bg: 'bg-blue-500/10', trend: 'Reg. Network' },
+                        { label: 'Merchant Nodes', value: liveStoresCount, icon: Store, color: 'text-indigo-500', bg: 'bg-indigo-500/10', trend: 'Active Stores' },
+                        { label: 'Order Volume', value: orders.length, icon: ShoppingBag, color: 'text-rose-500', bg: 'bg-rose-500/10', trend: 'Lifetime' },
+                        { label: 'System Reach', value: totalVisits, icon: Eye, color: 'text-purple-500', bg: 'bg-purple-500/10', trend: 'View Exposure' },
+                    ].map((stat, i) => (
+                        <motion.div
+                            key={stat.label}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: (i + 4) * 0.1 }}
+                            className="glass rounded-[24px] p-5 border border-white/20 bg-white/20 hover:bg-white/40 transition-all"
+                        >
+                            <div className="flex items-center gap-4">
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${stat.bg} ${stat.color}`}>
+                                    <stat.icon className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <p className="text-lg font-black text-foreground">{stat.value}</p>
+                                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{stat.label}</p>
+                                </div>
+                            </div>
                         </motion.div>
                     ))}
                 </div>

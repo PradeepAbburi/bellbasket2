@@ -88,7 +88,7 @@ const ResetPassword = () => {
         <div className="min-h-screen gradient-warm flex items-center justify-center px-4 py-12">
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-lg">
                 <div className="text-center mb-10">
-                    <span className="text-4xl font-black block tracking-tight">BellBasket</span>
+                    <span className="text-3xl font-black block tracking-tight">BellBasket</span>
                     <p className="text-xs font-bold text-primary uppercase mt-2 opacity-80 tracking-widest">Find It. Grab It.</p>
                 </div>
 

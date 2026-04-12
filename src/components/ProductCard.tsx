@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Minus, PackageX } from 'lucide-react';
+import { Plus, Minus, PackageX, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { Product } from '@/types';
 
@@ -69,12 +69,15 @@ const ProductCard: React.FC<ProductCardProps> = ({
                         {Math.round(((product.price - product.discountedPrice!) / product.price) * 100)}% {t('common.off')}
                     </div>
                 )}
-                {/* Quantity Tag */}
-                {product.quantity && (
-                    <div className="absolute top-3 right-3 z-20 bg-slate-900/80 backdrop-blur-md text-white text-[8px] sm:text-[9px] font-black px-2.5 py-1 rounded-full shadow-lg border border-white/10 uppercase tracking-tighter">
-                        {product.quantity.includes(' - ') ? product.quantity : product.quantity.replace(/([0-9.]+)([a-zA-Z]+)/, '$1 - $2')}
-                    </div>
-                )}
+                {/* Quantity Tag & Quality Badge */}
+                <div className="absolute top-3 right-3 flex flex-col items-end gap-1.5 z-20">
+                    {product.quantity && (
+                        <div className="bg-slate-900/80 backdrop-blur-md text-white text-[8px] sm:text-[9px] font-black px-2.5 py-1 rounded-full shadow-lg border border-white/10 uppercase tracking-tighter">
+                            {product.quantity.includes(' - ') ? product.quantity : product.quantity.replace(/([0-9.]+)([a-zA-Z]+)/, '$1 - $2')}
+                        </div>
+                    )}
+
+                </div>
             </div>
 
             {/* Content Section */}
@@ -84,7 +87,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
                         {t(`products.${product.name}`, { defaultValue: product.name })}
                     </h3>
                     <p className="text-[8px] sm:text-[9px] text-muted-foreground/50 line-clamp-1 leading-relaxed font-bold uppercase tracking-tighter">
-                        {product.description ? t(`products_desc.${product.name}`, { defaultValue: product.description }) : t('store.quality_assured')}
+                        {product.description ? t(`products_desc.${product.name}`, { defaultValue: product.description }) : ''}
                     </p>
                 </div>
                 <div className="mt-auto pt-2 border-t border-slate-100/50">

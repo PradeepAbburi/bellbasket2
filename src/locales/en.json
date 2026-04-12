@@ -23,6 +23,7 @@
         "pickup": "Pickup",
         "delivery": "Delivery",
         "browse": "Browse",
+        "deals": "Deals",
         "products": "Products",
         "dashboard": "Dashboard",
         "analytics": "Analytics",
@@ -73,6 +74,8 @@
             "pending": "Pending",
             "accepted": "Accepted",
             "packed": "Packed",
+            "out_for_delivery": "Out for Delivery",
+            "ready": "Ready for Pickup",
             "completed": "Completed",
             "rejected": "Rejected"
         },
@@ -204,8 +207,7 @@
         "store_closed": "Store is currently closed",
         "ordering_disabled": "Ordering disabled until",
         "cannot_place_orders": "You cannot place orders right now.",
-        "finding_matches": "Finding matches in",
-        "quality_assured": "Quality Assured Product"
+        "finding_matches": "Finding matches in"
     },
     "categories": {
         "Grocery": "Grocery",

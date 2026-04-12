@@ -9,11 +9,11 @@ import { Helmet } from 'react-helmet';
 
 const Index = () => {
   const navigate = useNavigate();
-  const { theme, toggleTheme } = useApp();
+  const { } = useApp(); // theme/toggleTheme removed
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth < 768;
     if (isMobile) {
       navigate('/browse', { replace: true });
     }
@@ -72,22 +72,7 @@ const Index = () => {
               <span className="text-xl font-black text-foreground tracking-tighter">BellBasket</span>
             </div>
             <div className="flex items-center gap-2 sm:gap-3">
-              <div className="flex items-center gap-0.5 glass rounded-full p-1 border border-white/20">
-                <button
-                  onClick={() => theme === 'dark' && toggleTheme()}
-                  className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${theme === 'light' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
-                  title="Light Mode"
-                >
-                  <Sun className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => theme === 'light' && toggleTheme()}
-                  className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${theme === 'dark' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
-                  title="Dark Mode"
-                >
-                  <Moon className="w-3.5 h-3.5" />
-                </button>
-              </div>
+
 
               {/* Desktop Menu */}
               <div className="hidden md:flex items-center gap-3">

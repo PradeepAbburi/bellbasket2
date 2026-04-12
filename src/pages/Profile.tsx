@@ -27,22 +27,10 @@ const Profile = () => {
     const [notificationPermission, setNotificationPermission] = useState<string>(
         typeof Notification !== 'undefined' ? Notification.permission : 'default'
     );
-    const [showStoreSettings, setShowStoreSettings] = useState(false);
-    const [tempBanner, setTempBanner] = useState('');
-    const [availableTimeSlots, setAvailableTimeSlots] = useState<string[]>([]);
-    const [newTimeSlot, setNewTimeSlot] = useState('');
     const storeFileInputRef = useRef<HTMLInputElement>(null);
 
     const vendorStore = stores.find(s => s.id === user?.id);
 
-    useEffect(() => {
-        if (vendorStore?.image) {
-            setTempBanner(vendorStore.image);
-        }
-        if (vendorStore?.availableTimeSlots) {
-            setAvailableTimeSlots(vendorStore.availableTimeSlots);
-        }
-    }, [vendorStore]);
 
     useEffect(() => {
         if (typeof Notification === 'undefined') return;
@@ -164,39 +152,6 @@ const Profile = () => {
         }
     };
 
-    const handleBannerUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            if (file.size > 700 * 1024) {
-                toast.error("Image too large. Please select an image under 700KB.");
-                return;
-            }
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setTempBanner(reader.result as string);
-                toast.success("New banner preview loaded!");
-            };
-            reader.readAsDataURL(file);
-        }
-    };
-
-    const handleSaveStoreBanner = async () => {
-        if (!user || user.role !== 'vendor') return;
-        setEditing(true);
-        try {
-            await updateDoc(doc(db, 'stores', user.id), {
-                image: tempBanner,
-                availableTimeSlots
-            });
-            await updateUser({ storeBanner: tempBanner });
-            toast.success('Store settings updated successfully!');
-            setShowStoreSettings(false);
-        } catch (error: any) {
-            toast.error(error.message || 'Failed to update store banner');
-        } finally {
-            setEditing(false);
-        }
-    };
 
     const filteredLanguages = ALL_LANGUAGES.filter(lang =>
         lang.toLowerCase().includes(searchQuery.toLowerCase())
@@ -337,23 +292,7 @@ const Profile = () => {
                         <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
                     </div>
 
-                    <div
-                        onClick={toggleTheme}
-                        className="glass rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:bg-white/05 transition-colors group"
-                    >
-                        <div className="flex items-center gap-4">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${theme === 'dark' ? 'bg-indigo-500/10' : 'bg-orange-500/10'}`}>
-                                {theme === 'dark' ? <Moon className="w-5 h-5 text-indigo-400" /> : <Sun className="w-5 h-5 text-orange-500" />}
-                            </div>
-                            <div>
-                                <p className="text-sm font-bold text-foreground">Dark Theme</p>
-                                <p className="text-xs text-muted-foreground">{theme === 'dark' ? 'Classic dark mode' : 'Toggle dark mode'}</p>
-                            </div>
-                        </div>
-                        <div className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${theme === 'dark' ? 'bg-primary text-white' : 'bg-secondary text-muted-foreground'}`}>
-                            {theme === 'dark' ? 'Enabled' : 'Disabled'}
-                        </div>
-                    </div>
+
 
                     {notificationPermission !== 'granted' && (
                         <div
@@ -412,7 +351,7 @@ const Profile = () => {
 
                     {user.role === 'vendor' && (
                         <div
-                            onClick={() => setShowStoreSettings(true)}
+                            onClick={() => navigate('/vendor/config')}
                             className="glass rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:bg-white/05 transition-colors group"
                         >
                             <div className="flex items-center gap-4">
@@ -421,7 +360,7 @@ const Profile = () => {
                                 </div>
                                 <div>
                                     <p className="text-sm font-bold text-foreground">Store Configuration</p>
-                                    <p className="text-xs text-muted-foreground">Banner & Storefront Details</p>
+                                    <p className="text-xs text-muted-foreground">Identity, Hours & Location</p>
                                 </div>
                             </div>
                             <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
@@ -431,7 +370,11 @@ const Profile = () => {
 
                 {/* Sign Out */}
                 <button
-                    onClick={() => { logout(); navigate('/'); }}
+                    onClick={() => { 
+                        logout(); 
+                        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth < 768;
+                        navigate(isMobile ? '/browse' : '/'); 
+                    }}
                     className="w-full bg-white dark:bg-white rounded-2xl p-4 flex items-center justify-between text-red-600 hover:bg-red-50 transition-colors group shadow-sm border border-red-100"
                 >
                     <div className="flex items-center gap-4">
@@ -572,115 +515,6 @@ const Profile = () => {
                                         </button>
                                     ))}
                                 </div>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-                {showStoreSettings && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowStoreSettings(false)} className="absolute inset-0 bg-background/80 backdrop-blur-sm" />
-                        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative w-full max-w-md glass-strong rounded-3xl p-6 shadow-2xl space-y-6">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
-                                        <ImageIcon className="w-5 h-5 text-amber-600" />
-                                    </div>
-                                    <h2 className="text-xl font-bold">Store Banner</h2>
-                                </div>
-                                <button onClick={() => setShowStoreSettings(false)} className="p-2 hover:bg-secondary rounded-full transition-colors"><X className="w-5 h-5" /></button>
-                            </div>
-
-                            <div className="space-y-4">
-                                <p className="text-xs text-muted-foreground">This image will be displayed to customers when they visit your store.</p>
-
-                                <div className="relative group">
-                                    {tempBanner ? (
-                                        <div className="relative w-full aspect-video rounded-2xl overflow-hidden border-2 border-border/50">
-                                            <img src={tempBanner} alt="Storefront" className="w-full h-full object-cover" />
-                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                <button
-                                                    onClick={() => storeFileInputRef.current?.click()}
-                                                    className="px-4 py-2 rounded-xl bg-white text-foreground font-bold text-xs flex items-center gap-2"
-                                                >
-                                                    <Upload className="w-4 h-4" /> Change Image
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <button
-                                            onClick={() => storeFileInputRef.current?.click()}
-                                            className="w-full aspect-video rounded-2xl border-2 border-dashed border-primary/20 bg-primary/5 flex flex-col items-center justify-center gap-3 group hover:bg-primary/10 transition-all"
-                                        >
-                                            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                                <Upload className="w-6 h-6 text-primary" />
-                                            </div>
-                                            <div className="text-center px-4">
-                                                <p className="font-bold text-sm text-foreground">Upload Store Banner</p>
-                                                <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">PNG, JPG up to 700KB</p>
-                                            </div>
-                                        </button>
-                                    )}
-                                    <input
-                                        type="file"
-                                        ref={storeFileInputRef}
-                                        onChange={handleBannerUpload}
-                                        accept="image/*"
-                                        className="hidden"
-                                    />
-                                </div>
-
-                                <div className="flex items-center gap-3 p-4 rounded-xl bg-amber-500/5 border border-amber-500/10">
-                                    <Camera className="w-5 h-5 text-amber-600 flex-shrink-0" />
-                                    <p className="text-[10px] text-amber-900/70 font-medium">Use a high-quality landscape photo of your storefront to attract more customers.</p>
-                                </div>
-
-                                {vendorStore?.storeType === 'service' && (
-                                    <div className="space-y-2 mt-6 p-4 rounded-2xl bg-secondary/30">
-                                        <h3 className="font-bold text-foreground text-sm flex items-center gap-2"><Clock className="w-4 h-4 text-primary" /> Service Timings</h3>
-                                        <p className="text-[10px] text-muted-foreground">Add available time slots for customer bookings.</p>
-                                        <div className="flex gap-2">
-                                            <input
-                                                type="text"
-                                                placeholder="e.g. 10:00 AM - 11:00 AM"
-                                                value={newTimeSlot}
-                                                onChange={e => setNewTimeSlot(e.target.value)}
-                                                className="flex-1 bg-white dark:bg-slate-800 rounded-xl px-3 py-2 text-sm font-medium outline-none focus:ring-2 focus:ring-primary/50"
-                                            />
-                                            <button
-                                                onClick={() => {
-                                                    if (newTimeSlot.trim() && !availableTimeSlots.includes(newTimeSlot.trim())) {
-                                                        setAvailableTimeSlots([...availableTimeSlots, newTimeSlot.trim()]);
-                                                        setNewTimeSlot('');
-                                                    }
-                                                }}
-                                                className="bg-primary text-white px-4 rounded-xl text-xs font-bold shadow-sm active:scale-95 transition-all"
-                                            >
-                                                Add
-                                            </button>
-                                        </div>
-                                        <div className="flex flex-wrap gap-2 mt-3">
-                                            {availableTimeSlots.map((slot, index) => (
-                                                <div key={index} className="flex items-center gap-1 bg-white dark:bg-slate-800 border border-border/50 text-foreground px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm">
-                                                    {slot}
-                                                    <button onClick={() => setAvailableTimeSlots(availableTimeSlots.filter((_, i) => i !== index))} className="text-destructive/70 hover:text-destructive ml-1">
-                                                        <X className="w-3 h-3" />
-                                                    </button>
-                                                </div>
-                                            ))}
-                                            {availableTimeSlots.length === 0 && (
-                                                <p className="text-[10px] text-muted-foreground italic mt-1">No time slots added. All times will be allowed if this is empty.</p>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
-
-                                <button
-                                    onClick={handleSaveStoreBanner}
-                                    disabled={editing || (!tempBanner && availableTimeSlots.length === 0)}
-                                    className="w-full gradient-primary text-white py-4 rounded-2xl font-bold shadow-lg shadow-primary/20 flex items-center justify-center gap-2 disabled:opacity-50 mt-4"
-                                >
-                                    {editing ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Save Changes <CheckCircle2 className="w-4 h-4" /></>}
-                                </button>
                             </div>
                         </motion.div>
                     </div>

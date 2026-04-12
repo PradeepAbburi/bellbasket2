@@ -18,7 +18,7 @@ const Loader = ({ text, subtext, fullScreen }: LoaderProps) => {
                     repeat: Infinity, 
                     ease: "easeInOut" 
                 }}
-                className="text-4xl font-black tracking-tighter text-foreground"
+                className="text-xl md:text-2xl font-black tracking-tighter text-foreground"
             >
                 BellBasket
             </motion.h2>

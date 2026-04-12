@@ -231,21 +231,55 @@ const VendorSubscription = () => {
 
     const handleClaimCoupon = async () => {
         if (globalSettings.disableCoupons) {
-            toast.error("Coupons are currently disabled by the administrator.");
+            toast.error("Coupons are temporarily disabled.");
             return;
         }
-        if (!couponCode.trim() || !auth.currentUser) return;
+
+        const inputCode = couponCode.trim().toUpperCase();
+        if (!inputCode) {
+            toast.error("Please enter a coupon code.");
+            return;
+        }
+
+        if (!auth.currentUser) {
+            toast.error("Authentication required", {
+                description: "You must be logged in to redeem coupons."
+            });
+            return;
+        }
+
         setIsClaiming(true);
 
         try {
-            const inputCode = couponCode.trim().toUpperCase();
-            console.log("Starting coupon claim for:", inputCode);
+            console.log("Attempting to redeem coupon:", inputCode);
+            
+            let couponData: any = null;
+            let couponId: string | null = null;
 
-            // diagnostic: check auth
-            if (!auth.currentUser) {
-                console.error("No active Firebase Auth session found.");
-                toast.error("Auth Session Required", {
-                    description: "You must be logged in with a real account to redeem coupons. Please try logging out and in again."
+            // 1. Precise Firestore query
+            const q = query(collection(db, "coupons"), where("code", "==", inputCode));
+            const querySnapshot = await getDocs(q);
+
+            if (!querySnapshot.empty) {
+                const dc = querySnapshot.docs[0];
+                couponData = dc.data();
+                couponId = dc.id;
+            } else {
+                // 2. FALLBACK: Fetch all coupons manually
+                console.log("Precise query failed. Manual fallback...");
+                const allCouponsSnap = await getDocs(collection(db, "coupons"));
+                const allCoupons = allCouponsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
+                const manualMatch = allCoupons.find(c => c.code?.trim().toUpperCase() === inputCode);
+
+                if (manualMatch) {
+                    couponData = manualMatch;
+                    couponId = manualMatch.id;
+                }
+            }
+
+            if (!couponData) {
+                toast.error("Invalid Coupon Code", {
+                    description: "This code does not exist. Please check for typos."
                 });
                 setIsClaiming(false);
                 return;
@@ -253,133 +287,45 @@ const VendorSubscription = () => {
 
             const currentEmail = auth.currentUser.email || 'unknown';
 
-            let couponData: any = null;
-            let couponId: string | null = null;
-            let isLocal = false;
-
-            let allAvailableCodes = "";
-
-            // 1. Try Firestore with where query
-            console.log("Fetching coupon from Firestore...");
-            let q = query(collection(db, "coupons"), where("code", "==", inputCode));
-            let querySnapshot = await getDocs(q);
-
-            if (!querySnapshot.empty) {
-                const dc = querySnapshot.docs[0];
-                couponData = dc.data();
-                couponId = dc.id;
-                console.log("Found coupon in Firestore via index:", couponId);
-            } else {
-                // FALLBACK: Query without index to see if it's an index/cache issue
-                console.log("Standard query failed. Fetching all coupons manually...");
-                const allCouponsSnap = await getDocs(collection(db, "coupons"));
-                const allCoupons = allCouponsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
-
-                allAvailableCodes = allCoupons.map(c => c.code).join(", ");
-                const manualMatch = allCoupons.find(c => c.code === inputCode);
-
-                if (manualMatch) {
-                    couponData = manualMatch;
-                    couponId = manualMatch.id;
-                    console.log("Found coupon manually via map:", couponId);
-                } else {
-                    // 2. Try Local Storage fallback
-                    console.log("Coupon not in Firestore anywhere, checking local storage...");
-                    const localCoupons = JSON.parse(localStorage.getItem('bellbasket_local_coupons') || '[]');
-                    const localMatch = localCoupons.find((c: any) => c.code === inputCode);
-                    if (localMatch) {
-                        couponData = localMatch;
-                        couponId = localMatch.id;
-                        isLocal = true;
-                        console.log("Found coupon in local storage:", couponId);
-                    }
-                }
-            }
-
-            if (!couponData) {
-                toast.error("DB Match Failed", {
-                    description: `Wanted [${inputCode}]. DB has [${allAvailableCodes.substring(0, 150)}]`,
-                    duration: 15000
-                });
-                setIsClaiming(false);
-                return;
-            }
-
             if (couponData.usageType === 'multiple') {
                 const usedByList = couponData.usedByList || [];
                 if (usedByList.includes(currentEmail)) {
-                    toast.error("Coupon Already Used", { description: "You have already redeemed this code." });
+                    toast.error("Already Used", { description: "You have already redeemed this code." });
                     setIsClaiming(false);
                     return;
                 }
             } else if (couponData.isUsed) {
-                toast.error("Coupon Already Used", { description: "This code has already been redeemed." });
+                toast.error("Already Used", { description: "This code has already been redeemed." });
                 setIsClaiming(false);
                 return;
             }
 
-            // Apply Plan
-            console.log("Triggering updatePlan...");
+            await updatePlan(couponData.plan, Number(couponData.months || 1));
+            
             try {
-                await updatePlan(couponData.plan, couponData.months);
-                console.log("Plan updated successfully.");
-            } catch (planError: any) {
-                console.error("Failed at updatePlan stage:", planError);
-                throw new Error(`PLAN_UPDATE_FAILED: ${planError.message || "Insufficient permissions to update subscription."}`);
-            }
-
-            // Mark coupon as used
-            console.log("Marking coupon as used...");
-            if (isLocal) {
-                const localCoupons = JSON.parse(localStorage.getItem('bellbasket_local_coupons') || '[]');
-                const updated = localCoupons.map((c: any) =>
-                    c.id === couponId ? { 
-                        ...c, 
-                        isUsed: c.usageType === 'multiple' ? false : true, 
-                        usedBy: currentEmail, 
-                        usedByList: [...(c.usedByList || []), currentEmail],
-                        redemptionCount: (c.redemptionCount || 0) + 1,
-                        usedAt: new Date().toISOString() 
-                    } : c
-                );
-                localStorage.setItem('bellbasket_local_coupons', JSON.stringify(updated));
-            } else {
-                try {
-                    const updateData: any = {
-                        redemptionCount: (couponData.redemptionCount || 0) + 1,
-                        usedByList: [...(couponData.usedByList || []), currentEmail],
-                        usedAt: new Date().toISOString()
-                    };
-                    
-                    if (couponData.usageType !== 'multiple') {
-                        updateData.isUsed = true;
-                        updateData.usedBy = currentEmail;
-                    }
-
-                    await updateDoc(doc(db, "coupons", couponId!), updateData);
-                } catch (writeError: any) {
-                    console.error("Failed at coupon write stage:", writeError);
-                    throw new Error(`COUPON_WRITE_FAILED: ${writeError.message || "Insufficient permissions to mark coupon as used."}`);
+                const updateData: any = {
+                    redemptionCount: (couponData.redemptionCount || 0) + 1,
+                    usedByList: [...(couponData.usedByList || []), currentEmail],
+                    usedAt: new Date().toISOString()
+                };
+                
+                if (couponData.usageType !== 'multiple') {
+                    updateData.isUsed = true;
+                    updateData.usedBy = currentEmail;
                 }
+
+                await updateDoc(doc(db, "coupons", couponId!), updateData);
+            } catch (writeError) {
+                console.error("Coupon write failed:", writeError);
             }
 
-            toast.success("Redeemed Successfully!", {
-                description: `Success! Your vendor account is now on the ${couponData.plan} plan for ${couponData.months} months.`
+            toast.success("Successfully Redeemed!", {
+                description: `Your account is now on the ${couponData.plan.toUpperCase()} plan for ${couponData.months} months.`
             });
             setCouponCode("");
         } catch (e: any) {
-            console.error("Coupon claim error details:", e);
-            const errorMsg = e.message || e.toString();
-
-            if (errorMsg.includes("PLAN_UPDATE_FAILED")) {
-                toast.error("Plan Upgrade Failed", { description: "Cloud permissions blocked your plan update." });
-            } else if (errorMsg.includes("COUPON_WRITE_FAILED")) {
-                toast.error("Finalization Failed", { description: "Plan granted, but coupon sync failed. Contact Admin." });
-            } else if (errorMsg.includes("permission")) {
-                toast.error("Access Denied", { description: "Firebase blocked the request. Please check your account session." });
-            } else {
-                toast.error("Redemption Failed", { description: errorMsg });
-            }
+            console.error("Redemption error:", e);
+            toast.error("Redemption Failed", { description: e.message });
         } finally {
             setIsClaiming(false);
         }
@@ -414,14 +360,14 @@ const VendorSubscription = () => {
                         >
                             {plan.popular && (
                                 <div className="absolute top-0 right-0">
-                                    <div className="bg-primary text-primary-foreground text-[10px] font-black uppercase tracking-widest px-6 py-1.5 rounded-bl-2xl shadow-lg">
+                                    <div className="bg-primary text-primary-foreground text-[10px] font-black uppercase tracking-widest px-6 py-1.5 rounded-bl-2xl">
                                         Most Popular
                                     </div>
                                 </div>
                             )}
 
                             <div className="p-8 pb-0">
-                                <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${plan.color} flex items-center justify-center text-white shadow-lg mb-6`}>
+                                <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${plan.color} flex items-center justify-center text-white mb-6`}>
                                     <plan.icon className="w-7 h-7" />
                                 </div>
                                 <h3 className="text-2xl font-black text-foreground mb-2">{plan.name}</h3>
@@ -453,9 +399,9 @@ const VendorSubscription = () => {
                                         setShowPayment(true);
                                     }}
                                     className={`w-full py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all group ${user?.plan === plan.id
-                                        ? 'bg-green-500 text-white cursor-default shadow-lg shadow-green-500/20'
+                                        ? 'bg-green-500 text-white cursor-default'
                                         : plan.popular
-                                            ? 'gradient-primary text-primary-foreground shadow-xl shadow-primary/20 hover:shadow-2xl hover:scale-[1.02]'
+                                            ? 'bg-primary text-primary-foreground hover:scale-[1.02]'
                                             : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
                                         }`}
                                 >
@@ -490,12 +436,12 @@ const VendorSubscription = () => {
                                     value={couponCode}
                                     onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
                                     disabled={globalSettings.disableCoupons}
-                                    className={`flex-1 px-6 py-4 rounded-2xl bg-white/60 backdrop-blur-sm border border-border focus:ring-4 focus:ring-primary/10 outline-none font-black tracking-widest text-center sm:text-left text-base ${globalSettings.disableCoupons ? 'opacity-50 grayscale' : ''}`}
+                                    className={`flex-1 px-6 py-4 rounded-2xl bg-white border border-border text-black placeholder:text-black/40 focus:ring-4 focus:ring-primary/10 outline-none font-black tracking-widest text-center sm:text-left text-base ${globalSettings.disableCoupons ? 'opacity-50 grayscale' : ''}`}
                                 />
                                 <button
                                     onClick={handleClaimCoupon}
                                     disabled={isClaiming || !couponCode.trim() || globalSettings.disableCoupons}
-                                    className="sm:px-8 py-4 px-6 rounded-2xl gradient-primary text-white font-black text-sm uppercase tracking-widest shadow-xl shadow-primary/20 hover:shadow-2xl hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                                    className="sm:px-8 py-4 px-6 rounded-2xl bg-primary text-white font-black text-sm uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                                 >
                                     {isClaiming ? <Loader2 className="w-4 h-4 animate-spin" /> : (globalSettings.disableCoupons ? <span className="flex items-center gap-2"><Lock className="w-4 h-4" /> Locked</span> : "Claim Now")}
                                 </button>
@@ -587,7 +533,7 @@ const VendorSubscription = () => {
                             <button
                                 onClick={handlePayment}
                                 disabled={processing}
-                                className="w-full py-4 rounded-xl gradient-primary text-primary-foreground font-bold shadow-xl hover:shadow-primary/25 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all active:scale-95"
+                                className="w-full py-4 rounded-xl bg-primary text-primary-foreground font-bold disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all active:scale-95"
                             >
                                 {processing ? (
                                     <>

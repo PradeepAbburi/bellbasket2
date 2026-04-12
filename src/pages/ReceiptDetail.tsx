@@ -156,7 +156,7 @@ const ReceiptDetailPage = () => {
                 </div>
                 <h1 className="text-2xl font-black text-foreground mb-2">Oops!</h1>
                 <p className="text-muted-foreground max-w-xs mb-8">{error || "Something went wrong."}</p>
-                <button onClick={() => navigate('/browse')} className="gradient-primary text-white px-8 py-3 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-primary/20 transition-all active:scale-95">
+                <button onClick={() => navigate('/browse')} className="bg-primary text-white px-8 py-3 rounded-2xl font-black text-sm uppercase tracking-widest transition-all active:scale-95">
                     Return to Home
                 </button>
             </div>
@@ -195,6 +195,7 @@ const ReceiptDetailPage = () => {
                                 getStoreForOrder={getStoreForOrder}
                                 userCoords={userCoords}
                                 standalone={true}
+                                hasReviewedStore={Array.isArray(getStoreForOrder(data.storeId)?.reviews) && getStoreForOrder(data.storeId)!.reviews!.some((r: any) => r.userId === user?.id)}
                             />
                         ) : (
                             <RenderBookingCard
@@ -209,6 +210,7 @@ const ReceiptDetailPage = () => {
                                 getStoreForOrder={getStoreForOrder}
                                 userCoords={userCoords}
                                 standalone={true}
+                                hasReviewedStore={Array.isArray(getStoreForOrder(data.storeId)?.reviews) && getStoreForOrder(data.storeId)!.reviews!.some((r: any) => r.userId === user?.id)}
                             />
                         )}
                     </div>

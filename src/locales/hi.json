@@ -202,8 +202,7 @@
         "store_closed": "स्टोर फिलहाल बंद है",
         "ordering_disabled": "ऑर्डर देना बंद है जब तक",
         "cannot_place_orders": "आप अभी ऑर्डर नहीं दे सकते।",
-        "finding_matches": "इसमें खोज रहे हैं",
-        "quality_assured": "गुणवत्ता सुनिश्चित उत्पाद"
+        "finding_matches": "इसमें खोज रहे हैं"
     },
     "categories": {
         "Grocery": "किराना",
@@ -332,4 +331,4 @@
         "active_orders": "सक्रिय ऑर्डर",
         "revenue": "कुल आय"
     }
-}
+}

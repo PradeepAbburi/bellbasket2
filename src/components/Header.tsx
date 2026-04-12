@@ -1,13 +1,13 @@
 import { useApp } from '@/context/AppContext';
 import { NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
-import { ShoppingCart, Bell, User, LogOut, Store, Menu, X, Search, ShoppingBag, Package, TrendingUp, Crown, Smartphone, Shield, BellRing } from 'lucide-react';
+import { ShoppingCart, Bell, User, LogOut, Store, Menu, X, Search, ShoppingBag, Package, TrendingUp, Crown, Shield, BellRing, FileText, Zap } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import DesktopBackground from './DesktopBackground';
 import { getAudioStatus, onAudioStatusChange, initAudio, playBellSound } from '@/utils/notifications';
 
-const Header = () => {
+const Header = ({ solid = false }: { solid?: boolean }) => {
   const { user, cart, orders, serviceBookings, logout, notifications, markAllNotificationsRead, stores, requestPushNotifications } = useApp();
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -21,6 +21,7 @@ const Header = () => {
   const isAdminView = user?.role === 'admin' || user?.role === 'hr';
   const cartCount = cart.reduce((s, c) => s + c.quantity, 0);
 
+  const isVendorPage = location.pathname.startsWith('/vendor');
   const isServiceStore = isVendorView && stores?.find(s => s.vendorId === user.id)?.storeType === 'service';
 
   // Calculate active items for badges
@@ -60,8 +61,7 @@ const Header = () => {
   return (
     <>
       <DesktopBackground />
-      <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 dark:bg-[#202020]/80 backdrop-blur-md border-b border-border">
-        {/* Audio Muted Alert Banner (Only for Vendors/Admins who need real-time alerts) */}
+      <header className={`fixed top-0 left-0 right-0 z-50 border-b border-border transition-all duration-300 ${(solid || isVendorPage) ? 'bg-white dark:bg-[#202020]' : 'bg-white/80 dark:bg-[#202020]/80 backdrop-blur-md'}`}>
         {/* Push Notification Permission Banner */}
         <AnimatePresence>
           {user && (isVendorView || isAdminView || activeReceiptsCount > 0) && ("Notification" in window) && Notification.permission !== "granted" && (
@@ -98,57 +98,55 @@ const Header = () => {
                   <span className="hidden lg:inline">{user?.role === 'hr' ? 'HR Portal' : 'Dashboard'}</span>
                 </NavLink>
               ) : !isVendorView ? (
-                !isDownloadPage && (
-                  <>
-                    <NavLink to="/browse" className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}>
-                      <Search className="w-5 h-5" />
-                      <span className="hidden lg:inline">{t('home.welcome')}</span>
-                    </NavLink>
+                <>
+                  <NavLink to="/browse" className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}>
+                    <Search className="w-5 h-5" />
+                    <span className="hidden lg:inline">{t('home.welcome')}</span>
+                  </NavLink>
 
-                    <NavLink to="/receipts" className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}>
-                      <div className="relative">
-                        <ShoppingBag className="w-5 h-5" />
-                        <AnimatePresence>
-                          {activeReceiptsCount > 0 && (
-                            <motion.div
-                              initial={{ scale: 0, opacity: 0 }}
-                              animate={{ scale: 1, opacity: 1 }}
-                              exit={{ scale: 0, opacity: 0 }}
-                              className="absolute -top-2 -right-2 flex h-4.5 min-w-[18px] px-1 items-center justify-center bg-primary text-white text-[10px] font-black rounded-full ring-2 ring-white shadow-lg"
-                            >
-                              {activeReceiptsCount}
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                      <span className="hidden lg:inline">{t('common.orders')} ({activeReceiptsCount})</span>
-                    </NavLink>
+                  <NavLink to="/deals" className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}>
+                    <Zap className="w-5 h-5" />
+                    <span className="hidden lg:inline">Deals</span>
+                  </NavLink>
 
-                    <NavLink to="/cart" className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}>
-                      <div className="relative">
-                        <ShoppingCart className="w-5 h-5" />
-                        <AnimatePresence>
-                          {cartCount > 0 && (
-                            <motion.div
-                              initial={{ scale: 0, opacity: 0 }}
-                              animate={{ scale: 1, opacity: 1 }}
-                              exit={{ scale: 0, opacity: 0 }}
-                              className="absolute -top-2 -right-2 flex h-4.5 min-w-[18px] px-1 items-center justify-center bg-primary text-white text-[10px] font-black rounded-full ring-2 ring-white shadow-[0_2px_8px_rgba(0,0,0,0.15)] select-none"
-                            >
-                              {cartCount}
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                      <span className="hidden lg:inline">{t('common.cart')}</span>
-                    </NavLink>
+                  <NavLink to="/receipts" className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}>
+                    <div className="relative">
+                      <ShoppingBag className="w-5 h-5" />
+                      <AnimatePresence>
+                        {activeReceiptsCount > 0 && (
+                          <motion.div
+                            initial={{ scale: 0, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0, opacity: 0 }}
+                            className="absolute -top-2 -right-2 flex h-4.5 min-w-[18px] px-1 items-center justify-center bg-primary text-white text-[10px] font-black rounded-full ring-2 ring-white shadow-lg"
+                          >
+                            {activeReceiptsCount}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                    <span className="hidden lg:inline">{t('common.orders')} ({activeReceiptsCount})</span>
+                  </NavLink>
 
-                    <NavLink to="/download" className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}>
-                      <Smartphone className="w-5 h-5" />
-                      <span className="hidden lg:inline">Mobile App</span>
-                    </NavLink>
-                  </>
-                )
+                  <NavLink to="/cart" className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}>
+                    <div className="relative">
+                      <ShoppingCart className="w-5 h-5" />
+                      <AnimatePresence>
+                        {cartCount > 0 && (
+                          <motion.div
+                            initial={{ scale: 0, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0, opacity: 0 }}
+                            className="absolute -top-2 -right-2 flex h-4.5 min-w-[18px] px-1 items-center justify-center bg-primary text-white text-[10px] font-black rounded-full ring-2 ring-white shadow-[0_2px_8px_rgba(0,0,0,0.15)] select-none"
+                          >
+                            {cartCount}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                    <span className="hidden lg:inline">{t('common.cart')}</span>
+                  </NavLink>
+                </>
               ) : (
                 // Vendor Specific Tools
                 <>
@@ -157,6 +155,10 @@ const Header = () => {
                       <NavLink end to="/vendor" className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}>
                         <Store className="w-5 h-5" />
                         <span className="hidden lg:inline">Dashboard</span>
+                      </NavLink>
+                      <NavLink to="/vendor/notes" className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}>
+                        <FileText className="w-5 h-5" />
+                        <span className="hidden lg:inline">Notes</span>
                       </NavLink>
                       <NavLink to="/vendor/products" className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}>
                         <Package className="w-5 h-5" />
@@ -199,101 +201,98 @@ const Header = () => {
               <div className="w-px h-6 bg-border mx-2 hidden md:block" />
               {user ? (
                 <div className="flex items-center gap-1">
+                  <div className="relative">
+                    <button
+                      onClick={() => {
+                        setShowNotifs(!showNotifs);
+                        if (!showNotifs) markAllNotificationsRead();
+                      }}
+                      className={`p-2.5 rounded-xl transition-all relative ${showNotifs ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'}`}
+                    >
+                      <Bell className="w-5 h-5" />
+                      {unreadCount > 0 && (
+                        <span className="absolute top-2 right-2.5 w-2 h-2 rounded-full bg-primary ring-2 ring-white" />
+                      )}
+                    </button>
 
-                  {/* Audio Status & Notifications */}
-
-                    <div className="relative">
-                      <button
-                        onClick={() => {
-                          setShowNotifs(!showNotifs);
-                          if (!showNotifs) markAllNotificationsRead();
-                        }}
-                        className={`p-2.5 rounded-xl transition-all relative ${showNotifs ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'}`}
-                      >
-                        <Bell className="w-5 h-5" />
-                        {unreadCount > 0 && (
-                          <span className="absolute top-2 right-2.5 w-2 h-2 rounded-full bg-primary ring-2 ring-white" />
-                        )}
-                      </button>
-
-                      <AnimatePresence>
-                        {showNotifs && (
-                          <>
-                            <div className="fixed inset-0 z-40" onClick={() => setShowNotifs(false)} />
-                            <motion.div
-                              initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                              animate={{ opacity: 1, scale: 1, y: 0 }}
-                              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                              className="absolute top-full right-0 mt-2 w-80 bg-[#202020] rounded-2xl shadow-xl border border-border/50 overflow-hidden z-50 origin-top-right flex flex-col"
-                            >
-                              <div className="p-4 border-b border-border/50 flex flex-col gap-2 bg-secondary/20">
-                                <div className="flex items-center justify-between">
-                                  <h3 className="font-bold text-white">Notifications</h3>
-                                  {unreadCount > 0 && (
-                                    <button onClick={markAllNotificationsRead} className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline">
-                                      Mark all read
-                                    </button>
-                                  )}
-                                </div>
+                    <AnimatePresence>
+                      {showNotifs && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setShowNotifs(false)} />
+                          <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                            className="absolute top-full right-0 mt-2 w-80 bg-[#202020] rounded-2xl shadow-xl border border-border/50 overflow-hidden z-50 origin-top-right flex flex-col"
+                          >
+                            <div className="p-4 border-b border-border/50 flex flex-col gap-2 bg-secondary/20">
+                              <div className="flex items-center justify-between">
+                                <h3 className="font-bold text-white">Notifications</h3>
+                                {unreadCount > 0 && (
+                                  <button onClick={markAllNotificationsRead} className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline">
+                                    Mark all read
+                                  </button>
+                                )}
                               </div>
-                              <div className="max-h-80 overflow-y-auto w-full">
-                                {notifications.length === 0 ? (
-                                  <div className="p-8 text-center text-muted-foreground flex flex-col items-center">
-                                    <Bell className="w-8 h-8 opacity-20 mb-2" />
-                                    <span className="text-sm font-medium text-white/50">No new notifications</span>
-                                  </div>
-                                ) : (
-                                  <div className="divide-y divide-border/20">
-                                      {notifications.map((notif: any) => (
-                                        <div
-                                          key={notif.id}
-                                          onClick={() => {
-                                            setShowNotifs(false);
-                                            if (notif.url) {
-                                              navigate(notif.url);
-                                            } else if (user?.role === 'vendor') {
-                                              navigate('/vendor/orders');
-                                            } else {
-                                              navigate('/receipts');
-                                            }
-                                          }}
-                                          className={`p-4 hover:bg-secondary/30 transition-colors cursor-pointer ${!notif.read && notif.id !== 'welcome' ? 'bg-primary/5' : ''}`}
-                                        >
-                                          <div className="flex justify-between items-start gap-2">
-                                            <p className={`font-bold text-sm text-foreground mb-0.5 ${!notif.read && notif.id !== 'welcome' ? 'text-primary' : ''}`}>
-                                              {notif.title}
-                                            </p>
-                                            {!notif.read && notif.id !== 'welcome' && (
-                                              <span className="w-2 h-2 rounded-full bg-primary flex-shrink-0 mt-1.5" />
-                                            )}
-                                          </div>
-                                          <p className="text-xs text-white/70 leading-snug text-left">{notif.body}</p>
-                                          {notif.time && (
-                                            <p className="text-[10px] text-white/30 mt-1 uppercase tracking-wider font-bold text-left">
-                                              {new Date(notif.time).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })}
-                                            </p>
+                            </div>
+                            <div className="max-h-80 overflow-y-auto w-full">
+                              {notifications.length === 0 ? (
+                                <div className="p-8 text-center text-muted-foreground flex flex-col items-center">
+                                  <Bell className="w-8 h-8 opacity-20 mb-2" />
+                                  <span className="text-sm font-medium text-white/50">No new notifications</span>
+                                </div>
+                              ) : (
+                                <div className="divide-y divide-border/20">
+                                    {notifications.map((notif: any) => (
+                                      <div
+                                        key={notif.id}
+                                        onClick={() => {
+                                          setShowNotifs(false);
+                                          if (notif.url) {
+                                            navigate(notif.url);
+                                          } else if (user?.role === 'vendor') {
+                                            navigate('/vendor/orders');
+                                          } else {
+                                            navigate('/receipts');
+                                          }
+                                        }}
+                                        className={`p-4 hover:bg-secondary/30 transition-colors cursor-pointer ${!notif.read && notif.id !== 'welcome' ? 'bg-primary/5' : ''}`}
+                                      >
+                                        <div className="flex justify-between items-start gap-2">
+                                          <p className={`font-bold text-sm text-foreground mb-0.5 ${!notif.read && notif.id !== 'welcome' ? 'text-primary' : ''}`}>
+                                            {notif.title}
+                                          </p>
+                                          {!notif.read && notif.id !== 'welcome' && (
+                                            <span className="w-2 h-2 rounded-full bg-primary flex-shrink-0 mt-1.5" />
                                           )}
                                         </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="p-2 border-t border-border/50 bg-secondary/10">
-                                  <button
-                                    onClick={() => {
-                                      setShowNotifs(false);
-                                      navigate('/notifications');
-                                    }}
-                                    className="w-full py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/10 transition-all active:scale-95"
-                                  >
-                                    View All Notifications
-                                  </button>
-                                </div>
-                              </motion.div>
-                          </>
-                        )}
-                      </AnimatePresence>
-                    </div>
+                                        <p className="text-xs text-white/70 leading-snug text-left">{notif.body}</p>
+                                        {notif.time && (
+                                          <p className="text-[10px] text-white/30 mt-1 uppercase tracking-wider font-bold text-left">
+                                            {new Date(notif.time).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })}
+                                          </p>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="p-2 border-t border-border/50 bg-secondary/10">
+                                <button
+                                  onClick={() => {
+                                    setShowNotifs(false);
+                                    navigate('/notifications');
+                                  }}
+                                  className="w-full py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/10 transition-all active:scale-95"
+                                >
+                                  View All Notifications
+                                </button>
+                              </div>
+                            </motion.div>
+                        </>
+                      )}
+                    </AnimatePresence>
+                  </div>
 
                   <NavLink to="/profile" className={({ isActive }) => `hidden md:flex items-center gap-2.5 px-3 py-1.5 rounded-xl transition-all group ${isActive ? 'bg-primary/5' : 'hover:bg-primary/5'}`}>
                     <div className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${location.pathname === '/profile' ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20 scale-105' : 'bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground'}`}>
@@ -306,7 +305,11 @@ const Header = () => {
                   </NavLink>
 
                   <button
-                    onClick={() => { logout(); navigate('/'); }}
+                    onClick={() => { 
+                      logout(); 
+                      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth < 768;
+                      navigate(isMobile ? '/browse' : '/'); 
+                    }}
                     className="hidden md:flex p-2.5 text-red-600 bg-white hover:bg-red-50 rounded-xl transition-all active:scale-95 border border-red-50"
                     title="Sign Out"
                   >
@@ -324,10 +327,10 @@ const Header = () => {
             </div>
             {/* Mobile Menu Button */}
             <button
-              onClick={() => { initAudio(); setMenuOpen(!menuOpen); }}
-              className="md:hidden p-2 rounded-xl hover:bg-secondary transition-colors"
+                onClick={() => { initAudio(); setMenuOpen(!menuOpen); }}
+                className="md:hidden p-2 rounded-xl hover:bg-secondary transition-colors"
             >
-              {menuOpen ? <X className="w-6 h-6 text-foreground" /> : <Menu className="w-6 h-6 text-foreground" />}
+                {menuOpen ? <X className="w-6 h-6 text-foreground" /> : <Menu className="w-6 h-6 text-foreground" />}
             </button>
           </div>
         </div>
@@ -368,6 +371,30 @@ const Header = () => {
                           <span className="font-bold text-sm">Dashboard</span>
                         </Link>
                         <Link
+                          to="/vendor/notes"
+                          onClick={() => { initAudio(); setMenuOpen(false); }}
+                          className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-primary/5 text-foreground transition-colors"
+                        >
+                          <FileText className="w-5 h-5 text-primary" />
+                          <span className="font-bold text-sm">Bell Notes</span>
+                        </Link>
+                        <Link
+                          to="/vendor/deals"
+                          onClick={() => { initAudio(); setMenuOpen(false); }}
+                          className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-primary/5 text-foreground transition-colors"
+                        >
+                          <Zap className="w-5 h-5 text-primary" />
+                          <span className="font-bold text-sm">Deal Manager</span>
+                        </Link>
+                        <Link
+                          to="/vendor/products"
+                          onClick={() => { initAudio(); setMenuOpen(false); }}
+                          className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-primary/5 text-foreground transition-colors"
+                        >
+                          <Package className="w-5 h-5 text-primary" />
+                          <span className="font-bold text-sm">Products</span>
+                        </Link>
+                        <Link
                           to={isServiceStore ? "/vendor/bookings" : "/vendor/orders"}
                           onClick={() => { initAudio(); setMenuOpen(false); }}
                           className="flex items-center justify-between px-4 py-3 rounded-xl hover:bg-primary/5 text-foreground transition-colors"
@@ -382,14 +409,6 @@ const Header = () => {
                             </span>
                           )}
                         </Link>
-                        <Link
-                          to="/vendor/analytics"
-                          onClick={() => { initAudio(); setMenuOpen(false); }}
-                          className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-primary/5 text-foreground transition-colors"
-                        >
-                          <TrendingUp className="w-5 h-5 text-primary" />
-                          <span className="font-bold text-sm">Analytics</span>
-                        </Link>
                       </>
                     )}
                     <Link
@@ -402,7 +421,6 @@ const Header = () => {
                     </Link>
                   </>
                 ) : (
-                  !isDownloadPage && (
                     <>
                       <Link
                         to="/browse"
@@ -411,6 +429,14 @@ const Header = () => {
                       >
                         <Search className="w-5 h-5 text-primary" />
                         <span className="font-bold text-sm">Browse Marketplace</span>
+                      </Link>
+                      <Link
+                        to="/deals"
+                        onClick={() => { initAudio(); setMenuOpen(false); }}
+                        className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-primary/5 text-foreground transition-colors"
+                      >
+                        <Zap className="w-5 h-5 text-primary" />
+                        <span className="font-bold text-sm">Flash Deals Nearby</span>
                       </Link>
                       <Link
                         to="/receipts"
@@ -442,16 +468,7 @@ const Header = () => {
                           </span>
                         )}
                       </Link>
-                      <Link
-                        to="/download"
-                        onClick={() => { initAudio(); setMenuOpen(false); }}
-                        className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-primary/5 text-foreground transition-colors"
-                      >
-                        <Smartphone className="w-5 h-5 text-primary" />
-                        <span className="font-bold text-sm">Mobile App</span>
-                      </Link>
                     </>
-                  )
                 )}
 
                 <div className="h-px bg-border my-2 mx-4" />
@@ -459,7 +476,13 @@ const Header = () => {
                 {user ? (
                   <>
                     <button
-                      onClick={() => { initAudio(); logout(); navigate('/'); setMenuOpen(false); }}
+                      onClick={() => { 
+                      initAudio(); 
+                      logout(); 
+                      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth < 768;
+                      navigate(isMobile ? '/browse' : '/'); 
+                      setMenuOpen(false); 
+                    }}
                       className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-white text-red-600 border border-red-100 hover:bg-red-50 transition-colors shadow-sm"
                     >
                       <LogOut className="w-5 h-5" />
@@ -479,9 +502,7 @@ const Header = () => {
             </motion.div>
           )}
         </AnimatePresence>
-
       </header>
-
     </>
   );
 };

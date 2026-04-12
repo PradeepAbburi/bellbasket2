@@ -200,8 +200,7 @@
         "store_closed": "స్టోర్ ప్రస్తుతం మూసి ఉంది",
         "ordering_disabled": "ఆర్డరింగ్ తాత్కాలికంగా నిలిపివేయబడింది",
         "cannot_place_orders": "మీరు ఇప్పుడు ఆర్డర్లు చేయలేరు.",
-        "finding_matches": "ఫలితాల కోసం వెతుకుతోంది",
-        "quality_assured": "నాణ్యత హామీ ఉన్న ఉత్పత్తి"
+        "finding_matches": "ఫలితాల కోసం వెతుకుతోంది"
     },
     "categories": {
         "Grocery": "కిరాణా",

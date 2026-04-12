@@ -12,13 +12,17 @@ import { db } from '@/lib/firebase';
 import { doc, updateDoc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { useTranslation } from 'react-i18next';
 import { sendInAppNotification, playBellSound } from '@/utils/notifications';
+import { OrderListSkeleton } from '@/components/SkeletonLoader';
 
-const statusFlow = ['pending', 'accepted', 'ready', 'completed'] as const;
+const pickupFlow = ['pending', 'accepted', 'packed', 'completed'] as const;
+const deliveryFlow = ['pending', 'accepted', 'packed', 'out_for_delivery', 'completed'] as const;
 
 const VendorOrders = () => {
-  const navigate = useNavigate();
-  const { t } = useTranslation();
-  const { user, orders: allOrders, refreshData } = useApp();
+    const { user, orders: allOrders, loading, refreshData } = useApp();
+    const navigate = useNavigate();
+    const { t } = useTranslation();
+
+    if (loading) return <OrderListSkeleton />;
   const [customerData, setCustomerData] = useState<Record<string, any>>({});
   const [view, setView] = useState<'active' | 'past'>('active');
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
@@ -28,6 +32,10 @@ const VendorOrders = () => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [longPressTimer, setLongPressTimer] = useState<any>(null);
+  const [orderToReject, setOrderToReject] = useState<string | null>(null);
+  const [rejectionReasonInput, setRejectionReasonInput] = useState('');
+  const [isSubmittingRejection, setIsSubmittingRejection] = useState(false);
+  const [rejectionsToHideInSession, setRejectionsToHideInSession] = useState<Set<string>>(new Set());
 
   // Hide BottomNav when modal is open
   useEffect(() => {
@@ -56,8 +64,25 @@ const VendorOrders = () => {
     });
   }, [allOrders, user?.id]);
 
-  const activeOrders = orders.filter(o => o.status !== 'completed' && o.status !== 'rejected');
-  const pastOrders = orders.filter(o => o.status === 'completed' || o.status === 'rejected');
+  const activeOrders = orders.filter(o => {
+    if (o.status !== 'completed' && o.status !== 'rejected') return true;
+    if (o.status === 'rejected') {
+      if (rejectionsToHideInSession.has(o.id)) return false;
+      const rejectedAt = o.rejectedAt ? new Date(o.rejectedAt).getTime() : 0;
+      return (Date.now() - rejectedAt) < 5000; // Stay in active for 5 seconds or until refresh
+    }
+    return false;
+  });
+
+  const pastOrders = orders.filter(o => {
+    if (o.status === 'completed') return true;
+    if (o.status === 'rejected') {
+      if (rejectionsToHideInSession.has(o.id)) return true;
+      const rejectedAt = o.rejectedAt ? new Date(o.rejectedAt).getTime() : 0;
+      return (Date.now() - rejectedAt) >= 5000;
+    }
+    return false;
+  });
 
   const displayOrders = view === 'active' ? activeOrders : pastOrders;
   const selectedOrder = orders.find(o => o.id === selectedOrderId) || null;
@@ -90,21 +115,28 @@ const VendorOrders = () => {
     const order = orders.find(o => o.id === orderId);
     if (!order) return;
 
-    const idx = statusFlow.indexOf(order.status as any);
-    if (idx < statusFlow.length - 1) {
-      const next = statusFlow[idx + 1];
+    const flow = order.deliveryMethod === 'delivery' ? deliveryFlow : pickupFlow;
+    const idx = flow.indexOf(order.status as any);
+    
+    if (idx < flow.length - 1) {
+      const next = flow[idx + 1];
 
       try {
-        await updateDoc(doc(db, 'orders', orderId), { status: next });
+        const updateData: any = { status: next };
+        if (next === 'completed') {
+          updateData.completedAt = new Date().toISOString();
+        }
+        await updateDoc(doc(db, 'orders', orderId), updateData);
         playBellSound(next === 'accepted'); // Play high pitch for acceptance
 
         // 🔔 Push notification to the customer
         if (order.userId) {
           const statusMessages: Record<string, string> = {
-            accepted: `✅ Your order from ${order.storeName} has been accepted!`,
-            packed: `📦 Your order from ${order.storeName} is being packed.`,
+            accepted: `✅ Your ${order.deliveryMethod === 'delivery' ? 'delivery ' : ''}order from ${order.storeName} has been accepted!`,
+            packed: `📦 Your order from ${order.storeName} has been packed!`,
+            out_for_delivery: `🚚 Your order from ${order.storeName} is out for delivery!`,
             ready: `🔔 Your order from ${order.storeName} is ready for pickup!`,
-            completed: `🎉 Your order from ${order.storeName} has been completed!`,
+            completed: `🎉 Your order from ${order.storeName} has been ${order.deliveryMethod === 'delivery' ? 'delivered' : 'completed'}!`,
           };
           const body = statusMessages[next] || `Your order status updated to: ${next}`;
           sendInAppNotification(order.userId, {
@@ -116,13 +148,62 @@ const VendorOrders = () => {
           });
         }
 
-        toast.success(`${t('vendor_orders.status_updated')}: ${next}`);
+        toast.success(`${t('vendor_orders.status_updated')}: ${next.replace(/_/g, ' ')}`);
         if (selectedOrderId === orderId) {
           setSelectedOrderId(null);
         }
       } catch (error) {
         toast.error(t('vendor_orders.failed_update'));
       }
+    }
+  };
+
+  const rejectOrder = async (orderId: string) => {
+    setOrderToReject(orderId);
+    setRejectionReasonInput('');
+  };
+
+  const confirmRejection = async () => {
+    if (!orderToReject) return;
+    
+    setIsSubmittingRejection(true);
+    try {
+      const order = orders.find(o => o.id === orderToReject);
+      await updateDoc(doc(db, 'orders', orderToReject), {
+        status: 'rejected',
+        rejectionReason: rejectionReasonInput || "No reason provided",
+        rejectedAt: new Date().toISOString()
+      });
+
+      // 🔔 Push notification to the customer with reason
+      if (order?.userId) {
+        sendInAppNotification(order.userId, {
+          title: '❌ Order Rejected',
+          body: `Order from ${order.storeName} was rejected. Reason: ${rejectionReasonInput || "Not specified"}`,
+          url: '/receipts',
+          type: 'order',
+          id: orderToReject
+        });
+      }
+
+      toast.success("Order rejected");
+      
+      // 🕒 Start a 5-second timer to move to HISTORY
+      const currentOrderId = orderToReject;
+      setTimeout(() => {
+        setRejectionsToHideInSession(prev => {
+          const next = new Set(prev);
+          next.add(currentOrderId);
+          return next;
+        });
+      }, 5000);
+
+      setOrderToReject(null);
+      setSelectedOrderId(null);
+    } catch (e) {
+      toast.error("Failed to reject order");
+    } finally {
+      setIsSubmittingRejection(false);
     }
   };
 
@@ -269,7 +350,7 @@ const VendorOrders = () => {
               </button>
               <button
                 onClick={handleBulkDelete}
-                className="px-4 py-2 rounded-xl bg-destructive text-white text-xs font-black uppercase tracking-widest hover:bg-destructive/90 transition-all shadow-lg shadow-destructive/20"
+                className="px-4 py-2 rounded-xl bg-destructive text-white text-xs font-black uppercase tracking-widest hover:bg-destructive/90 transition-all"
               >
                 Delete ({selectedIds.size})
               </button>
@@ -284,13 +365,13 @@ const VendorOrders = () => {
             <div className="bg-secondary p-1.5 rounded-2xl flex items-center gap-1 w-fit shadow-inner">
             <button
               onClick={() => setView('active')}
-              className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${view === 'active' ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-105' : 'text-muted-foreground hover:text-foreground'}`}
+              className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${view === 'active' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
             >
               {t('vendor_orders.active')} ({activeOrders.length})
             </button>
             <button
               onClick={() => setView('past')}
-              className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${view === 'past' ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-105' : 'text-muted-foreground hover:text-foreground'}`}
+              className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${view === 'past' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
             >
               {t('vendor_orders.history')} ({pastOrders.length})
             </button>
@@ -354,7 +435,17 @@ const VendorOrders = () => {
                         </span>
                       </div>
                     </div>
-                    <p className="font-semibold text-foreground text-sm">{order.items.length} {t('common.items')} · ₹{order.total}</p>
+                    <p className="font-semibold text-foreground text-sm">
+                      {order.items.length} {t('common.items')} · ₹{(() => {
+                        const itemsTotal = order.items.reduce((sum, item) => {
+                          const price = (item.product.discountedPrice && Number(item.product.discountedPrice) > 0 && Number(item.product.discountedPrice) < item.product.price) 
+                            ? Number(item.product.discountedPrice) 
+                            : item.product.price;
+                          return sum + (price * item.quantity);
+                        }, 0);
+                        return itemsTotal + (order.deliveryFee || 0);
+                      })()}
+                    </p>
                     <div className="flex items-center gap-3 mt-1 text-[10px] font-bold text-primary">
                       <div className="flex items-center gap-1">
                         <Phone className="w-2.5 h-2.5" />
@@ -367,14 +458,13 @@ const VendorOrders = () => {
                   </div>
                   <div className="flex flex-col items-end gap-3 shrink-0">
                     <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full border shadow-sm ${
-                      order.status === 'completed' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
-                      order.status === 'ready' ? 'bg-emerald-400/10 text-emerald-400 border-emerald-400/20' :
-                      order.status === 'packed' ? 'bg-blue-500/10 text-blue-500 border-blue-500/20' :
+                      order.status === 'packed' || order.status === 'completed' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
                       order.status === 'accepted' ? 'bg-sky-500/10 text-sky-500 border-sky-500/20' :
                       order.status === 'rejected' ? 'bg-rose-500/10 text-rose-500 border-rose-500/20' :
                       'bg-amber-500/10 text-amber-500 border-amber-500/20'
                     }`}>
-                      {order.status === 'ready' ? 'READY' : t(`common.order_status.${order.status}`, { defaultValue: order.status.toUpperCase() })}
+                      {order.status === 'out_for_delivery' ? 'OUT FOR DELIVERY' :
+                       t(`common.order_status.${order.status}`, { defaultValue: order.status.toUpperCase() })}
                     </span>
                   </div>
                 </div>
@@ -397,28 +487,59 @@ const VendorOrders = () => {
                     <div className="flex flex-col items-end gap-2">
                       <div className="flex items-center gap-2">
                         <a
-                          href={`tel:${order.userPhone || customerData[order.userId || '']?.phone}`}
+                          href={`tel:${order.customerPhone || order.userPhone || customerData[order.userId || '']?.phone}`}
                           className="p-2 rounded-lg bg-white shadow-sm text-primary hover:scale-110 transition-transform"
                           onClick={(e) => e.stopPropagation()}
                         >
                           <Phone className="w-3.5 h-3.5" />
                         </a>
                         <span className="text-xs font-mono font-bold text-foreground">
-                          {order.userPhone || customerData[order.userId || '']?.phone || t('common.no_phone')}
+                          {order.customerPhone || order.userPhone || customerData[order.userId || '']?.phone || t('common.no_phone')}
                         </span>
                       </div>
-                      {(customerData[order.userId || '']?.address) && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(customerData[order.userId || '']?.address)}`, '_blank');
-                          }}
-                          className="flex items-center gap-1.5 text-[10px] font-bold text-primary hover:underline transition-all"
-                        >
-                          <MapPin className="w-3 h-3" />
-                          <span className="truncate max-w-[150px]">{customerData[order.userId || '']?.address}</span>
-                        </button>
-                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Delivery Information Box */}
+                {(order.customerAddress || order.deliveryMethod === 'delivery') && (
+                  <div className="mb-4 p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/20 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600">
+                        <Package className="w-4 h-4" />
+                      </div>
+                      <h4 className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Delivery Details</h4>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                       <div className="space-y-1">
+                          <p className="text-[9px] text-muted-foreground uppercase tracking-widest font-bold">Contact Person</p>
+                          <p className="text-xs font-black text-foreground">{order.customerName || order.userName || t('common.customer')}</p>
+                          <a 
+                            href={`tel:${order.customerPhone || order.userPhone}`} 
+                            className="text-[10px] font-bold text-primary flex items-center gap-1.5"
+                            onClick={e => e.stopPropagation()}
+                          >
+                            <Phone className="w-2.5 h-2.5" />
+                            {order.customerPhone || order.userPhone}
+                          </a>
+                       </div>
+                       <div className="space-y-1">
+                          <p className="text-[9px] text-muted-foreground uppercase tracking-widest font-bold">Delivery Address</p>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const addr = order.customerAddress || customerData[order.userId || '']?.address;
+                              window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr || '')}`, '_blank');
+                            }}
+                            className="text-left group"
+                          >
+                             <p className="text-xs font-bold text-foreground group-hover:text-primary transition-colors flex items-start gap-1.5">
+                                <MapPin className="w-3 h-3 text-primary mt-0.5 shrink-0" />
+                                <span className="line-clamp-2">{order.customerAddress || customerData[order.userId || '']?.address}</span>
+                             </p>
+                          </button>
+                       </div>
                     </div>
                   </div>
                 )}
@@ -426,19 +547,30 @@ const VendorOrders = () => {
 
                 {/* Order Pickup PIN */}
                 {order.pickupCode && (
-                  <div className="mb-4 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 rounded-xl p-3 flex items-center justify-between border border-amber-200/60 dark:border-amber-700/40">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                  <div className="mb-4 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 rounded-xl flex border border-amber-200/60 dark:border-amber-700/40 shadow-sm overflow-hidden">
+                    <div className="flex-1 p-3 flex items-center gap-3 border-r border-amber-200/40 dark:border-amber-700/30">
+                      <div className="w-9 h-9 rounded-lg bg-amber-500/20 flex items-center justify-center shrink-0">
                         <KeyRound className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                       </div>
                       <div>
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{t('common.receipts.pickup_pin')}</p>
-                        <p className="text-lg font-black text-foreground tracking-[0.3em] font-mono">{order.pickupCode}</p>
+                        <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-0.5">Order PIN</p>
+                        <p className="text-lg font-black text-foreground tracking-[0.2em] font-mono leading-none">{order.pickupCode}</p>
                       </div>
                     </div>
-                    <span className="text-[8px] font-black text-amber-600/60 dark:text-amber-400/60 uppercase tracking-widest">
-                      {order.status === 'completed' ? `${t('common.verified')} ✓` : t('common.verify_at_pickup')}
-                    </span>
+                    <div className="flex-1 p-3 bg-white/10 dark:bg-black/20 flex flex-col justify-center items-end relative">
+                      <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-0.5">Total Pay</p>
+                      <p className="text-xl font-black text-primary leading-none">
+                        ₹{(() => {
+                          const itemsTotal = order.items.reduce((sum, item) => {
+                            const price = (item.product.discountedPrice && Number(item.product.discountedPrice) > 0 && Number(item.product.discountedPrice) < item.product.price) 
+                              ? Number(item.product.discountedPrice) 
+                              : item.product.price;
+                            return sum + (price * item.quantity);
+                          }, 0);
+                          return itemsTotal + (order.deliveryFee || 0);
+                        })()}
+                      </p>
+                    </div>
                   </div>
                 )}
 
@@ -461,9 +593,9 @@ const VendorOrders = () => {
                   ))}
                 </div>
 
-          {order.status !== 'completed' && order.status !== 'rejected' && (
+          {order.status === 'completed' || order.status === 'rejected' ? null : (
                   <div className="flex items-center gap-2 mt-4 pt-4 border-t border-border/50 w-full justify-end">
-                    {order.status === 'ready' ? (
+                    {order.status === 'out_for_delivery' ? (
                       <>
                         <button
                           onClick={(e) => { e.stopPropagation(); cancelOrderWithPin(order.id, order.pickupCode || ''); }}
@@ -474,7 +606,7 @@ const VendorOrders = () => {
                         </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); advanceStatus(order.id); }}
-                          className="gradient-primary text-primary-foreground text-xs font-semibold px-4 py-1.5 rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1.5"
+                          className="bg-primary text-primary-foreground text-xs font-semibold px-4 py-1.5 rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1.5"
                         >
                           <Check className="w-3 h-3" />
                           Complete
@@ -486,10 +618,13 @@ const VendorOrders = () => {
                           e.stopPropagation();
                           setSelectedOrderId(order.id);
                         }}
-                        className="gradient-primary text-primary-foreground w-full py-2.5 text-xs font-bold rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+                        className="bg-primary text-primary-foreground w-full py-2.5 text-xs font-bold rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
                       >
                         <Package className="w-4 h-4" />
-                        {order.status === 'pending' ? 'Review & Accept' : 'Pack Order'}
+                        {order.status === 'pending' ? 'Review & Accept' : 
+                         order.status === 'accepted' ? 'Pack Order' :
+                          order.status === 'packed' ? (order.deliveryMethod === 'delivery' ? 'Out for Delivery' : 'Complete Order') :
+                         'Continue'}
                       </button>
                     )}
                   </div>
@@ -507,7 +642,7 @@ const VendorOrders = () => {
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
-              className="bg-white dark:bg-[#151515] w-full max-w-lg rounded-t-[2.5rem] sm:rounded-[2.5rem] flex flex-col max-h-[90vh] shadow-2xl overflow-hidden border-t sm:border border-border/50"
+              className="bg-[#202020] w-full max-w-lg rounded-t-[2.5rem] sm:rounded-[2.5rem] flex flex-col max-h-[90vh] shadow-2xl overflow-hidden border-t sm:border border-border/50"
             >
               <div className="p-6 border-b border-border/50 flex items-center justify-between bg-card/50">
                 <div className="space-y-1">
@@ -557,14 +692,22 @@ const VendorOrders = () => {
                             {item.product.quantity && (
                               <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mt-1 opacity-80">{item.product.quantity}</p>
                             )}
-                            <p className="text-[10px] font-black text-primary mt-1.5 opacity-90">₹{item.product.price} / unit</p>
+                            <p className="text-[10px] font-black text-primary mt-1.5 opacity-90">
+                              ₹{(item.product.discountedPrice && Number(item.product.discountedPrice) > 0 && Number(item.product.discountedPrice) < item.product.price) 
+                                ? Number(item.product.discountedPrice) 
+                                : item.product.price} / unit
+                            </p>
                           </div>
                         </div>
                         <div className="flex flex-col items-end gap-1 shrink-0 ml-4">
                            <div className="font-mono font-black text-xl text-primary bg-primary/5 px-3 py-1.5 rounded-xl border border-primary/10">
                             x{item.quantity}
                           </div>
-                          <p className="text-[10px] font-bold text-muted-foreground">₹{item.product.price * item.quantity}</p>
+                          <p className="text-[10px] font-bold text-muted-foreground">
+                            ₹{((item.product.discountedPrice && Number(item.product.discountedPrice) > 0 && Number(item.product.discountedPrice) < item.product.price) 
+                              ? Number(item.product.discountedPrice) 
+                              : item.product.price) * item.quantity}
+                          </p>
                         </div>
                       </div>
                     ))}
@@ -579,7 +722,17 @@ const VendorOrders = () => {
                    </div>
                    <div className="flex justify-between items-center text-sm font-black pt-2 border-t border-primary/20">
                     <span className="text-primary uppercase tracking-widest">Order Total</span>
-                    <span className="text-primary text-lg">₹{selectedOrder.total}</span>
+                    <span className="text-primary text-lg">
+                      ₹{(() => {
+                        const itemsTotal = selectedOrder.items.reduce((sum, item) => {
+                          const price = (item.product.discountedPrice && Number(item.product.discountedPrice) > 0 && Number(item.product.discountedPrice) < item.product.price) 
+                            ? Number(item.product.discountedPrice) 
+                            : item.product.price;
+                          return sum + (price * item.quantity);
+                        }, 0);
+                        return itemsTotal + (selectedOrder.deliveryFee || 0);
+                      })()}
+                    </span>
                    </div>
                 </div>
               </div>
@@ -587,7 +740,13 @@ const VendorOrders = () => {
               <div className="p-6 border-t border-border/50 bg-card/50">
                 <div className="flex items-center gap-3">
                   <button
-                    onClick={() => cancelOrderWithPin(selectedOrder.id, selectedOrder.pickupCode || '')}
+                    onClick={() => {
+                      if (selectedOrder.status === 'pending') {
+                        rejectOrder(selectedOrder.id);
+                      } else {
+                        cancelOrderWithPin(selectedOrder.id, selectedOrder.pickupCode || '');
+                      }
+                    }}
                     className="flex-1 bg-destructive/10 text-destructive font-bold py-4 rounded-2xl hover:bg-destructive/20 transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-widest border border-destructive/20 shadow-sm active:scale-95"
                   >
                     <X className="w-5 h-5" />
@@ -595,10 +754,83 @@ const VendorOrders = () => {
                   </button>
                   <button
                     onClick={() => advanceStatus(selectedOrder.id)}
-                    className="flex-[2] gradient-primary text-primary-foreground font-black py-4 rounded-2xl hover:opacity-90 transition-all flex items-center justify-center gap-2 shadow-xl shadow-primary/20 text-sm uppercase tracking-widest active:scale-[0.98]"
+                    className="flex-[2] bg-primary text-primary-foreground font-black py-4 rounded-2xl hover:opacity-90 transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-widest active:scale-[0.98]"
                   >
                     <Check className="w-5 h-5" />
-                    {selectedOrder.status === 'pending' ? 'Pack and Continue' : 'Pack Order'}
+                    {selectedOrder.status === 'pending' ? 'Accept' : 
+                     selectedOrder.status === 'accepted' ? 'Pack Order' :
+                     selectedOrder.status === 'packed' ? (selectedOrder.deliveryMethod === 'delivery' ? 'Dispatch' : 'Complete Order') :
+                     'Proceed'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Rejection Reason Modal */}
+      <AnimatePresence>
+        {orderToReject && (
+          <div className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-[#202020] w-full max-w-md rounded-t-[2.5rem] sm:rounded-[2.5rem] overflow-hidden shadow-2xl border border-white/5"
+            >
+              <div className="p-8 space-y-6">
+                <div className="text-center space-y-2">
+                  <div className="w-16 h-16 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-rose-500/20">
+                    <X className="w-8 h-8 text-rose-500" />
+                  </div>
+                  <h3 className="text-2xl font-black text-white uppercase tracking-tight">Reject Order</h3>
+                  <p className="text-sm text-white/50">Please provide a reason for the customer.</p>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex flex-wrap gap-2">
+                    {['Out of stock', 'Store closed', 'Too busy', 'Price mismatch'].map((preset) => (
+                      <button
+                        key={preset}
+                        onClick={() => setRejectionReasonInput(preset)}
+                        className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${
+                          rejectionReasonInput === preset 
+                            ? 'bg-rose-500 text-white border-rose-500' 
+                            : 'bg-white/5 text-white/60 border-white/10 hover:bg-white/10'
+                        }`}
+                      >
+                        {preset}
+                      </button>
+                    ))}
+                  </div>
+
+                  <textarea
+                    value={rejectionReasonInput}
+                    onChange={(e) => setRejectionReasonInput(e.target.value)}
+                    placeholder="Type a custom reason here..."
+                    className="w-full min-h-[120px] p-5 rounded-2xl bg-white/[0.03] border border-white/10 text-sm text-white focus:border-rose-500/50 outline-none transition-all resize-none shadow-inner"
+                  />
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setOrderToReject(null)}
+                    disabled={isSubmittingRejection}
+                    className="flex-1 py-4 rounded-2xl text-xs font-black uppercase tracking-widest bg-white/5 text-white/60 hover:bg-white/10 transition-all active:scale-95 disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={confirmRejection}
+                    disabled={isSubmittingRejection || !rejectionReasonInput.trim()}
+                    className={`flex-[2] py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all active:scale-[0.98] ${
+                      rejectionReasonInput.trim() 
+                        ? 'bg-rose-600 text-white shadow-lg shadow-rose-900/20 hover:bg-rose-500' 
+                        : 'bg-white/5 text-white/20 cursor-not-allowed'
+                    }`}
+                  >
+                    {isSubmittingRejection ? 'Rejecting...' : 'Confirm Rejection'}
                   </button>
                 </div>
               </div>

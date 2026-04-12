@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MapPin, Search, Loader2, Navigation, CheckCircle2, ArrowRight, Store, Upload, Camera, X, Ticket } from 'lucide-react';
+import { MapPin, Search, Loader2, Navigation, CheckCircle2, ArrowRight, Store, Upload, Camera, X, Ticket, Building, LandPlot, Globe } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import MapView from '@/components/MapView';
 import { toast } from 'sonner';
@@ -9,32 +9,37 @@ import { db } from '@/lib/firebase';
 import { doc, setDoc, updateDoc } from 'firebase/firestore';
 import { generateSlug } from '@/utils/seo';
 
-const STORE_CATEGORIES = [
-    "Grocery",
-    "Dairy & Eggs",
-    "Fruits & Vegetables",
-    "Bakery",
-    "Meat & Seafood",
-    "Pharmacy",
-    "Beverages",
-    "Snacks",
-    "Household",
-    "Others"
-];
+import { CATEGORY_METADATA } from '@/constants/categories';
+
+const PRODUCT_CATEGORIES = Object.keys(CATEGORY_METADATA).filter(
+    cat => CATEGORY_METADATA[cat].type === 'product'
+);
+
+const SERVICE_CATEGORIES = Object.keys(CATEGORY_METADATA).filter(
+    cat => CATEGORY_METADATA[cat].type === 'service'
+);
 
 const VendorSetup = () => {
     const { user, loading, login, refreshStores } = useApp();
     const navigate = useNavigate();
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const streamRef = useRef<MediaStream | null>(null);
 
     // Store details state
     const [storeName, setStoreName] = useState('');
-    const [category, setCategory] = useState('Grocery');
+    const [category, setCategory] = useState('');
     const [storeType, setStoreType] = useState<'product' | 'service'>('product');
+    const [defaultsLoaded, setDefaultsLoaded] = useState(false);
     const [gstin, setGstin] = useState('');
     const [imageURL, setImageURL] = useState('');
     const [phone, setPhone] = useState('');
     const [referralCode, setReferralCode] = useState('');
+    
+    // UI states
+    const [showCamera, setShowCamera] = useState(false);
+    const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
+    const [uploading, setUploading] = useState(false);
 
     // Location state
     const [storeLat, setStoreLat] = useState<number>(28.6139);
@@ -44,15 +49,41 @@ const VendorSetup = () => {
     const [locationResults, setLocationResults] = useState<any[]>([]);
     const [detecting, setDetecting] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [mandal, setMandal] = useState('');
+    const [district, setDistrict] = useState('');
+    const [state, setState] = useState('');
+    const [country, setCountry] = useState('');
 
-    // Update store name when user data loads
+    // UI states
+    const [showCategoryPopup, setShowCategoryPopup] = useState(false);
+    const [catSearch, setCatSearch] = useState('');
+
+    // Update store details when user data loads - only ONCE
     useEffect(() => {
-        if (user) {
+        if (user && !defaultsLoaded) {
             if (!storeName && user.name) setStoreName(`${user.name}'s Store`);
             if (!phone && user.phone) setPhone(user.phone);
             if (!referralCode && user.referralCode) setReferralCode(user.referralCode);
+            
+            // Set initial category based on first available for product
+            if (!category) setCategory(PRODUCT_CATEGORIES[0]);
+            
+            setDefaultsLoaded(true);
         }
-    }, [user, storeName, phone, referralCode]);
+    }, [user, defaultsLoaded, storeName, phone, referralCode, category]);
+
+    // Handle Category change when Store Type changes
+    useEffect(() => {
+        if (storeType === 'product') {
+            if (!PRODUCT_CATEGORIES.includes(category)) {
+                setCategory(PRODUCT_CATEGORIES[0]);
+            }
+        } else {
+            if (!SERVICE_CATEGORIES.includes(category)) {
+                setCategory(SERVICE_CATEGORIES[0]);
+            }
+        }
+    }, [storeType]);
 
     // Redirect if not a vendor
     useEffect(() => {
@@ -63,10 +94,84 @@ const VendorSetup = () => {
         }
     }, [user, loading, navigate]);
 
+    const startCamera = async (mode: 'user' | 'environment' = facingMode) => {
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop());
+        }
+
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: { ideal: mode } },
+                audio: false
+            });
+            streamRef.current = stream;
+            if (videoRef.current) {
+                videoRef.current.srcObject = stream;
+                videoRef.current.play().catch(console.error);
+            }
+            setShowCamera(true);
+            setFacingMode(mode);
+        } catch (err: any) {
+            console.error("Camera access failed:", err);
+            toast.error("Could not access camera. Please check permissions.");
+        }
+    };
+
+    const stopCamera = () => {
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop());
+            streamRef.current = null;
+        }
+        setShowCamera(false);
+    };
+
+    const switchCamera = () => {
+        const newMode = facingMode === 'user' ? 'environment' : 'user';
+        startCamera(newMode);
+    };
+
+    const capturePhoto = () => {
+        if (videoRef.current && videoRef.current.videoWidth > 0) {
+            const video = videoRef.current;
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx?.drawImage(video, 0, 0);
+
+            // Resize for Firestore optimization (under 700KB)
+            const MAX_SIZE = 1200;
+            let width = canvas.width;
+            let height = canvas.height;
+
+            const outputCanvas = document.createElement('canvas');
+            if (width > height) {
+                if (width > MAX_SIZE) {
+                    height = Math.round(height * MAX_SIZE / width);
+                    width = MAX_SIZE;
+                }
+            } else {
+                if (height > MAX_SIZE) {
+                    width = Math.round(width * MAX_SIZE / height);
+                    height = MAX_SIZE;
+                }
+            }
+
+            outputCanvas.width = width;
+            outputCanvas.height = height;
+            const outCtx = outputCanvas.getContext('2d');
+            outCtx?.drawImage(canvas, 0, 0, width, height);
+
+            const base64 = outputCanvas.toDataURL('image/jpeg', 0.95);
+            setImageURL(base64);
+            stopCamera();
+            toast.success("Storefront photo captured!");
+        }
+    };
+
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            // Firestore limit is 1MB total. 0.7MB for image is safe with base64 overhead.
             if (file.size > 700 * 1024) {
                 toast.error("Image too large. Please select an image under 700KB.");
                 return;
@@ -79,6 +184,13 @@ const VendorSetup = () => {
             reader.readAsDataURL(file);
         }
     };
+
+    useEffect(() => {
+        if (showCamera && videoRef.current && streamRef.current) {
+            videoRef.current.srcObject = streamRef.current;
+            videoRef.current.play().catch(console.error);
+        }
+    }, [showCamera]);
 
     if (loading) {
         return (
@@ -134,7 +246,11 @@ const VendorSetup = () => {
                         lat: f.geometry.coordinates[1],
                         lon: f.geometry.coordinates[0],
                         distanceKm: dist,
-                        type: p.osm_value || p.type || 'place'
+                        type: p.osm_value || p.type || 'place',
+                        mandal: p.suburb || p.locality || (p.osm_value === 'suburb' ? p.name : ''),
+                        district: p.district || p.city || (p.osm_value === 'city' ? p.name : ''),
+                        state: p.state || (p.osm_value === 'state' ? p.name : ''),
+                        country: p.country || (p.osm_value === 'country' ? p.name : '')
                     };
                 });
 
@@ -170,6 +286,10 @@ const VendorSetup = () => {
         setStoreLat(lat);
         setStoreLng(lng);
         setStoreAddress(res.display_name);
+        setMandal(res.mandal || '');
+        setDistrict(res.district || '');
+        setState(res.state || '');
+        setCountry(res.country || '');
         setLocationSearch('');
         setLocationResults([]);
         toast.success('Location set to ' + shortName);
@@ -190,6 +310,10 @@ const VendorSetup = () => {
                     .then(res => res.json())
                     .then(data => {
                         setStoreAddress(data.display_name);
+                        setMandal(data.address?.suburb || data.address?.locality || data.address?.city_district || '');
+                        setDistrict(data.address?.district || data.address?.city || '');
+                        setState(data.address?.state || '');
+                        setCountry(data.address?.country || '');
                         toast.success('Location detected!');
                     })
                     .catch(() => {
@@ -225,10 +349,13 @@ const VendorSetup = () => {
             // 1. Update user in Firestore first (this ensures profile has lat/lng and setup flag)
             try {
                 await setDoc(doc(db, 'users', user.id), {
-                    lat: storeLat,
                     lng: storeLng,
                     phone: phone,
                     hasSetupStore: true,
+                    mandal,
+                    district,
+                    state,
+                    country,
                     ...(referralCode && !user.referralCode ? { referralCode: referralCode.toUpperCase().trim() } : {})
                 }, { merge: true });
                 console.log("User document verified and updated");
@@ -267,7 +394,11 @@ const VendorSetup = () => {
                     storeType: storeType,
                     plan: user.plan || 'none',
                     isBlocked: user.isBlocked || false,
-                    products: []
+                    products: [],
+                    mandal,
+                    district,
+                    state,
+                    country
                 };
 
 
@@ -284,7 +415,7 @@ const VendorSetup = () => {
             }
 
             // 3. Update local state
-            login({ ...user, lat: storeLat, lng: storeLng, phone: phone, hasSetupStore: true, referralCode: user.referralCode || referralCode });
+            login({ ...user, lat: storeLat, lng: storeLng, phone: phone, hasSetupStore: true, referralCode: user.referralCode || referralCode, mandal, district, state, country });
 
             toast.success('Your store is now LIVE!', {
                 description: "Map sync complete and shop open. Please select a subscription to continue.",
@@ -303,14 +434,14 @@ const VendorSetup = () => {
 
     return (
         <div className="min-h-screen gradient-warm flex flex-col pb-20">
-            <header className="p-4 border-b border-border bg-white/80 backdrop-blur-md flex items-center justify-between sticky top-0 z-50">
+            <header className="p-4 border-b border-white/5 bg-neutral-900/90 backdrop-blur-xl flex items-center justify-between sticky top-0 z-[1000] shadow-lg">
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center">
-                        <Store className="w-5 h-5 text-primary-foreground" />
+                    <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-md">
+                        <Store className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                        <h1 className="text-sm font-black text-foreground uppercase tracking-tight">BellBasket Partner</h1>
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-black">
+                        <h1 className="text-sm font-black text-white uppercase tracking-tight">BellBasket Partner</h1>
+                        <p className="text-[10px] text-zinc-400 uppercase tracking-widest font-black">
                             Store Registration
                         </p>
                     </div>
@@ -364,14 +495,14 @@ const VendorSetup = () => {
                                     <button
                                         type="button"
                                         onClick={() => setStoreType('product')}
-                                        className={`px-5 py-4 rounded-2xl text-sm font-bold transition-all ${storeType === 'product' ? 'bg-primary text-white shadow-lg' : 'bg-secondary/50 text-foreground hover:bg-secondary/80'}`}
+                                        className={`px-5 py-4 rounded-2xl text-sm font-bold transition-all ${storeType === 'product' ? 'bg-primary text-white' : 'bg-secondary/50 text-foreground hover:bg-secondary/80'}`}
                                     >
                                         Products Store
                                     </button>
                                     <button
                                         type="button"
                                         onClick={() => setStoreType('service')}
-                                        className={`px-5 py-4 rounded-2xl text-sm font-bold transition-all ${storeType === 'service' ? 'bg-primary text-white shadow-lg' : 'bg-secondary/50 text-foreground hover:bg-secondary/80'}`}
+                                        className={`px-5 py-4 rounded-2xl text-sm font-bold transition-all ${storeType === 'service' ? 'bg-primary text-white' : 'bg-secondary/50 text-foreground hover:bg-secondary/80'}`}
                                     >
                                         Service Booking
                                     </button>
@@ -380,17 +511,46 @@ const VendorSetup = () => {
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Business Category</label>
-                                <select
-                                    value={category}
-                                    onChange={e => setCategory(e.target.value)}
-                                    className="w-full px-5 py-4 rounded-2xl bg-secondary/50 border-0 text-sm font-bold text-foreground focus:ring-4 focus:ring-primary/10 transition-all appearance-none cursor-pointer"
-                                >
-                                    {STORE_CATEGORIES.map(cat => (
-                                        <option key={cat} value={cat}>{cat}</option>
-                                    ))}
-                                </select>
+                            <div className="space-y-4">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1 flex justify-between items-center">
+                                    Business Category
+                                    <span className="text-[9px] text-primary bg-primary/10 px-2 py-0.5 rounded-full lowercase tracking-normal">Select the best match for your store</span>
+                                </label>
+                                
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                    {(storeType === 'product' ? PRODUCT_CATEGORIES : SERVICE_CATEGORIES).map(catName => {
+                                        const metadata = CATEGORY_METADATA[catName];
+                                        const Icon = metadata?.icon || Store;
+                                        const isSelected = category === catName;
+                                        
+                                        return (
+                                            <button
+                                                key={catName}
+                                                type="button"
+                                                onClick={() => setCategory(catName)}
+                                                className={`flex flex-col items-center gap-3 p-4 rounded-3xl transition-all relative overflow-hidden group ${isSelected ? 'bg-primary text-white ring-2 ring-primary/20' : 'bg-secondary/50 text-foreground hover:bg-secondary'}`}
+                                            >
+                                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${isSelected ? 'bg-white/20' : `bg-gradient-to-br ${metadata?.gradient || 'from-gray-400 to-gray-500'} text-white shadow-sm ring-4 ring-white`}`}>
+                                                    <Icon className={`w-6 h-6 ${isSelected ? 'animate-pulse' : ''}`} />
+                                                </div>
+                                                <span className={`text-[11px] font-black uppercase tracking-widest text-center line-clamp-1 ${isSelected ? 'text-white' : 'text-muted-foreground'}`}>
+                                                    {catName}
+                                                </span>
+                                                
+                                                {isSelected && (
+                                                    <motion.div
+                                                        layoutId="activeCategory"
+                                                        className="absolute top-2 right-2"
+                                                        initial={{ scale: 0 }}
+                                                        animate={{ scale: 1 }}
+                                                    >
+                                                        <CheckCircle2 className="w-4 h-4 text-white fill-white/20" />
+                                                    </motion.div>
+                                                )}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
                             </div>
 
                             <div className="space-y-2">
@@ -426,30 +586,50 @@ const VendorSetup = () => {
                             <Camera className="w-4 h-4" /> Storefront Image
                         </h3>
 
-                        <div className="flex flex-col items-center gap-4">
+                        <div className="flex flex-col gap-4">
                             {imageURL ? (
-                                <div className="relative w-full aspect-video rounded-3xl overflow-hidden border-4 border-white shadow-xl">
-                                    <img src={imageURL} alt="Storefront" className="w-full h-full object-cover" />
+                                <div className="relative w-full aspect-video rounded-3xl overflow-hidden border-4 border-white shadow-xl group">
+                                    <img src={imageURL} alt="Storefront" className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-700" />
+                                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity" />
                                     <button
                                         onClick={() => setImageURL('')}
-                                        className="absolute top-4 right-4 w-10 h-10 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center text-white hover:bg-red-500 transition-colors"
+                                        className="absolute top-4 right-4 w-10 h-10 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center text-white hover:bg-red-500 transition-colors z-10"
                                     >
                                         <X className="w-5 h-5" />
                                     </button>
                                 </div>
                             ) : (
-                                <button
-                                    onClick={() => fileInputRef.current?.click()}
-                                    className="w-full aspect-video rounded-3xl border-4 border-dashed border-primary/20 bg-primary/5 flex flex-col items-center justify-center gap-3 group hover:bg-primary/10 transition-all"
-                                >
-                                    <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                        <Upload className="w-8 h-8 text-primary" />
+                                <div className="space-y-4">
+                                    <div 
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="w-full aspect-video rounded-3xl border-4 border-dashed border-primary/20 bg-primary/5 flex flex-col items-center justify-center gap-3 group hover:bg-primary/10 transition-all cursor-pointer"
+                                    >
+                                        <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                            <Upload className="w-8 h-8 text-primary" />
+                                        </div>
+                                        <div className="text-center">
+                                            <p className="font-black text-sm text-foreground">Add Storefront Image</p>
+                                            <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">Keep it bright & attractive</p>
+                                        </div>
                                     </div>
-                                    <div className="text-center">
-                                        <p className="font-black text-sm text-foreground">Click to Upload Photo</p>
-                                        <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">PNG, JPG up to 2MB</p>
+                                    
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => fileInputRef.current?.click()}
+                                            className="flex items-center justify-center gap-2 py-4 rounded-2xl bg-secondary hover:bg-secondary/80 text-foreground text-xs font-black uppercase tracking-widest transition-all active:scale-95"
+                                        >
+                                            <Upload className="w-4 h-4" /> Upload
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => startCamera()}
+                                            className="flex items-center justify-center gap-2 py-4 rounded-2xl bg-secondary hover:bg-secondary/80 text-foreground text-xs font-black uppercase tracking-widest transition-all active:scale-95"
+                                        >
+                                            <Camera className="w-4 h-4" /> Camera
+                                        </button>
                                     </div>
-                                </button>
+                                </div>
                             )}
                             <input
                                 type="file"
@@ -490,30 +670,25 @@ const VendorSetup = () => {
                                 <AnimatePresence>
                                     {locationResults.length > 0 && (
                                         <motion.div
-                                            initial={{ opacity: 0, y: -10 }}
+                                            initial={{ opacity: 0, y: 10 }}
                                             animate={{ opacity: 1, y: 0 }}
-                                            exit={{ opacity: 0, y: -10 }}
-                                            className="absolute top-full left-0 right-0 mt-3 bg-white rounded-[24px] shadow-[0_20px_50px_rgba(0,0,0,0.15)] border border-border p-3 z-[1000] max-h-64 overflow-y-auto"
+                                            exit={{ opacity: 0, y: 10 }}
+                                            className="absolute top-full left-0 right-0 mt-4 z-[2500] bg-[#141414] border border-white/10 rounded-[2.5rem] p-3 shadow-2xl overflow-hidden overflow-y-auto max-h-80 backdrop-blur-2xl"
                                         >
                                             {locationResults.map(res => (
-                                                <button
-                                                    key={res.place_id}
-                                                    onClick={() => selectLocation(res)}
-                                                    className="w-full flex items-start gap-4 p-4 hover:bg-primary/5 transition-all text-left group border-b border-border last:border-0"
-                                                >
-                                                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary group-hover:text-white transition-colors">
-                                                        <MapPin className="w-5 h-5" />
+                                                <button key={res.place_id} onClick={() => selectLocation(res)} className="w-full text-left p-4 hover:bg-white/5 rounded-2xl transition-all group flex items-start gap-4 border-b border-white/[0.03] last:border-0 mb-1">
+                                                    <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center shrink-0 group-hover:bg-primary/20 group-hover:text-primary transition-all">
+                                                        {res.type === 'building' || res.type === 'house' ? <Building className="w-5 h-5" /> : 
+                                                         res.type === 'park' || res.type === 'forest' ? <LandPlot className="w-5 h-5" /> :
+                                                         res.type === 'city' || res.type === 'town' ? <Globe className="w-5 h-5" /> :
+                                                         <MapPin className="w-5 h-5" />}
                                                     </div>
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-center justify-between gap-2">
-                                                            <p className="font-bold text-sm text-foreground truncate">{res.short_name}</p>
-                                                            {res.distanceKm !== undefined && (
-                                                                <span className="text-[10px] font-black text-primary bg-primary/10 px-2 py-0.5 rounded-full shrink-0">
-                                                                    {res.distanceKm < 1 ? '<1 km' : `${Math.round(res.distanceKm)} km`}
-                                                                </span>
-                                                            )}
+                                                            <p className="font-black text-sm text-white line-clamp-1 group-hover:text-primary transition-colors">{res.short_name}</p>
+                                                            <span className="text-[9px] font-black text-white/20 uppercase tracking-tighter whitespace-nowrap">{res.distanceKm?.toFixed(1) || '0.0'} km</span>
                                                         </div>
-                                                        <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5 leading-tight">{res.display_name}</p>
+                                                        <p className="text-[10px] text-white/40 line-clamp-2 mt-1 font-medium leading-relaxed">{res.display_name}</p>
                                                     </div>
                                                 </button>
                                             ))}
@@ -533,7 +708,13 @@ const VendorSetup = () => {
                                         setStoreLng(lng);
                                         fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
                                             .then(res => res.json())
-                                            .then(data => setStoreAddress(data.display_name));
+                                            .then(data => {
+                                                setStoreAddress(data.display_name);
+                                                setMandal(data.address?.suburb || data.address?.locality || data.address?.city_district || '');
+                                                setDistrict(data.address?.district || data.address?.city || '');
+                                                setState(data.address?.state || '');
+                                                setCountry(data.address?.country || '');
+                                            });
                                     }}
                                 />
                                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-[400]">
@@ -553,7 +734,7 @@ const VendorSetup = () => {
                     <button
                         onClick={handleSave}
                         disabled={saving || !storeAddress}
-                        className="w-full gradient-primary text-primary-foreground py-5 rounded-3xl font-black text-sm flex items-center justify-center gap-3 shadow-2xl shadow-primary/20 hover:scale-[1.01] active:scale-[0.99] transition-all disabled:opacity-50"
+                        className="w-full bg-primary text-primary-foreground py-5 rounded-3xl font-black text-sm flex items-center justify-center gap-3 transition-all disabled:opacity-50"
                     >
                         {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Launch My Store <ArrowRight className="w-5 h-5" /></>}
                     </button>
@@ -578,6 +759,142 @@ const VendorSetup = () => {
                         . We use your location and business details to connect you with nearby customers.
                     </p>
                 </div>
+
+                {/* Camera Modal */}
+                <AnimatePresence>
+                    {showCamera && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 z-[2000] flex items-center justify-center bg-black backdrop-blur-md p-4"
+                        >
+                            <style>{`#bottom-nav { display: none !important; }`}</style>
+                            <div className="w-full max-w-lg aspect-[3/4] bg-neutral-900 rounded-[40px] overflow-hidden relative shadow-2xl border-4 border-white/10">
+                                <video
+                                    ref={videoRef}
+                                    autoPlay
+                                    playsInline
+                                    className="w-full h-full object-cover"
+                                />
+
+                                {/* HUD */}
+                                <div className="absolute inset-0 flex flex-col justify-between p-8">
+                                    <div className="flex justify-between items-start">
+                                        <button
+                                            onClick={switchCamera}
+                                            className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white border border-white/20 hover:bg-white/05 transition-all"
+                                            title="Switch Camera"
+                                        >
+                                            <Camera className="w-6 h-6" />
+                                        </button>
+                                        <button
+                                            onClick={stopCamera}
+                                            className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white border border-white/20 hover:bg-white/05 transition-all"
+                                        >
+                                            <X className="w-6 h-6" />
+                                        </button>
+                                    </div>
+
+                                    <div className="flex flex-col items-center gap-6">
+                                        <div className="w-20 h-20 rounded-full border-4 border-white p-1 hover:scale-110 active:scale-95 transition-all cursor-pointer">
+                                            <div
+                                                onClick={capturePhoto}
+                                                className="w-full h-full rounded-full bg-white"
+                                            />
+                                        </div>
+                                        <p className="text-white/60 text-xs font-black uppercase tracking-widest bg-black/40 px-4 py-2 rounded-full backdrop-blur-sm">
+                                            Capture Storefront
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                {/* Category Search Popup */}
+                <AnimatePresence>
+                    {showCategoryPopup && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 z-[2000] flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-md"
+                            onClick={() => { setShowCategoryPopup(false); setCatSearch(''); }}
+                        >
+                            <style>{`#bottom-nav { display: none !important; }`}</style>
+                            <motion.div
+                                initial={{ y: "100%", opacity: 0 }}
+                                animate={{ y: 0, opacity: 1 }}
+                                exit={{ y: "100%", opacity: 0 }}
+                                onClick={(e) => e.stopPropagation()}
+                                className="bg-background rounded-[2.5rem] w-full max-w-lg max-h-[85vh] overflow-hidden flex flex-col shadow-2xl border border-white/10"
+                            >
+                                <div className="p-8 border-b border-border/50 shrink-0 space-y-6">
+                                    <div className="flex items-center justify-between">
+                                        <div className="space-y-1">
+                                            <h3 className="text-2xl font-black text-foreground tracking-tight">Select Category</h3>
+                                            <p className="text-xs text-muted-foreground uppercase tracking-widest font-bold">Search all {storeType} types</p>
+                                        </div>
+                                        <button
+                                            onClick={() => { setShowCategoryPopup(false); setCatSearch(''); }}
+                                            className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-all"
+                                        >
+                                            <X className="w-5 h-5" />
+                                        </button>
+                                    </div>
+
+                                    <div className="relative group">
+                                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                                        <input
+                                            autoFocus
+                                            type="text"
+                                            placeholder="Search categories..."
+                                            value={catSearch}
+                                            onChange={(e) => setCatSearch(e.target.value)}
+                                            className="w-full pl-12 pr-4 py-4 rounded-2xl bg-secondary/50 border border-transparent focus:border-primary/30 outline-none font-bold text-sm"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex-1 overflow-y-auto p-4 scrollbar-hide">
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pb-8">
+                                        {(storeType === 'product' ? PRODUCT_CATEGORIES : SERVICE_CATEGORIES)
+                                            .filter(cat =>
+                                                cat.toLowerCase().includes(catSearch.toLowerCase()) || catSearch === ''
+                                            )
+                                            .map(catName => {
+                                                const metadata = CATEGORY_METADATA[catName];
+                                                const Icon = metadata?.icon || Store;
+                                                const isSelected = category === catName;
+
+                                                return (
+                                                    <button
+                                                        key={catName}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setCategory(catName);
+                                                            setShowCategoryPopup(false);
+                                                            setCatSearch('');
+                                                        }}
+                                                        className={`flex flex-col items-center gap-3 p-5 rounded-3xl transition-all relative overflow-hidden group ${isSelected ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-500/30 scale-105 ring-2 ring-indigo-400' : 'bg-secondary/30 text-foreground hover:bg-secondary hover:scale-[1.02]'}`}
+                                                    >
+                                                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${isSelected ? 'bg-white/20' : `bg-gradient-to-br ${metadata?.gradient || 'from-gray-400 to-gray-500'} text-white shadow-md ring-4 ring-white`}`}>
+                                                            <Icon className="w-6 h-6" />
+                                                        </div>
+                                                        <span className={`text-[11px] font-black uppercase tracking-tight text-center line-clamp-1 ${isSelected ? 'text-white' : 'text-muted-foreground'}`}>
+                                                            {catName}
+                                                        </span>
+                                                    </button>
+                                                );
+                                            })}
+                                    </div>
+                                </div>
+                            </motion.div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </main>
         </div>
     );

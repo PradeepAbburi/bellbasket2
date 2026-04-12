@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ServiceBooking, Store, Order } from '@/types';
-import { Trash2, CheckCircle2, Circle, Clock, Star, MapPin, Navigation, Phone, User as UserIcon, KeyRound, Package, Share2, Copy, EyeOff } from 'lucide-react';
+import { Trash2, CheckCircle2, Circle, Clock, Star, MapPin, Navigation, Phone, User as UserIcon, KeyRound, Package, Share2, Copy, EyeOff, X } from 'lucide-react';
 import MapView from './MapView';
 import { toast } from 'sonner';
 
@@ -10,6 +10,7 @@ const statusColors: Record<string, string> = {
   accepted: 'bg-sky-500/10 text-sky-500 border-sky-500/20',
   packed: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
   ready: 'bg-emerald-400/10 text-emerald-400 border-emerald-400/20',
+  out_for_delivery: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
   completed: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
   rejected: 'bg-rose-500/10 text-rose-500 border-rose-500/20',
 };
@@ -18,7 +19,8 @@ const statusLabels: Record<string, string> = {
   pending: 'Pending',
   accepted: 'Accepted',
   packed: 'Packed',
-  ready: 'Ready',
+  ready: 'Ready for Pickup',
+  out_for_delivery: 'Out for Delivery',
   completed: 'Completed',
   rejected: 'Order Rejected',
 };
@@ -74,7 +76,8 @@ export const RenderBookingCard = ({
   showSelection,
   onLongPress,
   vendorInfo,
-  standalone = false
+  standalone = false,
+  hasReviewedStore = false
 }: {
   booking: ServiceBooking;
   i: number;
@@ -94,6 +97,7 @@ export const RenderBookingCard = ({
   onLongPress?: () => void;
   vendorInfo?: { phone: string; name: string };
   standalone?: boolean;
+  hasReviewedStore?: boolean;
 }) => {
   const store = getStoreForOrder(booking.storeId);
   const [showContact, setShowContact] = useState(false);
@@ -157,12 +161,6 @@ export const RenderBookingCard = ({
         </div>
       )}
 
-      {booking.status === 'completed' && !review.submitted && onClick && (
-        <div className="absolute top-3 left-3 bg-amber-400 dark:bg-amber-500 text-black text-[9px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest animate-pulse border border-amber-500/50 flex items-center gap-1.5 shadow-md backdrop-blur-sm z-10">
-          <Star className="w-2.5 h-2.5 fill-current" />
-          Give Review
-        </div>
-      )}
 
       <div className={`flex items-start justify-between mb-4 ${booking.status === 'completed' && !review.submitted && onClick ? 'pt-8' : ''}`}>
         <div className="flex-1 min-w-0 pr-12">
@@ -185,6 +183,18 @@ export const RenderBookingCard = ({
         </div>
         <div className="flex flex-col items-end gap-3 shrink-0">
           <div className="flex items-center gap-2">
+            {store && (
+              <button 
+                onClick={(e) => { 
+                  e.stopPropagation(); 
+                  window.open(`https://www.google.com/maps/dir/?api=1&destination=${store.lat},${store.lng}`, '_blank'); 
+                }}
+                className="p-2.5 rounded-xl bg-primary/10 border border-primary/20 text-primary hover:bg-primary hover:text-white transition-all shadow-lg backdrop-blur-md"
+                title="Get Directions"
+              >
+                <Navigation className="w-4 h-4" />
+              </button>
+            )}
             <button 
               onClick={(e) => { e.stopPropagation(); handleShare(booking.id, 'booking', booking.storeName); }}
               className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-foreground/70 hover:bg-white/10 hover:text-foreground transition-all shadow-xl backdrop-blur-md"
@@ -301,111 +311,6 @@ export const RenderBookingCard = ({
         )}
       </div>
 
-      {!onClick && booking.status === 'completed' && !review.submitted && (
-        <div className="mt-8 space-y-6 text-left p-6 rounded-3xl bg-[#1A1A1A] border border-white/5 shadow-2xl">
-          <div>
-            <h3 className="text-xl font-bold text-white mb-1">Customer Review</h3>
-            <p className="text-xs text-white/50">How was your experience with {booking.storeName}?</p>
-          </div>
-
-          <div className="flex gap-2.5 py-2">
-            {[1, 2, 3, 4, 5].map((star) => (
-              <button
-                key={star}
-                onClick={() => onRate(star)}
-                className="transition-transform active:scale-90"
-              >
-                <Star
-                  className={`w-8 h-8 ${
-                    star <= review.rating 
-                      ? 'fill-amber-400 text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.4)]' 
-                      : 'text-white/20 stroke-[1.5]'
-                  }`}
-                />
-              </button>
-            ))}
-          </div>
-
-          <div className="space-y-4">
-             <div className="flex items-center gap-3">
-                <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest">Review Details</span>
-                <div className="h-[1px] flex-1 bg-white/10" />
-             </div>
-
-             <textarea
-               value={review.text}
-               onChange={(e) => onReviewChange(e.target.value)}
-               placeholder="Tell us what you liked (optional)..."
-               className="w-full min-h-[120px] p-5 rounded-2xl bg-white/[0.03] border border-white/10 text-sm text-white focus:border-amber-500/50 outline-none transition-all resize-none shadow-inner"
-             />
-             
-             <div 
-               onClick={() => onAnonymous(!review.isAnonymous)}
-               className="flex items-center justify-between gap-4 p-4 rounded-2xl bg-white/[0.02] border border-white/5 cursor-pointer hover:bg-white/[0.04] transition-all group"
-             >
-                <div className="flex items-center gap-4">
-                   <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center border border-white/10 group-hover:border-white/20">
-                      <EyeOff className="w-5 h-5 text-white/40" />
-                   </div>
-                   <div>
-                      <h4 className="text-xs font-bold text-white">Review as Anonymous</h4>
-                      <p className="text-[10px] text-white/40 mt-0.5 font-medium">Hide your name from public view</p>
-                   </div>
-                </div>
-                
-                <div className={`w-12 h-6 rounded-full transition-all relative shrink-0 ${review.isAnonymous ? 'bg-amber-500' : 'bg-white/10'}`}>
-                   <div className={`absolute top-[2px] left-[2px] w-[20px] h-[20px] bg-white rounded-full transition-transform shadow-md ${review.isAnonymous ? 'translate-x-[24px]' : 'translate-x-0'}`} />
-                </div>
-             </div>
-             
-             <button
-               onClick={onSubmit}
-               disabled={review.rating === 0}
-               className={`w-full py-4 rounded-[1.25rem] text-sm font-black transition-all ${
-                 review.rating > 0 
-                   ? 'bg-amber-500 text-black shadow-[0_8px_20px_-4px_rgba(245,158,11,0.3)] hover:scale-[1.01] active:scale-95' 
-                   : 'bg-white/5 text-white/20 cursor-not-allowed'
-               }`}
-             >
-               Submit Review
-             </button>
-          </div>
-        </div>
-      )}
-
-      {!onClick && booking.status === 'completed' && review.submitted && (
-        <div className="mt-8 p-6 rounded-3xl bg-[#1A1A1A] border border-white/5 text-left">
-           <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
-                <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center justify-between gap-2">
-                  <h4 className="text-xs font-black text-white uppercase tracking-tight">Review Submitted</h4>
-                  {review.submittedAt && (
-                    <span className="text-[9px] text-white/30 font-bold tracking-wider">
-                      {new Date(review.submittedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
-                    </span>
-                  )}
-                </div>
-                <div className="flex gap-0.5 mt-1">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <Star
-                      key={star}
-                      className={`w-2.5 h-2.5 ${star <= review.rating ? 'fill-amber-400 text-amber-400' : 'text-white/10'}`}
-                    />
-                  ))}
-                </div>
-              </div>
-           </div>
-           {review.text?.trim() && (
-             <div className="p-4 rounded-2xl bg-white/5 border border-white/5 text-sm text-white/70 italic leading-relaxed">
-                "{review.text}"
-             </div>
-           )}
-        </div>
-      )}
-
       {!onClick && store && (
         <div className="mt-4 p-4 glass rounded-[24px] bg-secondary/10 border border-border/40 space-y-4">
           <div className="flex flex-col sm:flex-row justify-between items-center gap-4 text-left">
@@ -457,7 +362,8 @@ export const RenderOrderCard = ({
   showSelection,
   onLongPress,
   vendorInfo,
-  standalone = false
+  standalone = false,
+  hasReviewedStore = false
 }: {
   order: Order;
   i: number;
@@ -477,6 +383,7 @@ export const RenderOrderCard = ({
   onLongPress?: () => void;
   vendorInfo?: { phone: string; name: string };
   standalone?: boolean;
+  hasReviewedStore?: boolean;
 }) => {
   const store = getStoreForOrder(order.storeId);
   const [showContact, setShowContact] = useState(false);
@@ -540,10 +447,25 @@ export const RenderOrderCard = ({
         </div>
       )}
 
-      {order.status === 'completed' && !review.submitted && onClick && (
+      {order.status === 'completed' && !review.submitted && !hasReviewedStore && onClick && (
         <div className="absolute top-3 left-3 bg-amber-400 dark:bg-amber-500 text-black text-[9px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest animate-pulse border border-amber-500/50 flex items-center gap-1.5 shadow-md backdrop-blur-sm z-10">
           <Star className="w-2.5 h-2.5 fill-current" />
           Rate Now
+        </div>
+      )}
+
+      {order.status === 'rejected' && order.rejectionReason && (
+        <div className="mb-4 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-left">
+          <div className="flex items-center gap-2 mb-2">
+            <X className="w-4 h-4 text-rose-500" strokeWidth={3} />
+            <h4 className="text-[10px] font-black text-rose-500 uppercase tracking-widest">Order Rejected</h4>
+          </div>
+          <p className="text-sm font-bold text-foreground leading-relaxed italic">
+            "{order.rejectionReason}"
+          </p>
+          <p className="text-[9px] text-muted-foreground mt-2 font-medium uppercase tracking-tight italic">
+            Note from vendor
+          </p>
         </div>
       )}
 
@@ -564,6 +486,18 @@ export const RenderOrderCard = ({
         </div>
         <div className="flex flex-col items-end gap-3 shrink-0">
           <div className="flex items-center gap-2">
+            {store && (
+              <button 
+                onClick={(e) => { 
+                  e.stopPropagation(); 
+                  window.open(`https://www.google.com/maps/dir/?api=1&destination=${store.lat},${store.lng}`, '_blank'); 
+                }}
+                className="p-2.5 rounded-xl bg-primary/10 border border-primary/20 text-primary hover:bg-primary hover:text-white transition-all shadow-lg backdrop-blur-md"
+                title="Get Directions"
+              >
+                <Navigation className="w-4 h-4" />
+              </button>
+            )}
             <button 
               onClick={(e) => { e.stopPropagation(); handleShare(order.id, 'order', order.storeName); }}
               className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-foreground/70 hover:bg-white/10 hover:text-foreground transition-all shadow-xl backdrop-blur-md"
@@ -572,7 +506,8 @@ export const RenderOrderCard = ({
               <Share2 className="w-4 h-4" />
             </button>
             <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full border shadow-sm ${statusColors[order.status] || statusColors.pending}`}>
-              {t(`common.order_status.${order.status}`, { defaultValue: statusLabels[order.status] || order.status.toUpperCase() })}
+              {order.status === 'completed' && order.deliveryMethod === 'delivery' ? 'Delivered' : 
+               t(`common.order_status.${order.status}`, { defaultValue: statusLabels[order.status] || order.status.toUpperCase() })}
             </span>
           </div>
         </div>
@@ -641,19 +576,57 @@ export const RenderOrderCard = ({
       )}
 
       {order.pickupCode && (
-        <div className="mb-4 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 rounded-xl p-3 flex items-center justify-between border border-amber-200/60 dark:border-amber-700/40 text-left">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-amber-500/20 flex items-center justify-center">
+        <div className="mb-4 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 rounded-xl flex border border-amber-200/60 dark:border-amber-700/40 shadow-sm overflow-hidden text-left">
+          <div className="flex-1 p-3 flex items-center gap-3 border-r border-amber-200/40 dark:border-amber-700/30">
+            <div className="w-9 h-9 rounded-lg bg-amber-500/20 flex items-center justify-center shrink-0">
               <KeyRound className="w-4 h-4 text-amber-600 dark:text-amber-400" />
             </div>
             <div>
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Order PIN</p>
-              <p className="text-lg font-black text-foreground tracking-[0.3em] font-mono">{order.pickupCode}</p>
+              <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-0.5">Order PIN</p>
+              <p className="text-lg font-black text-foreground tracking-[0.2em] font-mono leading-none">{order.pickupCode}</p>
             </div>
           </div>
-          <span className="text-[8px] font-black text-amber-600/60 dark:text-amber-400/60 uppercase tracking-widest">
-            {order.status === 'completed' ? 'Verified ✓' : 'Verify for Pickup'}
-          </span>
+          <div className="flex-1 p-3 bg-white/10 dark:bg-black/20 flex flex-col justify-center items-end relative">
+            <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-0.5">Total Amount</p>
+            <p className="text-xl font-black text-primary leading-none">
+              ₹{(() => {
+                const itemsTotal = order.items.reduce((sum, item) => {
+                  const price = (item.product.discountedPrice && Number(item.product.discountedPrice) > 0 && Number(item.product.discountedPrice) < item.product.price) 
+                    ? Number(item.product.discountedPrice) 
+                    : item.product.price;
+                  return sum + (price * item.quantity);
+                }, 0);
+                return itemsTotal + (order.deliveryFee || 0);
+              })()}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {(order.deliveryMethod === 'delivery' || order.paymentMethod === 'delivery') && (
+        <div className="mb-4 p-4 rounded-2xl bg-primary/5 border border-primary/10 text-left space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
+              <Package className="w-3.5 h-3.5" />
+            </div>
+            <h4 className="text-[10px] font-black uppercase tracking-widest text-primary">Delivery Information</h4>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-3 pb-3 border-b border-primary/10">
+            <div>
+              <p className="text-[9px] text-muted-foreground uppercase font-bold tracking-wider">Customer Name</p>
+              <p className="text-xs font-bold text-foreground">{order.userName || 'Customer'}</p>
+            </div>
+            <div>
+              <p className="text-[9px] text-muted-foreground uppercase font-bold tracking-wider">Contact Phone</p>
+              <p className="text-xs font-bold text-foreground">{order.userPhone || 'Not Provided'}</p>
+            </div>
+          </div>
+          
+          <div>
+            <p className="text-[9px] text-muted-foreground uppercase font-bold tracking-wider">Delivery Address</p>
+            <p className="text-xs font-medium text-foreground leading-relaxed italic">{order.customerAddress || 'No Address Provided'}</p>
+          </div>
         </div>
       )}
 
@@ -665,22 +638,36 @@ export const RenderOrderCard = ({
               {item.product.quantity && <span className="ml-1 text-[10px] opacity-70">({item.product.quantity})</span>}
               {" "}× {item.quantity}
             </span>
-            <span className="text-foreground font-medium">₹{item.product.price * item.quantity}</span>
+            <span className="text-foreground font-medium">
+              ₹{((item.product.discountedPrice && Number(item.product.discountedPrice) > 0 && Number(item.product.discountedPrice) < item.product.price) 
+                ? Number(item.product.discountedPrice) 
+                : item.product.price) * item.quantity}
+            </span>
           </div>
         ))}
       </div>
 
       <div className="border-t border-border mt-3 pt-3 flex justify-between items-center text-left">
-        <span className="text-sm text-muted-foreground flex items-center gap-1">
-          {order.paymentMethod === 'online' ? '💳 Paid' : '💵 Unpaid'}
+        <span className="text-sm text-muted-foreground flex items-center gap-1 uppercase font-black text-[10px] tracking-widest bg-secondary/50 px-2 py-1 rounded-lg">
+          {order.paymentMethod === 'online' ? '💳 Pay Online' : order.paymentMethod === 'delivery' ? '💵 Pay on Delivery' : '🏦 Pay on Pickup'}
         </span>
         <div className="text-right">
           <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider leading-none">Total</p>
-          <p className="font-bold text-lg text-foreground">₹{order.total}</p>
+          <p className="font-bold text-lg text-foreground">
+            ₹{(() => {
+              const itemsTotal = order.items.reduce((sum, item) => {
+                const price = (item.product.discountedPrice && Number(item.product.discountedPrice) > 0 && Number(item.product.discountedPrice) < item.product.price) 
+                  ? Number(item.product.discountedPrice) 
+                  : item.product.price;
+                return sum + (price * item.quantity);
+              }, 0);
+              return itemsTotal + (order.deliveryFee || 0);
+            })()}
+          </p>
         </div>
       </div>
 
-      {!onClick && order.status === 'completed' && !review.submitted && (
+      {!onClick && order.status === 'completed' && !review.submitted && !hasReviewedStore && (
         <div className="mt-8 space-y-6 text-left p-6 rounded-3xl bg-[#1A1A1A] border border-white/5 shadow-2xl">
           <div>
             <h3 className="text-xl font-bold text-white mb-1">Customer Review</h3>

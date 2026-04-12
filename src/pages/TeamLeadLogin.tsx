@@ -9,7 +9,7 @@ import { useApp } from "@/context/AppContext";
 import Header from "@/components/Header";
 
 const TeamLeadLogin = () => {
-    const { theme, toggleTheme } = useApp();
+    const { } = useApp(); // theme/toggleTheme removed
     const [loginId, setLoginId] = useState("");
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
@@ -118,15 +118,7 @@ const TeamLeadLogin = () => {
                     animate={{ opacity: 1, scale: 1 }}
                     className="glass-strong rounded-[40px] p-8 sm:p-12 w-full max-w-lg shadow-2xl border-white/20 relative overflow-hidden"
                 >
-                    {/* Theme Toggle Button */}
-                    <div className="absolute top-6 right-6 z-50">
-                        <button
-                            onClick={toggleTheme}
-                            className="w-10 h-10 rounded-xl glass flex items-center justify-center text-foreground hover:bg-primary/10 transition-all border border-white/20"
-                        >
-                            {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-primary" />}
-                        </button>
-                    </div>
+
                     <div className="absolute top-0 right-0 p-8 opacity-10">
                         <UserCircle className="w-32 h-32" />
                     </div>

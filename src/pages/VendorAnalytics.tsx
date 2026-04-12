@@ -5,14 +5,18 @@ import { TrendingUp, Users, ShoppingBag, DollarSign, ArrowUpRight, ArrowDownRigh
 import { toast } from 'sonner';
 import Header from '@/components/Header';
 import { useApp } from '@/context/AppContext';
+import { DashboardSkeleton } from '@/components/SkeletonLoader';
 
 const VendorAnalytics = () => {
-    const { user, orders: allOrders } = useApp();
+    const { user, orders: allOrders, loading } = useApp();
     const navigate = useNavigate();
+
     const [timeRange, setTimeRange] = useState<'weekly' | 'monthly' | 'yearly'>('weekly');
 
+    if (loading) return <DashboardSkeleton />;
+
     const vendorOrders = allOrders.filter(o => o.storeId === user?.id);
-    const activeOrders = vendorOrders.filter(o => o.status !== 'pending');
+    const activeOrders = vendorOrders.filter(o => o.status !== 'pending' && o.status !== 'rejected');
     const hasAnalytics = user?.plan && user.plan !== 'basic' && user.plan !== 'none';
 
     // ── TIME-RANGE FILTER ──────────────────────────────────────────
@@ -178,9 +182,13 @@ const VendorAnalytics = () => {
     filteredOrders.forEach(o => {
         o.items.forEach(item => {
             const name = item.product.name;
+            const itemPrice = (item.product.discountedPrice !== undefined && item.product.discountedPrice > 0) 
+                ? item.product.discountedPrice 
+                : item.product.price;
+                
             if (!itemSales[name]) itemSales[name] = { count: 0, revenue: 0 };
             itemSales[name].count += item.quantity;
-            itemSales[name].revenue += (item.product.price * item.quantity);
+            itemSales[name].revenue += (itemPrice * item.quantity);
         });
 
         try {
@@ -233,19 +241,25 @@ const VendorAnalytics = () => {
         if (user?.plan !== 'pro') return toast.error("Pro plan required for PDF reports");
 
         const reportContent = `
-BELLBASKET VENDOR REPORT
+BELLBASKET VENDOR BUSINESS REPORT
 Store: ${user.name}
-Date: ${new Date().toLocaleDateString()}
+Date: ${new Date().toLocaleString()}
 Range: ${timeRange.toUpperCase()} (${rangeLabel})
 ----------------------------------
-Total Revenue: ₹${revenue.toLocaleString()}
-Total Orders: ${filteredOrders.length}
+STATISTICS SUMMARY:
+Total Revenue (Verified): ₹${revenue.toLocaleString()}
+Total Orders (Success/Active): ${filteredOrders.length}
 Items Sold: ${totalItemsSold}
 Avg Order Value: ₹${avgOrderValue}
-Peak Time: ${peakTimeString}
-Top Item: ${topItemName} (₹${topItemRevenue.toLocaleString()})
-Repeat Customers: ${repeatCustomers} (${repeatRate}%)
-Categories: ${sortedCats.map(c => `${c.name}: ${c.value}%`).join(', ')}
+Peak Activity window: ${peakTimeString}
+----------------------------------
+PERFORMANCE INSIGHTS:
+Top Performing Item: ${topItemName} (₹${topItemRevenue.toLocaleString()})
+Customer Retention Rate: ${repeatRate}%
+Unique Customers Reach: ${totalCustomers}
+----------------------------------
+PRODUCT CATEGORY PERFORMANCE:
+${sortedCats.map(c => `- ${c.name}: ${c.value}% sales share`).join('\n')}
 ----------------------------------
 Thank you for using BellBasket Pro.
         `;
@@ -266,28 +280,28 @@ Thank you for using BellBasket Pro.
     return (
         <div className="min-h-screen gradient-warm">
             <Header />
-            <div className="pt-20 pb-40 px-4 max-w-5xl mx-auto relative">
+            <div className="pt-20 pb-40 px-3 sm:px-4 max-w-5xl mx-auto relative">
                 <div className={`flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4 transition-opacity ${!hasAnalytics ? 'opacity-20 pointer-events-none grayscale' : ''}`}>
                     <div>
                         <h1 className="text-2xl font-bold text-foreground">Performance Analytics</h1>
                         <p className="text-sm text-muted-foreground">Deep dive into your store's growing metrics</p>
                     </div>
-                    <div className="flex items-center gap-2 bg-white/50 dark:bg-secondary/20 backdrop-blur-sm p-1 rounded-xl border border-white/20 flex-wrap">
+                    <div className="flex items-center gap-1.5 sm:gap-2 bg-white/50 dark:bg-secondary/20 backdrop-blur-sm p-1.5 rounded-xl border border-white/20 flex-wrap">
                         <button
                             onClick={() => setTimeRange('weekly')}
-                            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${timeRange === 'weekly' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                            className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${timeRange === 'weekly' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
                         >
                             Weekly
                         </button>
                         <button
                             onClick={() => setTimeRange('monthly')}
-                            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${timeRange === 'monthly' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                            className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${timeRange === 'monthly' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
                         >
                             Monthly
                         </button>
                         <button
                             onClick={() => setTimeRange('yearly')}
-                            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${timeRange === 'yearly' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                            className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${timeRange === 'yearly' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
                         >
                             Yearly
                         </button>
@@ -312,9 +326,9 @@ Thank you for using BellBasket Pro.
                         <motion.div
                             initial={{ opacity: 0, scale: 0.9 }}
                             animate={{ opacity: 1, scale: 1 }}
-                            className="glass-strong rounded-[40px] p-10 max-w-lg w-full text-center shadow-2xl border-2 border-primary/20 bg-white/40 dark:bg-[#202020]/80 backdrop-blur-xl"
+                            className="glass-strong rounded-[40px] p-10 max-w-lg w-full text-center shadow-2xl border-2 border-primary/20 bg-[#202020]/80 backdrop-blur-xl"
                         >
-                            <div className="w-20 h-20 rounded-[30px] gradient-primary flex items-center justify-center mx-auto mb-6 shadow-xl shadow-primary/30">
+                            <div className="w-20 h-20 rounded-[30px] bg-primary flex items-center justify-center mx-auto mb-6">
                                 <TrendingUp className="w-10 h-10 text-primary-foreground" />
                             </div>
                             <h2 className="text-3xl font-black text-foreground mb-4 leading-tight">Unlock Powerful Sales Insights</h2>
@@ -324,7 +338,7 @@ Thank you for using BellBasket Pro.
                             <div className="space-y-3">
                                 <button
                                     onClick={() => navigate('/vendor/subscription')}
-                                    className="w-full py-4 rounded-2xl gradient-primary text-primary-foreground font-black text-sm uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
+                                    className="w-full py-4 rounded-2xl bg-primary text-primary-foreground font-black text-sm uppercase tracking-widest hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
                                 >
                                     Upgrade to Growth <ArrowUpRight className="w-4 h-4" />
                                 </button>
@@ -341,14 +355,14 @@ Thank you for using BellBasket Pro.
 
                 <div className={`transition-all duration-700 ${!hasAnalytics ? 'opacity-10 blur-xl pointer-events-none grayscale select-none' : ''}`}>
                     {/* Top Metrics */}
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                    <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 mb-6 sm:mb-8">
                         {mainStats.map((stat, i) => (
                             <motion.div
                                 key={stat.label}
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: i * 0.1 }}
-                                className="glass rounded-2xl p-5 group hover:scale-[1.02] transition-transform"
+                                className="glass rounded-2xl p-3 sm:p-5 group hover:scale-[1.02] transition-transform"
                             >
                                 <div className="flex items-start justify-between mb-3">
                                     <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
@@ -365,12 +379,12 @@ Thank you for using BellBasket Pro.
                         ))}
                     </div>
 
-                    <div className="grid lg:grid-cols-3 gap-6 mb-8">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
                         {/* Sales Chart Mockup */}
-                        <div className="lg:col-span-2 glass rounded-3xl p-6">
-                            <div className="flex items-center justify-between mb-8">
+                        <div className="lg:col-span-2 glass rounded-2xl sm:rounded-3xl p-4 sm:p-6">
+                            <div className="flex items-center justify-between mb-4 sm:mb-8">
                                 <div className="flex items-center gap-2">
-                                    <div className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center">
+                                    <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
                                         <BarChart3 className="w-4 h-4 text-primary-foreground" />
                                     </div>
                                     <h3 className="font-bold text-foreground">Sales Revenue</h3>
@@ -392,11 +406,11 @@ Thank you for using BellBasket Pro.
                                     </div>
                                 </div>
                             ) : (
-                                <div className="h-64 flex items-end justify-between gap-2 md:gap-4 px-2" key={timeRange}>
+                                <div className={`h-48 sm:h-64 flex items-end gap-1 sm:gap-2 md:gap-4 px-1 sm:px-2 ${timeRange === 'yearly' ? 'overflow-x-auto pb-2' : 'justify-between'}`} key={timeRange}>
                                     {salesData.map((data, i) => {
                                         const heightPercentage = maxSales > 0 ? (data.value / maxSales) * 100 : 0;
                                         return (
-                                            <div key={`${timeRange}-${data.label}`} className="flex-1 flex flex-col items-center gap-2 group h-full justify-end">
+                                            <div key={`${timeRange}-${data.label}`} className={`flex flex-col items-center gap-1 sm:gap-2 group h-full justify-end ${timeRange === 'yearly' ? 'min-w-[40px] sm:min-w-[48px]' : 'flex-1'}`}>
                                                 <div className="relative w-full flex-1 flex items-end justify-center">
                                                     {/* Tooltip */}
                                                     <div className="absolute -top-8 bg-foreground text-background text-[10px] font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 pointer-events-none mb-2">
@@ -412,7 +426,9 @@ Thank you for using BellBasket Pro.
                                                         style={{ minHeight: data.value > 0 ? '4px' : '0px' }}
                                                     />
                                                 </div>
-                                                <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest text-center leading-tight">{data.label.split(' ')[0]}</span>
+                                                <span className="text-[8px] sm:text-[9px] font-bold text-muted-foreground uppercase tracking-widest text-center leading-tight whitespace-nowrap">
+                                                    {timeRange === 'yearly' ? data.label : data.label.split(' ')[0]}
+                                                </span>
                                             </div>
                                         );
                                     })}
@@ -421,7 +437,7 @@ Thank you for using BellBasket Pro.
                         </div>
 
                         {/* Popular Categories */}
-                        <div className="glass rounded-3xl p-6">
+                        <div className="glass rounded-2xl sm:rounded-3xl p-4 sm:p-6">
                             <div className="flex items-center gap-2 mb-6">
                                 <div className="w-8 h-8 rounded-lg gradient-accent flex items-center justify-center">
                                     <PieChart className="w-4 h-4 text-accent-foreground" />
@@ -479,7 +495,7 @@ Thank you for using BellBasket Pro.
                     </div>
 
                     {/* Bottom Detailed Info */}
-                    <div className="grid md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                         <div className="glass rounded-3xl p-6 flex items-center gap-4">
                             <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center flex-shrink-0">
                                 <TrendingUp className="w-6 h-6 text-primary" />

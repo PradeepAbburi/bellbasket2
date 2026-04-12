@@ -1,6 +1,6 @@
 import { useState, startTransition } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Minus, Plus, Trash2, CreditCard, Wallet, ArrowLeft, CheckCircle, AlertCircle, Clock, Phone } from 'lucide-react';
+import { Minus, Plus, Trash2, CreditCard, Wallet, ArrowLeft, CheckCircle, AlertCircle, Clock, Phone, ShoppingBag, User as UserIcon, XCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import { useApp } from '@/context/AppContext';
@@ -13,9 +13,13 @@ const Cart = () => {
   const navigate = useNavigate();
   const [showConfirm, setShowConfirm] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [showDeliveryModal, setShowDeliveryModal] = useState(false);
   const [isPlacing, setIsPlacing] = useState(false);
   const [pendingMethod, setPendingMethod] = useState<'online' | 'pickup' | 'delivery'>('pickup');
   const [selectedDelivery, setSelectedDelivery] = useState<'pickup' | 'delivery'>('pickup');
+  const [deliveryName, setDeliveryName] = useState(user?.name || '');
+  const [deliveryPhone, setDeliveryPhone] = useState(user?.phone || '');
+  const [deliveryAddress, setDeliveryAddress] = useState('');
 
   if (loading) {
     return (
@@ -29,7 +33,12 @@ const Cart = () => {
   const offersDelivery = currentStore?.offersDelivery || false;
   const deliveryFee = currentStore?.deliveryFee || 0;
 
-  const subtotal = cart.reduce((s, c) => s + c.product.price * c.quantity, 0);
+  const subtotal = cart.reduce((s, c) => {
+    const price = (c.product.discountedPrice && Number(c.product.discountedPrice) > 0 && Number(c.product.discountedPrice) < c.product.price) 
+      ? Number(c.product.discountedPrice) 
+      : c.product.price;
+    return s + price * c.quantity;
+  }, 0);
   const total = subtotal + (selectedDelivery === 'delivery' ? deliveryFee : 0);
 
   // Check if any store in the cart is closed, blocked or expired
@@ -52,6 +61,13 @@ const Cart = () => {
       return;
     }
 
+    if ((method === 'delivery' || (method === 'online' && selectedDelivery === 'delivery')) && 
+        (!deliveryName.trim() || !deliveryPhone.trim() || !deliveryAddress.trim())) {
+      setPendingMethod(method);
+      setShowDeliveryModal(true);
+      return;
+    }
+
     if (method === 'online') {
       toast.info('Pay Online coming soon!', {
         description: 'Please use other methods for now.',
@@ -66,7 +82,13 @@ const Cart = () => {
   const confirmOrder = async () => {
     if (isPlacing) return;
     setIsPlacing(true);
-    const orderId = await placeOrder(pendingMethod, { deliveryMethod: selectedDelivery, deliveryFee });
+    const orderId = await placeOrder(pendingMethod, { 
+      deliveryMethod: selectedDelivery, 
+      deliveryFee,
+      customerName: deliveryName,
+      customerPhone: deliveryPhone,
+      customerAddress: deliveryAddress
+    });
 
     if (orderId) {
       setShowSuccess(true);
@@ -165,7 +187,7 @@ const Cart = () => {
             )}
 
             {/* Summary */}
-            <div className="glass rounded-2xl p-6">
+            <div className="glass rounded-2xl p-6 mb-6">
 
               {offersDelivery && (
                 <div className="mb-6 space-y-3 pb-4 border-b border-border/50">
@@ -188,6 +210,8 @@ const Cart = () => {
                   </div>
                 </div>
               )}
+
+              {/* Removed Inline Delivery Details Form */}
 
               <div className="flex justify-between text-sm mb-2">
                 <span className="text-muted-foreground">{t('common.subtotal')}</span>
@@ -214,7 +238,7 @@ const Cart = () => {
                   onClick={() => startOrder(selectedDelivery === 'pickup' ? 'pickup' : 'delivery')}
                   className={`py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all ${isCheckoutDisabled ? 'bg-secondary text-muted-foreground opacity-50 cursor-not-allowed' : 'gradient-primary text-primary-foreground hover:shadow-lg hover:shadow-primary/20 active:scale-95'}`}
                 >
-                  <Wallet className="w-4 h-4" /> {selectedDelivery === 'pickup' ? t('common.pay_on_pickup') : t('common.pay_on_delivery')}
+                  <Wallet className="w-4 h-4" /> {selectedDelivery === 'pickup' ? t('common.pay_on_pickup') : 'Get Delivery'}
                 </button>
                 <button
                   disabled={isCheckoutDisabled}
@@ -348,6 +372,90 @@ const Cart = () => {
                   </p>
                 </div>
               </motion.div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+      {/* Delivery Details Modal */}
+      <AnimatePresence>
+        {showDeliveryModal && (
+          <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+               initial={{ y: "100%", opacity: 0 }}
+               animate={{ y: 0, opacity: 1 }}
+               exit={{ y: "100%", opacity: 0 }}
+               className="bg-white dark:bg-[#151515] w-full max-w-lg rounded-t-[2.5rem] sm:rounded-[2.5rem] flex flex-col max-h-[90vh] shadow-2xl overflow-hidden border-t sm:border border-border/50"
+            >
+               <div className="p-6 border-b border-border/50 flex items-center justify-between">
+                  <div className="space-y-1">
+                     <h2 className="text-xl font-black text-foreground tracking-tight uppercase">Delivery Details</h2>
+                     <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">Where should we deliver?</p>
+                  </div>
+                  <button
+                     onClick={() => setShowDeliveryModal(false)}
+                     className="p-2 rounded-full bg-secondary text-muted-foreground hover:text-foreground transition-all"
+                  >
+                     <Plus className="w-6 h-6 rotate-45" />
+                  </button>
+               </div>
+
+               <div className="p-6 overflow-y-auto space-y-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                     <div className="space-y-1.5 focus-within:text-primary transition-colors">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Your Name</label>
+                        <input
+                           type="text"
+                           value={deliveryName}
+                           onChange={(e) => setDeliveryName(e.target.value)}
+                           placeholder="Full Name"
+                           className="w-full bg-secondary border border-transparent focus:border-primary/30 focus:bg-background transition-all rounded-xl px-4 py-3 text-sm font-bold outline-none"
+                        />
+                     </div>
+                     <div className="space-y-1.5 focus-within:text-primary transition-colors">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Phone Number</label>
+                        <input
+                           type="tel"
+                           value={deliveryPhone}
+                           onChange={(e) => setDeliveryPhone(e.target.value)}
+                           placeholder="10-digit number"
+                           className="w-full bg-secondary border border-transparent focus:border-primary/30 focus:bg-background transition-all rounded-xl px-4 py-3 text-sm font-bold outline-none font-mono"
+                        />
+                     </div>
+                  </div>
+
+                  <div className="space-y-1.5 focus-within:text-primary transition-colors">
+                     <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Delivery Address</label>
+                     <textarea
+                        value={deliveryAddress}
+                        onChange={(e) => setDeliveryAddress(e.target.value)}
+                        placeholder="House No., Building, Area, Landmark..."
+                        rows={3}
+                        className="w-full bg-secondary border border-transparent focus:border-primary/30 focus:bg-background transition-all rounded-xl px-4 py-3 text-sm font-bold outline-none resize-none"
+                     />
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/10 flex items-start gap-3">
+                     <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5" />
+                     <p className="text-[10px] text-muted-foreground font-medium italic">Please verify your contact details before confirming. Delivery agents will use this to call you upon arrival.</p>
+                  </div>
+               </div>
+
+               <div className="p-6 border-t border-border/50">
+                  <button
+                     onClick={() => {
+                        if (!deliveryName.trim() || !deliveryPhone.trim() || !deliveryAddress.trim()) {
+                           toast.error("Please fill all delivery details");
+                           return;
+                        }
+                        setShowDeliveryModal(false);
+                        setPendingMethod(pendingMethod); // Keep the method we were trying
+                        setShowConfirm(true); 
+                     }}
+                     className="w-full py-4 rounded-2xl gradient-primary text-white font-black text-sm uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.01] active:scale-95 transition-all flex items-center justify-center gap-3"
+                  >
+                     Confirm Delivery
+                  </button>
+               </div>
             </motion.div>
           </div>
         )}

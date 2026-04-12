@@ -1,72 +1,130 @@
-import { useEffect } from "react";
+import React, { useEffect, Suspense, lazy } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AppProvider, useApp } from "@/context/AppContext";
-import Index from "./pages/Index";
-import NotificationsPage from "./pages/Notifications";
-import ReceiptDetail from "./pages/ReceiptDetail";
-import About from "./pages/About";
-import Auth from "./pages/Auth";
-import CustomerHome from "./pages/CustomerHome";
-import StoreDetail from "./pages/StoreDetail";
-import Cart from "./pages/Basket";
-import Receipts from "./pages/Receipts";
-import Profile from "./pages/Profile";
-import VendorDashboard from "./pages/VendorDashboard";
-import VendorProducts from "./pages/VendorProducts";
-import VendorOrders from "./pages/VendorOrders";
-import VendorBookings from "./pages/VendorBookings";
-import VendorSetup from "./pages/VendorSetup";
-import VendorAnalytics from "./pages/VendorAnalytics";
-import VendorPlans from "./pages/VendorPlans";
-import VendorReviews from "./pages/VendorReviews";
-import AdminLayout from "./components/admin/AdminLayout";
-import AdminOverview from "./pages/admin/AdminOverview";
-import AdminVendors from "./pages/admin/AdminVendors";
-import AdminUsers from "./pages/admin/AdminUsers";
-import AdminCoupons from "./pages/admin/AdminCoupons";
-import AdminSupport from "./pages/admin/AdminSupport";
-import AdminAnalyticsNew from "./pages/admin/AdminAnalytics";
-import SupportChat from "./pages/SupportChat";
-import ResetPassword from "./pages/ResetPassword";
-import HelpSupport from "./pages/HelpSupport";
-import StoreEditor from "./pages/StoreEditor";
-import Download from "./pages/Download";
-import PrivacyPolicy from "./pages/PrivacyPolicy";
-import TermsAndConditions from "./pages/Terms";
-import Sitemap from "./pages/Sitemap";
-import NotFound from "./pages/NotFound";
-import TeamLeadDashboard from "./pages/TeamLeadDashboard";
-import TeamLeadLogin from "./pages/TeamLeadLogin";
-import Leadership from "./pages/Leadership";
-import Careers from "./pages/Careers";
-import JobDetail from "./pages/JobDetail";
-import ApplyJob from "./pages/ApplyJob";
-import HrLayout from "./components/hr/HrLayout";
-import HrOverview from "./pages/hr/HrOverview";
-import HrStaffDirectory from "./pages/hr/StaffDirectory";
-import HrStaffOnboarding from "./pages/hr/StaffOnboarding";
-import HrStaffPayments from "./pages/hr/StaffPayments";
-import StaffProfile from "./pages/hr/StaffProfile";
-import AdminPartnerPayments from "./pages/AdminPartnerPayments";
-import AdminPartnerBank from "./pages/AdminPartnerBank";
-import BottomNav from "./components/BottomNav";
-import OnlineStatusProvider from "./components/OnlineStatusProvider";
-import Onboarding from "./components/Onboarding";
-import NotificationPrompt from "./components/NotificationPrompt";
+import { motion, AnimatePresence } from "framer-motion";
+import { registerPush, addListeners } from "@/utils/push";
+import { AlertCircle, MapPin as PinIcon, Bell as BellIcon, ChevronRight as RightIcon } from 'lucide-react';
+import { toast } from 'sonner';
+import { initAudio } from "@/utils/notifications";
 
-const queryClient = new QueryClient();
+const PageLoading = () => (
+    <div className="fixed inset-0 flex items-center justify-center bg-[#202020] z-[9999]">
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95 }} 
+        animate={{ opacity: 1, scale: 1 }} 
+        transition={{ duration: 0.8, ease: "easeOut" }}
+      >
+        <span className="text-2xl md:text-3xl font-black tracking-tighter text-foreground">
+          BellBasket
+        </span>
+      </motion.div>
+    </div>
+);
+
+class ErrorBoundary extends React.Component<{ children: React.ReactNode, name: string }, { hasError: boolean }> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch(error: any, errorInfo: any) {
+    console.error(`Error in ${this.props.name}:`, error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-8 text-center bg-card rounded-2xl border border-destructive/20 m-4">
+          <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
+          <h2 className="text-xl font-bold mb-2">Something went wrong</h2>
+          <p className="text-sm text-muted-foreground mb-4">The {this.props.name} failed to load.</p>
+          <button onClick={() => window.location.reload()} className="px-6 py-2 bg-primary text-white rounded-xl">Reload Page</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+// Lazy Loaded Pages
+const Index = lazy(() => import("./pages/Index"));
+const NotificationsPage = lazy(() => import("./pages/Notifications"));
+const ReceiptDetail = lazy(() => import("./pages/ReceiptDetail"));
+const About = lazy(() => import("./pages/About"));
+const Auth = lazy(() => import("./pages/Auth"));
+const CustomerHome = lazy(() => import("./pages/CustomerHome"));
+const StoreDetail = lazy(() => import("./pages/StoreDetail"));
+const Cart = lazy(() => import("./pages/Basket"));
+const Receipts = lazy(() => import("./pages/Receipts"));
+const Profile = lazy(() => import("./pages/Profile"));
+const VendorDashboard = lazy(() => import("./pages/VendorDashboard"));
+const VendorProducts = lazy(() => import("./pages/VendorProducts"));
+const VendorOrders = lazy(() => import("./pages/VendorOrders"));
+const VendorStoreConfig = lazy(() => import("./pages/VendorStoreConfig"));
+const VendorBookings = lazy(() => import("./pages/VendorBookings"));
+const VendorSetup = lazy(() => import("./pages/VendorSetup"));
+const VendorAnalytics = lazy(() => import("./pages/VendorAnalytics"));
+const VendorPlans = lazy(() => import("./pages/VendorPlans"));
+const VendorReviews = lazy(() => import("./pages/VendorReviews"));
+const AdminLayout = lazy(() => import("./components/admin/AdminLayout"));
+const AdminOverview = lazy(() => import("./pages/admin/AdminOverview"));
+const AdminVendors = lazy(() => import("./pages/admin/AdminVendors"));
+const AdminUsers = lazy(() => import("./pages/admin/AdminUsers"));
+const AdminCoupons = lazy(() => import("./pages/admin/AdminCoupons"));
+const AdminSupport = lazy(() => import("./pages/admin/AdminSupport"));
+const AdminAnalyticsNew = lazy(() => import("./pages/admin/AdminAnalytics"));
+const SupportChat = lazy(() => import("./pages/SupportChat"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const HelpSupport = lazy(() => import("./pages/HelpSupport"));
+const StoreEditor = lazy(() => import("./pages/StoreEditor"));
+const Download = lazy(() => import("./pages/Download"));
+const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
+const TermsAndConditions = lazy(() => import("./pages/Terms"));
+const Sitemap = lazy(() => import("./pages/Sitemap"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const TeamLeadDashboard = lazy(() => import("./pages/TeamLeadDashboard"));
+const TeamLeadLogin = lazy(() => import("./pages/TeamLeadLogin"));
+const Leadership = lazy(() => import("./pages/Leadership"));
+const Careers = lazy(() => import("./pages/Careers"));
+const JobDetail = lazy(() => import("./pages/JobDetail"));
+const ApplyJob = lazy(() => import("./pages/ApplyJob"));
+const HrLayout = lazy(() => import("./components/hr/HrLayout"));
+const HrOverview = lazy(() => import("./pages/hr/HrOverview"));
+const HrStaffDirectory = lazy(() => import("./pages/hr/StaffDirectory"));
+const HrStaffOnboarding = lazy(() => import("./pages/hr/StaffOnboarding"));
+const HrStaffPayments = lazy(() => import("./pages/hr/StaffPayments"));
+const StaffProfile = lazy(() => import("./pages/hr/StaffProfile"));
+const AdminPartnerPayments = lazy(() => import("./pages/AdminPartnerPayments"));
+const AdminPartnerBank = lazy(() => import("./pages/AdminPartnerBank"));
+const BottomNav = lazy(() => import("./components/BottomNav"));
+const OnlineStatusProvider = lazy(() => import("./components/OnlineStatusProvider"));
+const Onboarding = lazy(() => import("./components/Onboarding"));
+const NotificationPrompt = lazy(() => import("./components/NotificationPrompt"));
+const VendorDeals = lazy(() => import("./pages/VendorDeals"));
+const CustomerDeals = lazy(() => import("./pages/CustomerDeals"));
+const BellNotes = lazy(() => import("./pages/BellNotes"));
+const VendorEditProduct = lazy(() => import("./pages/VendorEditProduct"));
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      gcTime: 1000 * 60 * 10,   // 10 minutes
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 const ProtectedRoute = ({ children, requiredRole }: { children: React.ReactNode, requiredRole?: string | string[] }) => {
   const { user, loading } = useApp();
 
-  if (loading) return null;
+  if (loading) return <PageLoading />;
   if (!user) return <Navigate to="/auth" replace />;
 
-  // Special verification bypass for admin/hr is kept as per business logic
   const isInternal = user.role === 'admin' || user.role === 'hr';
   if (!user.isVerified && !isInternal) {
     return <Navigate to="/auth" replace />;
@@ -85,22 +143,29 @@ const ProtectedRoute = ({ children, requiredRole }: { children: React.ReactNode,
 const VendorProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useApp();
 
-  if (loading) return null;
+  if (loading) return <PageLoading />;
 
-  if (!user || (!user.isVerified && user.role !== 'admin')) {
-    return <Navigate to="/auth" replace />;
-  }
+  // 1. Auth & Admin Privilege
+  if (!user) return <Navigate to="/auth" replace />;
+  if (user.role === 'admin') return <>{children}</>;
 
-  if (user.role !== 'vendor') {
-    return <Navigate to="/" replace />;
-  }
+  // 2. Verification check for non-admins
+  if (!user.isVerified) return <Navigate to="/auth" replace />;
 
-  let hasValidPlan = user.plan && user.plan !== 'none';
+  // 3. Role check
+  if (user.role !== 'vendor') return <Navigate to="/" replace />;
+
+  // 4. Plan & Expiry
+  const plan = user.plan;
+  let hasValidPlan = !!(plan && plan !== 'none');
+  
   if (hasValidPlan && user.subscriptionExpiry) {
-    const expiryDate = new Date(user.subscriptionExpiry);
-    if (new Date() > expiryDate) {
-      hasValidPlan = false;
-    }
+    try {
+      const expiry = new Date(user.subscriptionExpiry).getTime();
+      if (!isNaN(expiry) && Date.now() > expiry) {
+        hasValidPlan = false;
+      }
+    } catch (e) {}
   }
 
   if (!hasValidPlan) {
@@ -122,79 +187,82 @@ const AppContent = () => {
   const { user } = useApp();
 
   return (
-    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+    <BrowserRouter>
       <div className="flex flex-col min-h-screen">
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
+        <Suspense fallback={<PageLoading />}>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
 
-          {/* Public Routes */}
-          <Route path="/browse" element={<CustomerHome />} />
-          <Route path="/store/:id" element={<StoreDetail />} />
-          <Route path="/stores/:slug" element={<StoreDetail />} />
-          <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
-          <Route path="/receipts" element={<ProtectedRoute><Receipts /></ProtectedRoute>} />
-          <Route path="/receipt/:id" element={<ReceiptDetail />} />
-          <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-          <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
+            <Route path="/browse" element={<CustomerHome />} />
+            <Route path="/store/:id" element={<StoreDetail />} />
+            <Route path="/stores/:slug" element={<StoreDetail />} />
+            <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
+            <Route path="/receipts" element={<ProtectedRoute><Receipts /></ProtectedRoute>} />
+            <Route path="/receipt/:id" element={<ReceiptDetail />} />
+            <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+            <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
+            <Route path="/deals" element={<CustomerDeals />} />
 
-          <Route path="/vendor" element={<VendorProtectedRoute><VendorDashboard /></VendorProtectedRoute>} />
-          <Route path="/vendor/products" element={<VendorProtectedRoute><VendorProducts /></VendorProtectedRoute>} />
-          <Route path="/vendor/orders" element={<VendorProtectedRoute><VendorOrders /></VendorProtectedRoute>} />
-          <Route path="/vendor/bookings" element={<VendorProtectedRoute><VendorBookings /></VendorProtectedRoute>} />
-          <Route path="/vendor/setup" element={<ProtectedRoute><VendorSetup /></ProtectedRoute>} />
-          <Route path="/vendor/analytics" element={<VendorProtectedRoute><VendorAnalytics /></VendorProtectedRoute>} />
-          <Route path="/vendor/subscription" element={<VendorPlans />} />
-          <Route path="/vendor/reviews" element={<VendorProtectedRoute><VendorReviews /></VendorProtectedRoute>} />
-          <Route path="/vendor/editor" element={<VendorProtectedRoute><StoreEditor /></VendorProtectedRoute>} />
+            <Route path="/vendor" element={<ErrorBoundary name="VendorDashboard"><VendorProtectedRoute><VendorDashboard /></VendorProtectedRoute></ErrorBoundary>} />
+            <Route path="/vendor/products" element={<ErrorBoundary name="VendorProducts"><VendorProtectedRoute><VendorProducts /></VendorProtectedRoute></ErrorBoundary>} />
+            <Route path="/vendor/products/new" element={<ErrorBoundary name="VendorNewProduct"><VendorProtectedRoute><VendorEditProduct /></VendorProtectedRoute></ErrorBoundary>} />
+            <Route path="/vendor/products/edit/:id" element={<ErrorBoundary name="VendorEditProduct"><VendorProtectedRoute><VendorEditProduct /></VendorProtectedRoute></ErrorBoundary>} />
+            <Route path="/vendor/orders" element={<ErrorBoundary name="VendorOrders"><VendorProtectedRoute><VendorOrders /></VendorProtectedRoute></ErrorBoundary>} />
+            <Route path="/vendor/config" element={<ErrorBoundary name="VendorStoreConfig"><VendorProtectedRoute><VendorStoreConfig /></VendorProtectedRoute></ErrorBoundary>} />
+            <Route path="/vendor/bookings" element={<ErrorBoundary name="VendorBookings"><VendorProtectedRoute><VendorBookings /></VendorProtectedRoute></ErrorBoundary>} />
+            <Route path="/vendor/setup" element={<ProtectedRoute><VendorSetup /></ProtectedRoute>} />
+            <Route path="/vendor/analytics" element={<ErrorBoundary name="VendorAnalytics"><VendorProtectedRoute><VendorAnalytics /></VendorProtectedRoute></ErrorBoundary>} />
+            <Route path="/vendor/subscription" element={<VendorPlans />} />
+            <Route path="/vendor/reviews" element={<ErrorBoundary name="VendorReviews"><VendorProtectedRoute><VendorReviews /></VendorProtectedRoute></ErrorBoundary>} />
+            <Route path="/vendor/editor" element={<ErrorBoundary name="VendorEditor"><VendorProtectedRoute><StoreEditor /></VendorProtectedRoute></ErrorBoundary>} />
+            <Route path="/vendor/deals" element={<ErrorBoundary name="VendorDeals"><VendorProtectedRoute><VendorDeals /></VendorProtectedRoute></ErrorBoundary>} />
+            <Route path="/vendor/notes" element={<ErrorBoundary name="VendorNotes"><VendorProtectedRoute><BellNotes /></VendorProtectedRoute></ErrorBoundary>} />
 
-          <Route path="/admin" element={<ProtectedRoute requiredRole="admin"><AdminLayout /></ProtectedRoute>}>
-            <Route index element={<AdminOverview />} />
-            <Route path="vendors" element={<AdminVendors />} />
-            <Route path="users" element={<AdminUsers />} />
-            <Route path="coupons" element={<AdminCoupons />} />
-            <Route path="support" element={<AdminSupport />} />
-            <Route path="analytics" element={<AdminAnalyticsNew />} />
-            <Route path="partner-payments" element={<AdminPartnerPayments />} />
-            <Route path="partner-bank" element={<AdminPartnerBank />} />
-          </Route>
-          
-          <Route path="/team-lead" element={<TeamLeadProtectedRoute><TeamLeadDashboard /></TeamLeadProtectedRoute>} />
-          <Route path="/team-lead/login" element={<TeamLeadLogin />} />
-          <Route path="/support/chat/:id" element={<ProtectedRoute><SupportChat /></ProtectedRoute>} />
-          <Route path="/support" element={<HelpSupport />} />
-          <Route path="/download" element={<Download />} />
-          <Route path="/privacy" element={<PrivacyPolicy />} />
-          <Route path="/terms" element={<TermsAndConditions />} />
-          <Route path="/leadership" element={<Leadership />} />
-          <Route path="/careers" element={<Careers />} />
-          <Route path="/careers/job/:id" element={<JobDetail />} />
-          <Route path="/careers/apply/:id" element={<ApplyJob />} />
-          
-          {/* HR Routes */}
-          <Route path="/hr" element={<ProtectedRoute requiredRole="hr"><HrLayout /></ProtectedRoute>}>
-            <Route index element={<HrOverview />} />
-            <Route path="staff" element={<HrStaffDirectory />} />
-            <Route path="staff/:id" element={<StaffProfile />} />
-            <Route path="onboarding" element={<HrStaffOnboarding />} />
-            <Route path="payments" element={<HrStaffPayments />} />
-          </Route>
+            <Route path="/admin" element={<ProtectedRoute requiredRole="admin"><AdminLayout /></ProtectedRoute>}>
+              <Route index element={<AdminOverview />} />
+              <Route path="vendors" element={<AdminVendors />} />
+              <Route path="users" element={<AdminUsers />} />
+              <Route path="coupons" element={<AdminCoupons />} />
+              <Route path="support" element={<AdminSupport />} />
+              <Route path="analytics" element={<AdminAnalyticsNew />} />
+              <Route path="partner-payments" element={<AdminPartnerPayments />} />
+              <Route path="partner-bank" element={<AdminPartnerBank />} />
+            </Route>
+            
+            <Route path="/team-lead" element={<TeamLeadProtectedRoute><TeamLeadDashboard /></TeamLeadProtectedRoute>} />
+            <Route path="/team-lead/login" element={<TeamLeadLogin />} />
+            <Route path="/support/chat/:id" element={<ProtectedRoute><SupportChat /></ProtectedRoute>} />
+            <Route path="/support" element={<HelpSupport />} />
+            <Route path="/download" element={<Download />} />
+            <Route path="/privacy" element={<PrivacyPolicy />} />
+            <Route path="/terms" element={<TermsAndConditions />} />
+            <Route path="/leadership" element={<Leadership />} />
+            <Route path="/careers" element={<Careers />} />
+            <Route path="/careers/job/:id" element={<JobDetail />} />
+            <Route path="/careers/apply/:id" element={<ApplyJob />} />
+            
+            <Route path="/hr" element={<ProtectedRoute requiredRole="hr"><HrLayout /></ProtectedRoute>}>
+              <Route index element={<HrOverview />} />
+              <Route path="staff" element={<HrStaffDirectory />} />
+              <Route path="staff/:id" element={<StaffProfile />} />
+              <Route path="onboarding" element={<HrStaffOnboarding />} />
+              <Route path="payments" element={<HrStaffPayments />} />
+            </Route>
 
-          <Route path="/sitemap.xml" element={<Sitemap />} />
-
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-        <BottomNav />
-        {user && user.isVerified && user.role !== 'admin' && !user.hasCompletedOnboarding && sessionStorage.getItem('allow_onboarding') === 'true' && <Onboarding />}
-        <NotificationPrompt />
+            <Route path="/sitemap.xml" element={<Sitemap />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+          <BottomNav />
+          {user && user.isVerified && user.role !== 'admin' && !user.hasCompletedOnboarding && sessionStorage.getItem('allow_onboarding') === 'true' && <Onboarding />}
+          <NotificationPrompt />
+        </Suspense>
       </div>
     </BrowserRouter>
   );
 };
-
-import { initAudio } from "@/utils/notifications";
 
 const App = () => {
   useEffect(() => {
@@ -202,9 +270,10 @@ const App = () => {
       initAudio();
     };
     
-    // Listen for any interaction to unlock/resume audio
     window.addEventListener('click', handleInteraction);
     window.addEventListener('touchstart', handleInteraction);
+
+    // Initialize Native Push - Disabled for Web-Only
     
     return () => {
       window.removeEventListener('click', handleInteraction);

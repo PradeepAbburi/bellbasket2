@@ -10,6 +10,7 @@ import { doc, updateDoc, collection, query, where, getDocs, onSnapshot } from 'f
 import { useTranslation } from 'react-i18next';
 import { sendInAppNotification, playBellSound } from '@/utils/notifications';
 import { ServiceBooking } from '@/types';
+import { OrderListSkeleton } from '@/components/SkeletonLoader';
 
 const statusFlow = ['pending', 'accepted', 'completed'] as const;
 
@@ -51,7 +52,11 @@ const VendorBookings = () => {
             const next = statusFlow[idx + 1];
 
             try {
-                await updateDoc(doc(db, 'serviceBookings', bookingId), { status: next });
+                const updateData: any = { status: next };
+                if (next === 'completed') {
+                    updateData.completedAt = new Date().toISOString();
+                }
+                await updateDoc(doc(db, 'serviceBookings', bookingId), updateData);
                 playBellSound(next === 'accepted'); // Play high pitch for acceptance
 
                 // 🔔 Push notification to the customer
@@ -183,11 +188,7 @@ const VendorBookings = () => {
     };
 
     if (loading) {
-        return (
-            <div className="min-h-screen gradient-warm flex items-center justify-center">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            </div>
-        );
+        return <OrderListSkeleton />;
     }
 
     return (
@@ -231,13 +232,13 @@ const VendorBookings = () => {
                         <div className="bg-secondary p-1.5 rounded-2xl flex items-center gap-1 w-fit shadow-inner">
                             <button
                                 onClick={() => setView('active')}
-                                className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${view === 'active' ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-105' : 'text-muted-foreground hover:text-foreground'}`}
+                                className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${view === 'active' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                             >
                                 Active ({activeBookings.length})
                             </button>
                             <button
                                 onClick={() => setView('past')}
-                                className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${view === 'past' ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-105' : 'text-muted-foreground hover:text-foreground'}`}
+                                className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${view === 'past' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                             >
                                 History ({pastBookings.length})
                             </button>
@@ -380,7 +381,7 @@ const VendorBookings = () => {
                                         onClick={() => {
                                             window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(booking.location)}`, '_blank');
                                         }}
-                                        className="w-full sm:w-auto bg-primary text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 shrink-0"
+                                        className="w-full sm:w-auto bg-primary text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-primary/90 transition-all shrink-0"
                                     >
                                         <Navigation className="w-3.5 h-3.5" /> Get Directions
                                     </button>
@@ -406,7 +407,7 @@ const VendorBookings = () => {
                                                 </button>
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); advanceStatus(booking.id!); }}
-                                                    className="gradient-primary text-primary-foreground text-[10px] font-black uppercase tracking-widest px-6 py-2.5 rounded-xl hover:opacity-90 transition-opacity flex items-center gap-1.5 shadow-lg shadow-primary/20"
+                                                    className="bg-primary text-primary-foreground text-[10px] font-black uppercase tracking-widest px-6 py-2.5 rounded-xl hover:opacity-90 transition-opacity flex items-center gap-1.5"
                                                 >
                                                     <Check className="w-3.5 h-3.5" />
                                                     Complete
@@ -418,7 +419,7 @@ const VendorBookings = () => {
                                                     e.stopPropagation();
                                                     setSelectedBookingId(booking.id!);
                                                 }}
-                                                className="gradient-primary text-primary-foreground w-full py-3 text-[10px] font-black uppercase tracking-widest rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
+                                                className="bg-primary text-primary-foreground w-full py-3 text-[10px] font-black uppercase tracking-widest rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
                                             >
                                                 <Calendar className="w-4 h-4" />
                                                 Review & Accept
@@ -440,7 +441,7 @@ const VendorBookings = () => {
                             initial={{ y: "100%" }}
                             animate={{ y: 0 }}
                             exit={{ y: "100%" }}
-                            className="bg-white dark:bg-[#151515] w-full max-w-lg rounded-t-[2.5rem] sm:rounded-[2.5rem] flex flex-col max-h-[75vh] shadow-2xl overflow-hidden border-t sm:border border-border/50"
+                            className="bg-[#202020] w-full max-w-lg rounded-t-[2.5rem] sm:rounded-[2.5rem] flex flex-col max-h-[75vh] shadow-2xl overflow-hidden border-t sm:border border-border/50"
                         >
                             <div className="p-5 border-b border-border/50 flex items-center justify-between bg-card/50">
                                 <div className="space-y-1">
@@ -522,7 +523,7 @@ const VendorBookings = () => {
                                     </button>
                                     <button
                                         onClick={() => advanceStatus(selectedBooking.id!)}
-                                        className="flex-[2] gradient-primary text-primary-foreground font-black py-4 rounded-2xl hover:opacity-90 transition-all flex items-center justify-center gap-2 shadow-xl shadow-primary/20 text-[10px] uppercase tracking-widest active:scale-[0.98]"
+                                        className="flex-[2] bg-primary text-primary-foreground font-black py-4 rounded-2xl hover:opacity-90 transition-all flex items-center justify-center gap-2 text-[10px] uppercase tracking-widest active:scale-[0.98]"
                                     >
                                         <Check className="w-5 h-5" />
                                         Confirm & Accept

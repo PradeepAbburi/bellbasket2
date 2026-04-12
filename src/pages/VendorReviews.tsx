@@ -1,9 +1,10 @@
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Star, ArrowLeft, Send, MessageSquare, Crown, Store as StoreIcon, Search, Filter, TrendingUp, Users, ThumbsUp, Trash2 } from 'lucide-react';
+import { Star, ArrowLeft, Send, MessageSquare, Crown, Store as StoreIcon, Search, Filter, TrendingUp, Users, ThumbsUp } from 'lucide-react';
 import Header from '@/components/Header';
 import { useApp } from '@/context/AppContext';
+import { DashboardSkeleton } from '@/components/SkeletonLoader';
 import { toast } from 'sonner';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -21,8 +22,10 @@ import {
 import { ArrowUpDown } from 'lucide-react';
 
 const VendorReviews = () => {
+    const { user, stores, loading } = useApp();
     const navigate = useNavigate();
-    const { user, stores } = useApp();
+
+    if (loading) return <DashboardSkeleton />;
     const vendorStore = stores.find(s => s.id === user?.id);
     const reviews: StoreReview[] = (vendorStore?.reviews || []).filter((r: StoreReview) => r.comment && r.comment.trim() !== "");
 
@@ -32,7 +35,6 @@ const VendorReviews = () => {
     const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'highest' | 'lowest'>('newest');
 
     const canReply = user?.plan && user.plan !== 'basic' && user.plan !== 'none';
-    const canDelete = user?.plan === 'pro';
 
     // Stats
     const totalReviews = reviews.length;
@@ -109,26 +111,7 @@ const VendorReviews = () => {
         }
     };
 
-    const handleDeleteReview = async (reviewId: string) => {
-        if (!canDelete) {
-            toast.error('Upgrade to Pro to delete reviews');
-            return;
-        }
 
-        if (!window.confirm("Are you sure you want to delete this review?")) return;
-
-        const loadingToast = toast.loading('Deleting review...');
-        try {
-            const updatedReviews = (vendorStore?.reviews || []).filter((r: StoreReview) => r.id !== reviewId);
-            await updateDoc(doc(db, 'stores', user!.id), { reviews: updatedReviews });
-            toast.dismiss(loadingToast);
-            toast.success('Review deleted successfully!');
-        } catch (error) {
-            console.error("Delete failed:", error);
-            toast.dismiss(loadingToast);
-            toast.error('Failed to delete review.');
-        }
-    };
 
     return (
         <div className="min-h-screen gradient-warm">
@@ -146,7 +129,7 @@ const VendorReviews = () => {
                             animate={{ scale: 1, opacity: 1 }}
                             className="glass-strong rounded-3xl p-8 max-w-md w-full text-center shadow-2xl border-2 border-primary/20 bg-white/60 backdrop-blur-xl mx-4"
                         >
-                            <div className="w-16 h-16 rounded-2xl gradient-primary flex items-center justify-center mx-auto mb-6 shadow-lg shadow-primary/30">
+                            <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center mx-auto mb-6">
                                 <Crown className="w-8 h-8 text-primary-foreground" />
                             </div>
                             <h2 className="text-2xl font-black text-foreground mb-3">Unlock Customer Reviews</h2>
@@ -155,7 +138,7 @@ const VendorReviews = () => {
                             </p>
                             <button
                                 onClick={() => navigate('/vendor/subscription')}
-                                className="w-full py-3.5 rounded-xl gradient-primary text-primary-foreground font-black text-sm uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
+                                className="w-full py-3.5 rounded-xl bg-primary text-primary-foreground font-black text-sm uppercase tracking-widest hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
                             >
                                 Upgrade Now <Crown className="w-4 h-4" />
                             </button>
@@ -307,7 +290,7 @@ const VendorReviews = () => {
                                         {/* Review Header */}
                                         <div className="flex items-start justify-between">
                                             <div className="flex items-start gap-3">
-                                                <div className="w-10 h-10 rounded-full gradient-primary flex items-center justify-center text-sm font-bold text-primary-foreground flex-shrink-0">
+                                                <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-sm font-bold text-primary-foreground flex-shrink-0">
                                                     {review.userName.charAt(0).toUpperCase()}
                                                 </div>
                                                 <div>
@@ -331,15 +314,6 @@ const VendorReviews = () => {
                                                     <span className="text-[8px] font-black uppercase tracking-widest bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded-full">Replied</span>
                                                 ) : (
                                                     <span className="text-[8px] font-black uppercase tracking-widest bg-amber-100 text-amber-600 px-2 py-0.5 rounded-full">Pending</span>
-                                                )}
-                                                {canDelete && (
-                                                    <button
-                                                        onClick={() => handleDeleteReview(review.id)}
-                                                        className="p-1.5 hover:bg-destructive/10 text-destructive/50 hover:text-destructive rounded-lg transition-colors group-hover:opacity-100 relative z-10"
-                                                        title="Delete review (Pro Feature)"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
                                                 )}
                                             </div>
                                         </div>
@@ -377,7 +351,7 @@ const VendorReviews = () => {
                                                     />
                                                     <button
                                                         onClick={() => handleReplySubmit(review.id)}
-                                                        className="gradient-primary text-primary-foreground px-4 py-2.5 rounded-xl font-bold hover:opacity-90 transition-opacity flex items-center gap-2"
+                                                        className="bg-primary text-primary-foreground px-4 py-2.5 rounded-xl font-bold hover:opacity-90 transition-opacity flex items-center gap-2"
                                                     >
                                                         <Send className="w-4 h-4" />
                                                     </button>

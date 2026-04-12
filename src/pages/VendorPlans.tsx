@@ -4,14 +4,14 @@ import { Crown, Check, ArrowRight, Star, ShieldCheck, Zap, Sparkles, Building2, 
 import Header from '@/components/Header';
 import { useApp } from '@/context/AppContext';
 import { toast } from 'sonner';
+import { DashboardSkeleton } from '@/components/SkeletonLoader';
 import { db, auth } from '@/lib/firebase';
 import { collection, query, where, getDocs, doc, updateDoc, getDoc } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 
 const VendorPlans = () => {
-    const { user, updatePlan, stores } = useApp();
+    const { user, updatePlan, stores, loading } = useApp();
     const navigate = useNavigate();
-    const isServiceStore = stores?.find(s => s.vendorId === user?.id)?.storeType === 'service';
 
     const [selectedPlan, setSelectedPlan] = useState<any>(null);
     const [showPayment, setShowPayment] = useState(false);
@@ -43,6 +43,9 @@ const VendorPlans = () => {
             }, 500);
         }
     }, []);
+
+    if (loading) return <DashboardSkeleton />;
+    const isServiceStore = stores?.find(s => s.vendorId === user?.id)?.storeType === 'service';
 
     type PricingPlan = {
         id: string;
@@ -284,27 +287,66 @@ const VendorPlans = () => {
 
     const handleClaimCoupon = async () => {
         if (globalSettings.disableCoupons) {
-            toast.error("Coupons are currently disabled.");
+            toast.error("Coupons are temporarily disabled.");
             return;
         }
-        if (!couponCode.trim() || !auth.currentUser) return;
+
+        const inputCode = couponCode.trim().toUpperCase();
+        if (!inputCode) {
+            toast.error("Please enter a coupon code.");
+            return;
+        }
+
+        if (!auth.currentUser) {
+            toast.error("Authentication required", {
+                description: "You must be logged in to redeem coupons. Please try logging in again."
+            });
+            return;
+        }
+
         setIsClaiming(true);
 
         try {
-            const inputCode = couponCode.trim().toUpperCase();
-            let q = query(collection(db, "coupons"), where("code", "==", inputCode));
-            let querySnapshot = await getDocs(q);
+            console.log("Attempting to redeem coupon:", inputCode);
+            
+            let couponData: any = null;
+            let couponId: string | null = null;
+            let allAvailableCodes = "";
 
-            if (querySnapshot.empty) {
-                toast.error("Invalid Coupon Code");
+            // 1. Precise Firestore query
+            const q = query(collection(db, "coupons"), where("code", "==", inputCode));
+            const querySnapshot = await getDocs(q);
+
+            if (!querySnapshot.empty) {
+                const dc = querySnapshot.docs[0];
+                couponData = dc.data();
+                couponId = dc.id;
+            } else {
+                // 2. FALLBACK: Fetch all coupons manually (handles common Firestore indexing issues)
+                console.log("Precise query found nothing. Running manual fallback match...");
+                const allCouponsSnap = await getDocs(collection(db, "coupons"));
+                const allCoupons = allCouponsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
+                
+                allAvailableCodes = allCoupons.map(c => c.code).join(", ");
+                const manualMatch = allCoupons.find(c => c.code?.trim().toUpperCase() === inputCode);
+
+                if (manualMatch) {
+                    couponData = manualMatch;
+                    couponId = manualMatch.id;
+                }
+            }
+
+            if (!couponData) {
+                toast.error("Invalid Coupon Code", {
+                    description: "This code does not exist in our system. Please check for typos."
+                });
                 setIsClaiming(false);
                 return;
             }
 
-            const couponDoc = querySnapshot.docs[0];
-            const couponData = couponDoc.data();
             const currentEmail = auth.currentUser.email || 'unknown';
 
+            // Check usage limits
             if (couponData.usageType === 'multiple') {
                 const usedByList = couponData.usedByList || [];
                 if (usedByList.includes(currentEmail)) {
@@ -313,33 +355,60 @@ const VendorPlans = () => {
                     return;
                 }
             } else if (couponData.isUsed) {
-                toast.error("Coupon Already Used");
+                toast.error("Coupon Already Used", { description: "This code has already been redeemed." });
                 setIsClaiming(false);
                 return;
             }
 
-            await updatePlan(couponData.plan, couponData.months);
+            // Sync with AppContext - force numbers for months
+            try {
+                await updatePlan(couponData.plan, Number(couponData.months || 1));
+            } catch (planErr: any) {
+                console.error("Plan update failed:", planErr);
+                throw new Error(`PLAN_UPDATE_FAILED: ${planErr.message || "Permissions blocked."}`);
+            }
             
-            const updateData: any = {
-                redemptionCount: (couponData.redemptionCount || 0) + 1,
-                usedByList: [...(couponData.usedByList || []), currentEmail],
-                usedAt: new Date().toISOString()
-            };
-            
-            if (couponData.usageType !== 'multiple') {
-                updateData.isUsed = true;
-                updateData.usedBy = currentEmail;
+            // Mark as used in database
+            try {
+                const updateData: any = {
+                    redemptionCount: (couponData.redemptionCount || 0) + 1,
+                    usedByList: [...(couponData.usedByList || []), currentEmail],
+                    usedAt: new Date().toISOString()
+                };
+                
+                if (couponData.usageType !== 'multiple') {
+                    updateData.isUsed = true;
+                    updateData.usedBy = currentEmail;
+                }
+
+                await updateDoc(doc(db, "coupons", couponId!), updateData);
+            } catch (writeErr: any) {
+                console.error("Coupon write stage failed:", writeErr);
+                // We don't throw here so the user sees success (since plan was updated), 
+                // but we might want to warn them. Usually better to finish the success flow.
             }
 
-            await updateDoc(doc(db, "coupons", couponDoc.id), updateData);
-
             toast.success("Successfully Redeemed!", {
-                description: `Your plan has been upgraded to ${couponData.plan.toUpperCase()} tier for ${couponData.months} months.`,
+                description: `Your plan has been upgraded to ${couponData.plan.toUpperCase()} for ${couponData.months} months.`,
                 icon: <CheckCircle2 className="w-5 h-5 text-green-500" />
             });
+            
             setCouponCode("");
+            
+            // Optional: redirect to dashboard to see changes
+            setTimeout(() => {
+                navigate('/vendor');
+            }, 2000);
+
         } catch (e: any) {
-            toast.error("Redemption Failed", { description: e.message });
+            console.error("Redemption error:", e);
+            const errorMsg = e.message || "An unexpected error occurred.";
+            
+            if (errorMsg.includes("PLAN_UPDATE_FAILED")) {
+                 toast.error("Upgrade Failed", { description: "We couldn't update your plan. Please check your internet or retry." });
+            } else {
+                 toast.error("Redemption Failed", { description: errorMsg });
+            }
         } finally {
             setIsClaiming(false);
         }
@@ -440,9 +509,9 @@ const VendorPlans = () => {
                                     }}
                                     className={`w-full py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all group ${
                                         user?.plan === plan.tier
-                                        ? 'bg-green-600 text-white shadow-xl shadow-green-600/20'
+                                        ? 'bg-green-600 text-white'
                                         : plan.popular
-                                          ? 'gradient-primary text-primary-foreground shadow-xl shadow-primary/20 hover:shadow-2xl hover:scale-[1.02]'
+                                          ? 'bg-primary text-primary-foreground hover:scale-[1.02]'
                                           : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
                                     }`}
                                 >
@@ -474,12 +543,12 @@ const VendorPlans = () => {
                                     value={couponCode}
                                     onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
                                     disabled={globalSettings.disableCoupons}
-                                    className="flex-1 px-6 py-4 rounded-2xl bg-white/60 backdrop-blur-sm border border-border outline-none font-black tracking-widest text-base"
+                                    className="flex-1 px-6 py-4 rounded-2xl bg-white border border-border outline-none font-black tracking-widest text-base text-black placeholder:text-black/40"
                                 />
                                 <button
                                     onClick={handleClaimCoupon}
                                     disabled={isClaiming || !couponCode.trim() || globalSettings.disableCoupons}
-                                    className="sm:px-8 py-4 px-6 rounded-2xl gradient-primary text-white font-black text-sm uppercase tracking-widest transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                                    className="sm:px-8 py-4 px-6 rounded-2xl bg-primary text-white font-black text-sm uppercase tracking-widest transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                                 >
                                     {isClaiming ? <Loader2 className="w-4 h-4 animate-spin" /> : "Claim Now"}
                                 </button>
@@ -556,7 +625,7 @@ const VendorPlans = () => {
                             <button
                                 onClick={handlePayment}
                                 disabled={processing}
-                                className="w-full py-4 rounded-xl gradient-primary text-primary-foreground font-bold shadow-xl flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-70"
+                                className="w-full py-4 rounded-xl bg-primary text-primary-foreground font-bold shadow-md flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-70"
                             >
                                 {processing ? (
                                     <Loader2 className="w-5 h-5 animate-spin" />

@@ -396,7 +396,7 @@ const StoreEditor = () => {
                                                                 <div className="flex flex-col min-h-[38px] justify-center">
                                                                     <h3 className="font-black text-slate-800 dark:text-slate-100 text-xs line-clamp-1 group-hover:text-primary transition-colors tracking-tight leading-none mb-1">{p.name}</h3>
                                                                     <p className="text-[8px] text-muted-foreground/50 line-clamp-1 leading-relaxed font-bold uppercase tracking-tighter">
-                                                                        {p.description || "Quality Assured Product"}
+                                                                        {p.description || ""}
                                                                     </p>
                                                                 </div>
 
@@ -462,7 +462,7 @@ const StoreEditor = () => {
                                                             <div className="flex flex-col min-h-[38px] justify-center">
                                                                 <h3 className="font-black text-slate-800 dark:text-slate-100 text-xs line-clamp-1 group-hover:text-primary transition-colors tracking-tight leading-none mb-1">{p.name}</h3>
                                                                 <p className="text-[8px] text-muted-foreground/50 line-clamp-1 leading-relaxed font-bold uppercase tracking-tighter">
-                                                                    {p.description || "Quality Assured Product"}
+                                                                    {p.description || ""}
                                                                 </p>
                                                             </div>
                                                             <div className="mt-auto pt-2 border-t border-slate-100/50">

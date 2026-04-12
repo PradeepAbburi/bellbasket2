@@ -1,6 +1,22 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+  
+  
+  	    // --- BELL DEALS RULES ---
+    match /deals/{dealId} {
+      allow read: if true; // Everyone can browse active flash sales
+      allow create: if request.auth != null && request.resource.data.vendorId == request.auth.uid;
+      allow update, delete: if request.auth != null && resource.data.vendorId == request.auth.uid;
+    }
+
+    // --- BELL NOTES (QUICK LIST) RULES ---
+    match /notes/{noteId} {
+      // Only the authenticated vendor owner can access their personal list
+      allow create: if request.auth != null && request.resource.data.vendorId == request.auth.uid;
+      allow read, update, delete: if request.auth != null && resource.data.vendorId == request.auth.uid;
+    }
+
     
     // --- HELPER FUNCTIONS ---
     
@@ -27,75 +43,62 @@ service cloud.firestore {
 
     // --- COLLECTION RULES ---
 
+    // Default catch-all for admins
+    match /{document=**} {
+      allow read, write: if isAdmin();
+    }
+
     match /users/{userId} {
-      // Allow read if authenticated. Protect sensitive fields like fcmTokens if necessary.
-      allow read: if isAuth();
-      
-      // Prevent role escalation and verification tampering
-      allow create: if isAuth() && isOwner(userId) && 
-        request.resource.data.role == 'customer' && 
-        request.resource.data.isVerified == false;
-        
-      allow update: if isOwner(userId) && (
-        !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['role', 'isVerified', 'plan', 'subscriptionExpiry', 'isBlocked', 'referralCode', 'fcmTokens', 'email'])
-      ) || isAdmin();
-      
-      allow delete: if isAdmin();
+      allow read: if true;
+      allow write: if isOwner(userId);
     }
 
     match /stores/{storeId} {
       allow read: if true;
-      allow create: if isOwner(storeId);
-      allow delete: if isAdmin();
+      allow create, delete: if isOwner(storeId);
       allow update: if isOwner(storeId) || (
         isAuth() && 
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reviews', 'rating'])
-      ) || isAdmin();
+      );
     }
 
     match /products/{productId} {
       allow read: if true;
-      allow create: if isAuth() && (request.resource.data.vendorId == request.auth.uid || hasRole('vendor') || isAdmin());
-      allow update, delete: if isAuth() && (resource.data.vendorId == request.auth.uid || isAdmin());
+      allow create: if isAuth() && (request.resource.data.vendorId == request.auth.uid || hasRole('vendor'));
+      allow update, delete: if isAuth() && resource.data.vendorId == request.auth.uid;
     }
 
     match /orders/{orderId} {
-      allow read: if isAuth() && (
+      // Allow SHARED receipts: anyone can view a single order if they have the ID
+      allow get: if true; 
+      
+      // Only the owner or store can list/query multiple orders
+      allow list: if isAuth() && (
         resource.data.userId == request.auth.uid || 
-        resource.data.storeId == request.auth.uid ||
-        isAdmin()
-      );
-      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
-      
-      allow update: if isAuth() && (
-        // Vendor can update status
-        (resource.data.storeId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'rejectedAt', 'packedAt'])) ||
-        // User can update review
-        (resource.data.userId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['review'])) ||
-        isAdmin()
+        resource.data.storeId == request.auth.uid
       );
       
-      allow delete: if isAdmin();
+      allow create: if isAuth();
+      allow update, delete: if isAuth() && (
+        resource.data.userId == request.auth.uid || 
+        resource.data.storeId == request.auth.uid
+      );
     }
 
     match /serviceBookings/{bookingId} {
-      allow read: if isAuth() && (
+      // Allow SHARED receipts: anyone can view a single booking if they have the ID
+      allow get: if true;
+      
+      allow list: if isAuth() && (
         resource.data.userId == request.auth.uid || 
-        resource.data.vendorId == request.auth.uid ||
-        isAdmin()
-      );
-      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
-      
-      allow update: if isAuth() && (
-        // Vendor can update status
-        (resource.data.vendorId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])) ||
-        // User can update review
-        (resource.data.userId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['review'])) ||
-        isAdmin()
+        resource.data.vendorId == request.auth.uid
       );
       
-      allow delete: if isAdmin();
+      allow create: if true;
+      allow update, delete: if isAuth() && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.vendorId == request.auth.uid
+      );
     }
 
     match /coupons/{couponId} {
@@ -105,21 +108,19 @@ service cloud.firestore {
     }
 
     match /support_requests/{requestId} {
-      allow read, update: if isAdmin() || (isAuth() && resource.data.userId == request.auth.uid);
+      allow read, update: if isAuth() && resource.data.userId == request.auth.uid;
       allow create: if isAuth();
     }
 
     match /referrals/{referralId} {
-      // NOTE: This collection contains staff login credentials.
-      // Ideally, this should be moved to Firebase Auth or a secure backend.
-      // For now, we allow read to support the custom login system, but restrict all writes.
       allow read: if true;
       allow write: if isAdmin();
     }
 
     match /notifications/{notifId} {
-      allow read, update, delete: if isAuth() && resource.data.userId == request.auth.uid;
-      allow create: if isAuth() || isAdmin(); 
+      allow read: if isAuth() && resource.data.userId == request.auth.uid;
+      allow create: if isAuth();
+      allow update, delete: if isAuth() && resource.data.userId == request.auth.uid;
     }
 
     match /store_visits/{docId} {
@@ -131,11 +132,6 @@ service cloud.firestore {
     match /config/{docId} {
       allow read: if true;
       allow write: if isAdmin();
-    }
-
-    match /referrals_public/{docId} {
-        // Suggested collection for public referral data if needed
-        allow read: if true;
     }
 
     // --- CAREERS PORTAL RULES ---

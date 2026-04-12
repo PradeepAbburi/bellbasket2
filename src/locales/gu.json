@@ -200,8 +200,7 @@
         "store_closed": "સ્ટોર હાલમાં બંધ છે",
         "ordering_disabled": "ઓર્ડર આપવાનું હાલ બંધ છે",
         "cannot_place_orders": "તમે અત્યારે ઓર્ડર આપી શકતા નથી.",
-        "finding_matches": "પરિણામો શોધી રહ્યા છીએ",
-        "quality_assured": "ગુણવત્તા ખાતરી સાથેનું ઉત્પાદન"
+        "finding_matches": "પરિણામો શોધી રહ્યા છીએ"
     },
     "categories": {
         "Grocery": "કરિયાણું",

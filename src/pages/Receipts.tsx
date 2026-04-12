@@ -81,6 +81,9 @@ const Receipts = () => {
   const [sharedOrder, setSharedOrder] = useState<Order | null>(null);
   const [sharedBooking, setSharedBooking] = useState<ServiceBooking | null>(null);
   const [fetchingShared, setFetchingShared] = useState(false);
+  const sessionSeenIds = useRef<Set<string>>(new Set());
+  const [rejectionsToHideInSession, setRejectionsToHideInSession] = useState<Set<string>>(new Set());
+  const hasAcknowlegedNewRejections = useRef(false);
 
   useEffect(() => {
     localStorage.setItem('order_reviews', JSON.stringify(reviews));
@@ -243,10 +246,91 @@ const Receipts = () => {
     return orders.filter(o => o.userId === user?.id);
   }, [orders, user?.id]);
 
-  const activeOrders = customerOrders.filter(o => o.status !== 'completed' && o.status !== 'rejected');
-  const pastOrders = customerOrders.filter(o => (o.status === 'completed' || o.status === 'rejected') && !o.deletedByUser);
-  const activeBookings = serviceBookings.filter(b => b.status === 'pending' || b.status === 'accepted');
-  const pastBookings = serviceBookings.filter(b => (b.status === 'completed' || b.status === 'rejected') && !b.deletedByUser);
+  // Handle Rejection Viewing logic
+  useEffect(() => {
+    if (loading || !user) return;
+
+    const findNewRejections = async () => {
+      const newRejectedOrders = customerOrders.filter(o => o.status === 'rejected' && !o.rejectionViewed);
+      const newRejectedBookings = serviceBookings.filter(b => b.status === 'rejected' && !b.rejectionViewed);
+      
+      const allNewIds = [...newRejectedOrders.map(o => o.id), ...newRejectedBookings.map(b => b.id)];
+      if (allNewIds.length === 0) return;
+
+      // Mark them as "seen in this session" so they stay in ACTIVE for now
+      allNewIds.forEach(id => sessionSeenIds.current.add(id));
+
+      // 🕒 Start a 5-second timer to move them to HISTORY
+      setTimeout(() => {
+        setRejectionsToHideInSession(prev => {
+          const next = new Set(prev);
+          allNewIds.forEach(id => next.add(id));
+          return next;
+        });
+      }, 5000);
+
+      // Mark them as viewed in DB in the background
+      for (const order of newRejectedOrders) {
+        updateDoc(doc(db, 'orders', order.id), { rejectionViewed: true });
+      }
+      for (const booking of newRejectedBookings) {
+        updateDoc(doc(db, 'serviceBookings', booking.id), { rejectionViewed: true });
+      }
+    };
+
+    findNewRejections();
+  }, [loading, user, customerOrders.length, serviceBookings.length]);
+
+  const activeOrders = customerOrders.filter(o => {
+    if (o.status !== 'completed' && o.status !== 'rejected') return true;
+    if (o.status === 'rejected') {
+      // Hide if timer expired in this session
+      if (rejectionsToHideInSession.has(o.id)) return false;
+
+      // Stay in active if it was new when this page loaded
+      if (sessionSeenIds.current.has(o.id)) return true;
+      
+      // If none of the session trackers apply, use the DB flag
+      return !o.rejectionViewed;
+    }
+    return false;
+  });
+
+  const pastOrders = customerOrders.filter(o => {
+    if (o.status === 'completed') return true;
+    if (o.status === 'rejected') {
+      // Show if timer expired in this session
+      if (rejectionsToHideInSession.has(o.id)) return true;
+
+      // If it was new this session but timer hasn't expired, don't show in past yet
+      if (sessionSeenIds.current.has(o.id)) return false;
+      
+      return o.rejectionViewed === true;
+    }
+    return false;
+  }).filter(o => !o.deletedByUser);
+
+  const activeBookings = serviceBookings.filter(b => {
+    if (b.status !== 'completed' && b.status !== 'rejected') return true;
+    if (b.status === 'rejected') {
+      if (rejectionsToHideInSession.has(b.id)) return false;
+      if (sessionSeenIds.current.has(b.id)) return true;
+      
+      return !b.rejectionViewed;
+    }
+    return false;
+  });
+
+  const pastBookings = serviceBookings.filter(b => {
+    if (b.status === 'completed') return true;
+    if (b.status === 'rejected') {
+      if (rejectionsToHideInSession.has(b.id)) return true;
+      if (sessionSeenIds.current.has(b.id)) return false;
+      
+      return b.rejectionViewed === true;
+    }
+    return false;
+  }).filter(b => !b.deletedByUser);
   const displayOrders = view === 'active' ? activeOrders : pastOrders;
   const displayBookings = view === 'active' ? activeBookings : pastBookings;
 
@@ -428,6 +512,7 @@ const Receipts = () => {
                       userCoords={userCoords} isSelected={selectedIds.includes(order.id)}
                       onToggleSelect={() => toggleSelect(order.id)} onLongPress={() => toggleSelect(order.id)}
                       showSelection={view === 'history' && selectedIds.length > 0}
+                      hasReviewedStore={Array.isArray(getStoreForOrder(order.storeId)?.reviews) && getStoreForOrder(order.storeId)!.reviews!.some((r: any) => r.userId === user?.id)}
                        onClick={() => { 
                          navigate(`/receipt/${order.id}`); 
                        }}
@@ -445,6 +530,7 @@ const Receipts = () => {
                       userCoords={userCoords} isSelected={selectedIds.includes(booking.id)}
                       onToggleSelect={() => toggleSelect(booking.id)} onLongPress={() => toggleSelect(booking.id)}
                       showSelection={view === 'history' && selectedIds.length > 0}
+                      hasReviewedStore={Array.isArray(getStoreForOrder(booking.storeId)?.reviews) && getStoreForOrder(booking.storeId)!.reviews!.some((r: any) => r.userId === user?.id)}
                        onClick={() => { 
                          navigate(`/receipt/${booking.id}`); 
                        }}

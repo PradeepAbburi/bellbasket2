@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo, useRef, useCallback, startTransition } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback, startTransition, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
-import { MapPin, Star, Search, Navigation, Loader2, History, X, Store as StoreIcon, Plus, ChevronLeft, ChevronRight, Clock, Tag, ShoppingBasket, Sparkles, Filter, ChevronDown, ArrowUpDown } from 'lucide-react';
+import { MapPin, Star, Search, Navigation, Loader2, History, X, Store as StoreIcon, Plus, Minus, ChevronLeft, ChevronRight, Clock, Tag, ShoppingBasket, Sparkles, Filter, ChevronDown, ArrowUpDown } from 'lucide-react';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -23,6 +23,7 @@ import { useApp } from '@/context/AppContext';
 import MapView from '@/components/MapView';
 import { Helmet } from 'react-helmet';
 import { useTranslation } from 'react-i18next';
+import { smartSearchProducts } from '../utils/search';
 
 const LOCATION_PRESETS = [
   { name: 'Connaught Place', lat: 28.6139, lng: 77.2090 },
@@ -46,20 +47,199 @@ function getDistanceKm(lat1: number, lng1: number, lat2: number, lng2: number): 
 }
 
 
+const SkeletonStoreCard = () => (
+  <div className="bg-card rounded-[2.5rem] p-4 flex gap-4 border border-border/50 animate-pulse">
+    <div className="w-24 h-24 rounded-2xl bg-muted shrink-0" />
+    <div className="flex-1 space-y-3 py-1">
+      <div className="h-4 bg-muted rounded-full w-3/4" />
+      <div className="h-3 bg-muted rounded-full w-1/2" />
+      <div className="flex gap-2">
+        <div className="h-4 bg-muted rounded-full w-16" />
+        <div className="h-4 bg-muted rounded-full w-12" />
+      </div>
+    </div>
+  </div>
+);
+
+const SkeletonProductCard = () => (
+  <div className="bg-card rounded-3xl p-3 border border-border/50 animate-pulse">
+    <div className="aspect-square rounded-2xl bg-muted mb-3" />
+    <div className="space-y-2">
+      <div className="h-3 bg-muted rounded-full w-3/4" />
+      <div className="h-3 bg-muted rounded-full w-1/2" />
+    </div>
+  </div>
+);
+
+// Memoized Store Card with Prefetching
+const StoreCard = memo(({ store, onClick, t }: { store: Store & { distance?: number; effectiveRating?: number }, onClick: () => void, t: any }) => {
+  const prefetch = () => {
+    // Programmatic prefetch of StoreDetail
+    import('./StoreDetail');
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      whileHover={{ scale: 1.01 }}
+      whileTap={{ scale: 0.98 }}
+      onClick={onClick}
+      onMouseEnter={prefetch}
+      onTouchStart={prefetch}
+      className={`glass rounded-2xl overflow-hidden cursor-pointer hover:shadow-lg transition-all group relative will-change-transform ${store.plan === 'pro' ? 'border-2 border-primary shadow-lg shadow-primary/20' : ''}`}
+    >
+      <div className="relative h-40 overflow-hidden">
+        <img loading="lazy" src={store.image} alt={store.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+        <div className="absolute top-3 right-3 flex flex-col items-end gap-2">
+          <span className={`text-[9.5px] font-black px-2.5 py-1.5 rounded-full shadow-lg backdrop-blur-md border border-black/5 uppercase tracking-widest bg-white text-black flex items-center gap-1.5`}>
+            <div className={`w-1.5 h-1.5 rounded-full ${store.isOpen ? 'bg-green-500' : 'bg-red-500'} animate-pulse`} />
+            {store.isOpen ? t('home.open_now') : t('home.closed')}
+          </span>
+        </div>
+        <div className="absolute top-3 left-3 flex items-center gap-2">
+            <span className="text-[9.5px] font-black px-2.5 py-1 rounded-full shadow-lg backdrop-blur-md flex items-center gap-1 border border-black/5 bg-white text-black">
+                {CATEGORY_METADATA[store.category]?.icon && (() => {
+                    const Icon = CATEGORY_METADATA[store.category].icon;
+                    return <Icon className="w-3 h-3" style={{ color: CATEGORY_METADATA[store.category]?.color || 'inherit' }} />;
+                })()}
+                <span className="uppercase tracking-widest">{t(`categories.${store.category}`, { defaultValue: store.category })}</span>
+            </span>
+        </div>
+      </div>
+      <div className="p-4">
+        <div className="flex items-start justify-between mb-1">
+          <h3 className="font-bold text-white truncate max-w-[70%] drop-shadow-sm">{store.name}</h3>
+          <div className="flex items-center gap-1 shrink-0 bg-black/20 backdrop-blur-sm px-2 py-1 rounded-lg border border-white/10">
+            <Star className="w-3 h-3 fill-current text-amber-400" />
+            <span className="text-[11px] font-black leading-none text-amber-400">{store.effectiveRating?.toFixed(1) || store.rating || '0.0'}</span>
+            {store.reviews && store.reviews.length > 0 && (
+              <span className="text-[9px] font-bold text-white/60 leading-none">({store.reviews.length})</span>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center justify-between mt-2">
+          <div className="flex flex-col gap-1 min-w-0 flex-1">
+            {store.description && (
+              <p className="text-[10px] text-white/50 line-clamp-2 leading-relaxed mb-1 italic">
+                {store.description}
+              </p>
+            )}
+            <div className="flex items-center gap-1.5 text-xs text-white/90 font-bold truncate">
+              <MapPin className="w-3.5 h-3.5 text-white/60" />
+              <span className="truncate">{store.address ? (store.address.split(',')[1]?.trim() || store.address.split(',')[0]) : 'Local Area'}</span>
+            </div>
+          </div>
+          <span className="text-[10px] font-black text-primary bg-primary/10 px-2 py-0.5 rounded-lg shrink-0 ml-2">
+            {store.distance?.toFixed(1)} km
+          </span>
+        </div>
+      </div>
+    </motion.div>
+  );
+});
+
+// Memoized Product Card with Prefetching
+const ProductCard = memo(({ p, count, onAdd, onUpdate, onRemove, onClick, t }: { p: Product & { storeName?: string, storeRating?: number, storeReviewCount?: number, distance?: number, storeIsOpen?: boolean }, count: number, onAdd: () => void, onUpdate: (q: number) => void, onRemove: () => void, onClick: () => void, t: any }) => {
+  const prefetch = () => {
+    import('./StoreDetail'); // Product detail is inside StoreDetail view
+  };
+
+  const hasDiscount = !!p.discountedPrice && Number(p.discountedPrice) > 0 && Number(p.discountedPrice) < p.price;
+  const discountedPrice = hasDiscount ? Number(p.discountedPrice) : p.price;
+  const discountPercent = hasDiscount ? Math.round(((p.price - discountedPrice) / p.price) * 100) : 0;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      whileHover={{ y: -2 }}
+      onClick={onClick}
+      onMouseEnter={prefetch}
+      onTouchStart={prefetch}
+      className="bg-[#f8f9fa] dark:bg-[#161616] p-3 rounded-[2.5rem] flex flex-col gap-3 hover:shadow-2xl hover:shadow-primary/10 transition-all border border-slate-200 dark:border-white/5 group/product cursor-pointer relative will-change-transform"
+    >
+      <div className="aspect-square rounded-2xl overflow-hidden bg-secondary/10 relative">
+        <img loading="lazy" src={p.image} alt={p.name} className="w-full h-full object-cover group-hover/product:scale-110 transition-transform duration-700 ease-out" />
+        {hasDiscount && (
+          <div className="absolute top-2 left-2 bg-primary text-primary-foreground text-[8px] font-black px-1.5 py-0.5 rounded-lg shadow-lg uppercase tracking-tight">
+            {discountPercent}% OFF
+          </div>
+        )}
+        {p.inStock === false && (
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] flex items-center justify-center z-10 transition-all">
+            <span className="bg-rose-500 text-white text-[9px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest shadow-xl">Out of Stock</span>
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-1.5 px-0.5">
+        <h4 className="text-[13px] font-bold text-foreground line-clamp-2 leading-snug min-h-[2.5em] group-hover/product:text-primary transition-colors">{p.name}</h4>
+        <div className="flex items-center justify-between">
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-sm font-black text-foreground">₹{discountedPrice}</span>
+            {hasDiscount && <span className="text-[9px] text-muted-foreground line-through opacity-50 font-medium">₹{p.price}</span>}
+          </div>
+        </div>
+        
+        <div className="mt-auto pt-3 border-t border-slate-100 dark:border-white/5" onClick={e => e.stopPropagation()}>
+          {p.inStock === false ? (
+            <button disabled className="w-full h-8 rounded-xl bg-muted text-muted-foreground text-[9px] font-black flex items-center justify-center uppercase tracking-widest cursor-not-allowed">
+              Sold Out
+            </button>
+          ) : count === 0 ? (
+            <button onClick={onAdd} className="w-full h-8 rounded-xl bg-primary text-white text-[10px] font-black flex items-center justify-center gap-1.5 hover:bg-primary/90 active:scale-[0.98] transition-all shadow-lg shadow-primary/20">
+              <Plus className="w-3 h-3" /> ADD TO CART
+            </button>
+          ) : (
+            <div className="w-full h-8 rounded-xl bg-primary text-white flex items-center justify-between px-1.5 shadow-lg shadow-primary/20">
+              <button onClick={() => count > 1 ? onUpdate(count - 1) : onRemove()} className="w-6 h-6 flex items-center justify-center hover:bg-white/20 rounded-lg transition-colors"><Minus className="w-3 h-3" /></button>
+              <span className="text-[11px] font-black">{count}</span>
+              <button onClick={() => onUpdate(count + 1)} className="w-6 h-6 flex items-center justify-center hover:bg-white/20 rounded-lg transition-colors"><Plus className="w-3 h-3" /></button>
+            </div>
+          )}
+        </div>
+
+        <div className="mt-1 p-2.5 bg-white rounded-2xl flex flex-col gap-1.5 border border-slate-100">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[10px] font-bold text-black uppercase tracking-widest truncate flex-1">{p.storeName}</p>
+            {p.storeRating !== undefined && (
+              <div className="flex items-center gap-1 text-black shrink-0">
+                <Star className="w-2.5 h-2.5 fill-current" />
+                <span className="text-[10px] font-bold">{p.storeRating.toFixed(1)}</span>
+                {p.storeReviewCount !== undefined && p.storeReviewCount > 0 && (
+                  <span className="text-[9px] text-black/40 font-bold">({p.storeReviewCount})</span>
+                )}
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5 text-[9px] text-black font-bold">
+            <MapPin className="w-3 h-3 text-black/40" />
+            <span className="tracking-tight">{p.distance?.toFixed(1)} km away</span>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+});
+
 const CustomerHome = () => {
-  const { user, loading, stores: allStores, allProducts, addToCart, orders, refreshData } = useApp();
+  const { user, loading, stores: allStores, allProducts, addToCart, removeFromCart, updateQuantity, cart, orders, refreshData } = useApp();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  const activeOrders = useMemo(() => {
-    return orders.filter(o => o.userId === user?.id && ['pending', 'accepted', 'packed'].includes(o.status));
-  }, [orders, user?.id]);
 
   const [search, setSearch] = useState('');
+  const [isSearchingLocation, setIsSearchingLocation] = useState(false);
   const [userLat, setUserLat] = useState<number>(() => Number(localStorage.getItem('user_lat')) || 28.6139);
   const [userLng, setUserLng] = useState<number>(() => Number(localStorage.getItem('user_lng')) || 77.2090);
   const [locationName, setLocationName] = useState(() => localStorage.getItem('user_location_name') || 'Connaught Place');
+  const [userMandal, setUserMandal] = useState(() => localStorage.getItem('user_mandal') || '');
+  const [userDistrict, setUserDistrict] = useState(() => localStorage.getItem('user_district') || '');
+  const [userState, setUserState] = useState(() => localStorage.getItem('user_state') || '');
+  const [userCountry, setUserCountry] = useState(() => localStorage.getItem('user_country') || '');
+  const [selectedLocationType, setSelectedLocationType] = useState(''); // Never persisted - always starts as distance filter
   const [detecting, setDetecting] = useState(false);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [locationSearch, setLocationSearch] = useState('');
@@ -76,6 +256,7 @@ const CustomerHome = () => {
   const [activeMode, setActiveMode] = useState<'product' | 'service'>(() => (localStorage.getItem('active_mode') as 'product' | 'service') || 'product');
   const [priceSort, setPriceSort] = useState<'none' | 'low-high' | 'high-low'>('none');
   const [ratingSort, setRatingSort] = useState<'none' | 'top-rated' | 'low-rated'>('none');
+  const [distanceSort, setDistanceSort] = useState<'none' | 'nearest' | 'farthest'>('none');
   const [maxDistance, setMaxDistance] = useState<number>(20);
 
   const searchSuggestions = useMemo(() => {
@@ -87,22 +268,27 @@ const CustomerHome = () => {
     allStores
       .filter(s => !s.isBlocked && s.plan && s.plan !== 'none')
       .forEach(s => {
-        if (s.name.toLowerCase().includes(query)) suggestions.add(s.name);
+        if (s.name.toLowerCase().includes(query)) suggestions.add(JSON.stringify({ type: 'store', name: s.name, id: s.id, lat: s.lat, lng: s.lng }));
+        if (s.mandal && s.mandal.toLowerCase().includes(query)) suggestions.add(JSON.stringify({ type: 'location', name: s.mandal, adminType: 'mandal', lat: s.lat, lng: s.lng }));
+        if (s.district && s.district.toLowerCase().includes(query)) suggestions.add(JSON.stringify({ type: 'location', name: s.district, adminType: 'district', lat: s.lat, lng: s.lng }));
+        if (s.state && s.state.toLowerCase().includes(query)) suggestions.add(JSON.stringify({ type: 'location', name: s.state, adminType: 'state', lat: s.lat, lng: s.lng }));
+        if (s.country && s.country.toLowerCase().includes(query)) suggestions.add(JSON.stringify({ type: 'location', name: s.country, adminType: 'country', lat: s.lat, lng: s.lng }));
       });
 
     allProducts.forEach(p => {
       // Find the store for this product to check if it's blocked
       const store = allStores.find(s => s.id === p.vendorId);
       if (store && !store.isBlocked && store.plan && store.plan !== 'none') {
-        if (p.name.toLowerCase().includes(query)) suggestions.add(p.name);
+        if (p.name.toLowerCase().includes(query)) suggestions.add(JSON.stringify({ type: 'product', name: p.name }));
       }
     });
 
-    return Array.from(suggestions).slice(0, 6);
+    return Array.from(suggestions).map(s => JSON.parse(s)).slice(0, 10);
   }, [search, allStores, allProducts, isSearching, activeSearch]);
 
   const categoryRef = useRef<HTMLDivElement>(null);
   const productRef = useRef<HTMLDivElement>(null);
+  const locationSearchTimeout = useRef<NodeJS.Timeout>();
 
   const scroll = (ref: React.RefObject<HTMLDivElement>, direction: 'left' | 'right') => {
     if (ref.current) {
@@ -132,7 +318,12 @@ const CustomerHome = () => {
     localStorage.setItem('user_lat', userLat.toString());
     localStorage.setItem('user_lng', userLng.toString());
     localStorage.setItem('user_location_name', locationName);
-  }, [userLat, userLng, locationName]);
+    localStorage.setItem('user_mandal', userMandal);
+    localStorage.setItem('user_district', userDistrict);
+    localStorage.setItem('user_state', userState);
+    localStorage.setItem('user_country', userCountry);
+    localStorage.removeItem('selected_location_type'); // Clear any stale value
+  }, [userLat, userLng, locationName, userMandal, userDistrict, userState, userCountry]);
 
   useEffect(() => {
     localStorage.setItem('active_mode', activeMode);
@@ -144,6 +335,8 @@ const CustomerHome = () => {
     if (q) {
       setSearch(q);
     }
+    
+    // Auto-detect location - Handled by browser API or user selection
   }, [searchParams]);
 
   const detectLocation = () => {
@@ -168,12 +361,29 @@ const CustomerHome = () => {
             const name = data.display_name?.split(',')[0] || data.address?.city || data.address?.town || 'Current Location';
             setLocationName(name);
 
+            // Extract admin areas
+            const mandal = data.address?.suburb || data.address?.locality || data.address?.village || data.address?.town || data.address?.city_district || '';
+            const district = data.address?.district || data.address?.city || data.address?.town || '';
+            const state = data.address?.state || '';
+            const country = data.address?.country || '';
+
+            setUserMandal(mandal);
+            setUserDistrict(district);
+            setUserState(state);
+            setUserCountry(country);
+            setSelectedLocationType(''); // GPS reset
+
             const newItem = {
               id: data.place_id || Math.random().toString(),
               name: name,
               fullName: data.display_name,
               lat,
-              lon: lng
+              lon: lng,
+              mandal,
+              district,
+              state,
+              country,
+              locationType: ''
             };
 
             setSearchHistory(prev => {
@@ -219,76 +429,85 @@ const CustomerHome = () => {
   };
 
 
-  const handleLocationSearch = async (val: string) => {
+  const handleLocationSearch = (val: string) => {
     setLocationSearch(val);
     if (val.length < 2) {
       setLocationResults([]);
       return;
     }
 
-    try {
-      const photonUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(val)}&lat=${userLat}&lon=${userLng}&limit=12`;
-      const res = await fetch(photonUrl);
-      const data = await res.json();
-
-      const results = data.features.map((f: any) => {
-        const p = f.properties;
-
-        // Calculate distance from user's current center to this result
-        const dist = getDistanceKm(userLat, userLng, f.geometry.coordinates[1], f.geometry.coordinates[0]);
-
-        const addressParts = [];
-        if (p.street) addressParts.push(p.street);
-        if (p.district) addressParts.push(p.district);
-        if (p.city) addressParts.push(p.city);
-        if (p.state) addressParts.push(p.state);
-
-        const fullName = [p.name || p.street, ...addressParts.filter(part => part !== (p.name || p.street))].filter(Boolean).join(', ');
-
-        // Better short name: include district/city for context if it's a minor place
-        let namePart = p.name || p.street || p.district || p.city || p.locality || '';
-        if (!namePart) namePart = fullName.split(',')[0];
-
-        const context = p.district || p.city || p.locality || '';
-        if (context && namePart !== context && !namePart.includes(context)) {
-          namePart = `${namePart}, ${context}`;
-        }
-
-        return {
-          place_id: f.properties.osm_id || Math.random(),
-          display_name: fullName,
-          short_name: namePart,
-          lat: f.geometry.coordinates[1],
-          lon: f.geometry.coordinates[0],
-          distanceKm: dist,
-          type: p.osm_value || p.type || 'place'
-        };
-      });
-
-      // Sort results by a mix of relevance (already biased by Photon) and physical distance
-      // We prioritize things within 50km if they are highly relevant
-      const sorted = results.sort((a: any, b: any) => {
-        if (a.distanceKm < 10 && b.distanceKm > 10) return -1;
-        if (b.distanceKm < 10 && a.distanceKm > 10) return 1;
-        return 0; // Maintain Photon's relevance order otherwise
-      });
-
-      setLocationResults(sorted);
-    } catch (e) {
-      console.error('Search failed', e);
-      // Fallback
+    if (locationSearchTimeout.current) clearTimeout(locationSearchTimeout.current);
+    
+    setIsSearchingLocation(true);
+    locationSearchTimeout.current = setTimeout(async () => {
       try {
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(val)}&countrycodes=in&limit=10&addressdetails=1`);
+        const photonUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(val)}&lat=${userLat}&lon=${userLng}&limit=12`;
+        const res = await fetch(photonUrl);
         const data = await res.json();
-        setLocationResults(data.map((r: any) => ({
-          ...r,
-          short_name: r.display_name.split(',')[0],
-          distanceKm: getDistanceKm(userLat, userLng, parseFloat(r.lat), parseFloat(r.lon))
-        })));
-      } catch (fallbackErr) {
-        console.error('Fallback failed', fallbackErr);
+
+        const results = data.features.map((f: any) => {
+          const p = f.properties;
+          const dist = getDistanceKm(userLat, userLng, f.geometry.coordinates[1], f.geometry.coordinates[0]);
+
+          const addressParts = [];
+          if (p.street) addressParts.push(p.street);
+          if (p.district) addressParts.push(p.district);
+          if (p.city) addressParts.push(p.city);
+          if (p.state) addressParts.push(p.state);
+
+          const fullName = [p.name || p.street, ...addressParts.filter(part => part !== (p.name || p.street))].filter(Boolean).join(', ');
+
+          let namePart = p.name || p.street || p.district || p.city || p.locality || '';
+          if (!namePart) namePart = fullName.split(',')[0];
+
+          const context = p.district || p.city || p.locality || '';
+          if (context && namePart !== context && !namePart.includes(context)) {
+            namePart = `${namePart}, ${context}`;
+          }
+
+          return {
+            place_id: f.properties.osm_id || Math.random().toString(),
+            display_name: fullName,
+            short_name: namePart,
+            lat: f.geometry.coordinates[1],
+            lon: f.geometry.coordinates[0],
+            distanceKm: dist,
+            type: p.osm_value || p.type || 'place',
+            mandal: p.suburb || p.locality || (p.osm_value === 'suburb' ? p.name : ''),
+            district: p.district || p.city || (p.osm_value === 'city' ? p.name : ''),
+            state: p.state || (p.osm_value === 'state' ? p.name : ''),
+            country: p.country || (p.osm_value === 'country' ? p.name : '')
+          };
+        });
+
+        const sorted = results.sort((a: any, b: any) => {
+          if (a.distanceKm < 50 && b.distanceKm >= 50) return -1;
+          if (b.distanceKm < 50 && a.distanceKm >= 50) return 1;
+          return 0;
+        });
+
+        setLocationResults(sorted);
+      } catch (e) {
+        console.error('Search failed', e);
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(val)}&countrycodes=in&limit=10&addressdetails=1`);
+          const data = await res.json();
+          setLocationResults(data.map((r: any) => ({
+            ...r,
+            short_name: r.display_name.split(',')[0],
+            distanceKm: getDistanceKm(userLat, userLng, parseFloat(r.lat), parseFloat(r.lon)),
+            mandal: r.address?.suburb || r.address?.locality || r.address?.village || r.address?.town || r.address?.city_district || '',
+            district: r.address?.district || r.address?.city || r.address?.town || '',
+            state: r.address?.state || '',
+            country: r.address?.country || ''
+          })));
+        } catch (fallbackErr) {
+          console.error('Fallback failed', fallbackErr);
+        }
+      } finally {
+        setIsSearchingLocation(false);
       }
-    }
+    }, 200);
   };
 
   const selectResult = (res: any) => {
@@ -299,13 +518,28 @@ const CustomerHome = () => {
     setUserLat(lat);
     setUserLng(lng);
     setLocationName(shortName);
+    setUserMandal(res.mandal || '');
+    setUserDistrict(res.district || '');
+    setUserState(res.state || '');
+    setUserCountry(res.country || '');
+    const localTypes = ['city', 'town', 'village', 'suburb', 'locality', 'hamlet', 'quarter', 'neighbourhood', 'mandal'];
+    const locationType = res.type === 'country' ? 'country'
+      : res.type === 'state' ? 'state'
+      : (res.type === 'district' || res.type === 'city_district' || (res.district && !localTypes.includes(res.type))) ? 'district'
+      : 'local';
+    setSelectedLocationType(locationType);
 
     const newItem = {
       id: res.place_id?.toString() || Math.random().toString(),
       name: shortName,
       fullName: res.display_name,
       lat,
-      lon: lng
+      lon: lng,
+      mandal: res.mandal || '',
+      district: res.district || '',
+      state: res.state || '',
+      country: res.country || '',
+      locationType
     };
 
     setSearchHistory(prev => {
@@ -379,68 +613,110 @@ const CustomerHome = () => {
   }, [allProducts]);
 
   // Unified Search Results
-  const { filteredStores, storeMatchingProducts } = useMemo(() => {
-    const query = activeSearch.toLowerCase();
+  const { filteredStores, storeMatchingProducts, searchedProducts } = useMemo(() => {
+    const query = activeSearch.trim().toLowerCase();
 
-    // 1. Group ALL matching products by vendorId
-    const matchingGroups: Record<string, Product[]> = {};
-    allProducts.forEach(p => {
-      const matchesSearch = p.name.toLowerCase().includes(query) ||
-        p.category.toLowerCase().includes(query) ||
-        (p.description && p.description.toLowerCase().includes(query));
-      const matchesCategory = selectedCategory ? p.category === selectedCategory : true;
+    // 1. Area matching helper
+    const checkMatchesArea = (storeLat: number, storeLng: number, store: any) => {
+      const distance = getDistanceKm(userLat, userLng, storeLat, storeLng);
 
-      if (matchesSearch && matchesCategory) {
-        const sid = p.vendorId || 'unknown';
-        if (!matchingGroups[sid]) matchingGroups[sid] = [];
-        matchingGroups[sid].push(p);
+      // Country → all stores in the system
+      if (selectedLocationType === 'country') {
+        return true; 
       }
+
+      // State → all stores in the system (when state is selected)
+      if (selectedLocationType === 'state' && userState) {
+        return true;
+      }
+
+      // District → all stores in that district (with address fallback)
+      if (selectedLocationType === 'district' && userDistrict) {
+        const ud = userDistrict.toLowerCase();
+        return (store.district && store.district.toLowerCase() === ud)
+          || (store.mandal && store.mandal.toLowerCase() === ud)
+          || (store.address && store.address.toLowerCase().includes(ud))
+          || distance <= maxDistance;
+      }
+
+      // Default/Mandal/City/Town → strict 20km distance radius
+      return distance <= maxDistance;
+    };
+
+    // 2. Group ALL matching products by vendorId using Smart Search
+    const matchingGroups: Record<string, Product[]> = {};
+    const baseProducts = selectedCategory 
+      ? allProducts.filter(p => p.category === selectedCategory) 
+      : allProducts;
+
+    const matched = smartSearchProducts(baseProducts, activeSearch);
+    
+    // Sort and enrich products with store info for flat search view
+    const enrichedMatched = matched
+      .map(p => {
+        const store = allStores.find(s => s.id === p.vendorId);
+        return {
+          ...p,
+          storeName: store?.name || 'Local Store',
+          storeSlug: store?.slug,
+          storeIsOpen: store?.isOpen ?? true,
+          storeRating: store?.rating || 4.5,
+          storeReviewCount: store?.reviews?.length || 0,
+          distance: store ? getDistanceKm(userLat, userLng, store.lat, store.lng) : -1,
+          isBlocked: store?.isBlocked,
+          plan: store?.plan,
+          storeData: store
+        };
+      })
+      .filter(p => !p.isBlocked && p.plan && p.plan !== 'none' && p.distance !== -1 && checkMatchesArea(p.storeData.lat, p.storeData.lng, p.storeData))
+      .sort((a, b) => {
+        const getPlanWeight = (plan?: string) => {
+          if (plan === 'pro') return 3;
+          if (plan === 'growth') return 2;
+          if (plan === 'basic') return 1;
+          return 0;
+        };
+        const weightA = getPlanWeight(a.plan);
+        const weightB = getPlanWeight(b.plan);
+        if (weightA !== weightB) return weightB - weightA;
+        if (Math.abs((b.storeRating || 0) - (a.storeRating || 0)) >= 0.1) return (b.storeRating || 0) - (a.storeRating || 0);
+        return (a.distance || 0) - (b.distance || 0);
+      });
+
+    // Grouping for store cards (legacy or if we need them inside store cards elsewhere)
+    enrichedMatched.forEach(p => {
+      const sid = p.vendorId || 'unknown';
+      if (!matchingGroups[sid]) matchingGroups[sid] = [];
+      matchingGroups[sid].push(p);
     });
 
-    // 2. Filter Stores
+    // 3. Filter Stores
     const filtered = allStores.filter(store => {
       // mode filter
-      const matchesMode = store.storeType ? store.storeType === activeMode : activeMode === 'product'; // Default to product if not specified
+      const matchesMode = store.storeType ? store.storeType === activeMode : activeMode === 'product'; 
       if (!matchesMode) return false;
 
       // HIDDEN FILTER: Blocked or Expired
       if (store.isBlocked) return false;
       if (store.plan === 'none' || !store.plan) return false;
 
-      const distance = getDistanceKm(userLat, userLng, store.lat, store.lng);
-
-      let allowedByLocation = distance <= maxDistance;
-
-      // Allow matches by City/State/District name if location is set
-      if (!allowedByLocation && locationName && locationName !== 'Current Location') {
-        // Normalize search term: remove common suffixes like "District", "State" to improve matching
-        const searchLoc = locationName.split(',')[0]
-          .toLowerCase()
-          .replace(/\b(district|state|province|region)\b/g, '')
-          .trim();
-
-        const storeAddr = (store.address || '').toLowerCase();
-        if (searchLoc.length > 2 && storeAddr.includes(searchLoc)) {
-          allowedByLocation = true;
-        }
-      }
-
-      if (!allowedByLocation) return false;
+      if (!checkMatchesArea(store.lat, store.lng, store)) return false;
 
       // Category filter
       const matchesCategory = selectedCategory ? store.category === selectedCategory : true;
       if (!matchesCategory) return false;
 
-      // Check if store name or category matches
-      const matchesStore = store.name.toLowerCase().includes(query) || store.category.toLowerCase().includes(query);
-
-      // Check if this store has any matching products (from our pre-grouped results)
+      // Match found if search matches store info OR store has matching products
+      const matchesStore = 
+        store.name.toLowerCase().includes(query) || 
+        store.category.toLowerCase().includes(query) ||
+        (store.address && store.address.toLowerCase().includes(query)) ||
+        (store.mandal && store.mandal.toLowerCase().includes(query)) ||
+        (store.district && store.district.toLowerCase().includes(query)) ||
+        (store.state && store.state.toLowerCase().includes(query)) ||
+        (store.country && store.country.toLowerCase().includes(query));
       const hasMatchingProducts = matchingGroups[store.id] && matchingGroups[store.id].length > 0;
-
-      // Match found if search matches store OR store has matching products
-      const matchesSearch = query ? (matchesStore || hasMatchingProducts) : true;
-
-      return matchesSearch;
+      return query ? (matchesStore || hasMatchingProducts) : true;
     });
 
     // 3. Sort by Plan and then Distance
@@ -452,55 +728,55 @@ const CustomerHome = () => {
     };
 
     const sortedStores = filtered
-      .map(s => ({ ...s, distance: getDistanceKm(userLat, userLng, s.lat, s.lng) }))
+      .map(s => {
+        const rating = (Array.isArray(s.reviews) && s.reviews.length > 0)
+          ? s.reviews.reduce((acc, r) => acc + (Number(r.rating) || 0), 0) / s.reviews.length
+          : (s.rating || 0);
+        return { ...s, distance: getDistanceKm(userLat, userLng, s.lat, s.lng), effectiveRating: rating };
+      })
       .sort((a, b) => {
-        // First priority: Search Relevance / Plan Weight (unless explicit sort is set)
         const weightA = getPlanWeight(a.plan);
         const weightB = getPlanWeight(b.plan);
 
         if (ratingSort !== 'none') {
-          const rA = a.rating || 0;
-          const rB = b.rating || 0;
-          if (ratingSort === 'top-rated') {
-            if (rB !== rA) return rB - rA;
-          } else {
-            if (rA !== rB) return rA - rB;
-          }
+          if (ratingSort === 'top-rated') { if (b.effectiveRating !== a.effectiveRating) return b.effectiveRating - a.effectiveRating; }
+          else { if (a.effectiveRating !== b.effectiveRating) return a.effectiveRating - b.effectiveRating; }
         }
 
         if (priceSort !== 'none') {
           const pA = storeMinPrices[a.id] ?? Infinity;
           const pB = storeMinPrices[b.id] ?? Infinity;
-          if (priceSort === 'low-high') {
-            if (pA !== pB) return pA - pB;
-          } else {
-            // high-low: put stores without products at the end
+          if (priceSort === 'low-high') { if (pA !== pB) return pA - pB; }
+          else { 
             const pA_val = pA === Infinity ? -1 : pA;
             const pB_val = pB === Infinity ? -1 : pB;
             if (pB_val !== pA_val) return pB_val - pA_val;
           }
         }
 
+        if (distanceSort !== 'none') {
+          if (distanceSort === 'nearest') return (a.distance || 0) - (b.distance || 0);
+          else return (b.distance || 0) - (a.distance || 0);
+        }
+
         if (weightA !== weightB) return weightB - weightA;
+        if (ratingSort === 'none' && priceSort === 'none') { if (Math.abs(b.effectiveRating - a.effectiveRating) >= 0.1) return b.effectiveRating - a.effectiveRating; }
         return (a.distance || 0) - (b.distance || 0);
       });
 
     return {
-      filteredStores: sortedStores as (Store & { distance?: number })[],
-      storeMatchingProducts: matchingGroups
+      filteredStores: sortedStores as (Store & { distance?: number; effectiveRating?: number })[],
+      storeMatchingProducts: matchingGroups,
+      searchedProducts: enrichedMatched
     };
-  }, [activeSearch, selectedCategory, userLat, userLng, allStores, allProducts, locationName, activeMode, maxDistance, priceSort, ratingSort, storeMinPrices]);
+  }, [activeSearch, selectedCategory, userLat, userLng, allStores, allProducts, locationName, activeMode, maxDistance, priceSort, ratingSort, distanceSort, storeMinPrices, selectedLocationType, userState, userCountry]);
 
   const handleSearchTrigger = (val?: string) => {
     const query = val !== undefined ? val : search;
-    setIsSearching(true);
-    // Simulate a brief loading effect for better UX as requested
-    setTimeout(() => {
-      startTransition(() => {
-        setActiveSearch(query);
-        setIsSearching(false);
-      });
-    }, 800);
+    // Removed artificial timeout - using direct transition for 'instant' feel
+    startTransition(() => {
+      setActiveSearch(query);
+    });
   };
 
   const handleModeChange = (mode: 'product' | 'service') => {
@@ -511,7 +787,28 @@ const CustomerHome = () => {
 
   if (loading) {
     return (
-      <Loader fullScreen />
+      <div className="min-h-screen gradient-warm">
+        <Header />
+        <div className="pt-24 pb-32 px-4 max-w-4xl mx-auto space-y-8">
+           <div className="glass rounded-2xl p-4 flex items-center justify-between gap-4 animate-pulse">
+              <div className="w-10 h-10 rounded-xl bg-muted shrink-0" />
+              <div className="flex-1 space-y-2">
+                <div className="h-2 bg-muted rounded-full w-24" />
+                <div className="h-3 bg-muted rounded-full w-40" />
+              </div>
+           </div>
+           <div className="space-y-4">
+              <div className="flex gap-4 overflow-hidden">
+                {[1, 2, 3, 4].map(i => (
+                  <div key={i} className="w-16 h-16 rounded-2xl bg-muted shrink-0 animate-pulse" />
+                ))}
+              </div>
+           </div>
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {[1, 2, 3, 4, 5, 6].map(i => <SkeletonStoreCard key={i} />)}
+           </div>
+        </div>
+      </div>
     );
   }
 
@@ -580,6 +877,11 @@ const CustomerHome = () => {
                     className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white dark:bg-[#202020] border border-border/50 text-foreground dark:text-white text-sm outline-none focus:ring-2 focus:ring-primary/30"
                     autoFocus
                   />
+                  {isSearchingLocation && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                    </div>
+                  )}
                 </div>
 
                 {locationResults.length > 0 ? (
@@ -631,6 +933,11 @@ const CustomerHome = () => {
                                 setUserLat(item.lat);
                                 setUserLng(item.lon);
                                 setLocationName(item.name);
+                                setUserMandal(item.mandal || '');
+                                setUserDistrict(item.district || '');
+                                setUserState(item.state || '');
+                                setUserCountry(item.country || '');
+                                setSelectedLocationType(item.locationType || '');
                                 setShowLocationPicker(false);
                                 toast.success('Location set to ' + item.name);
                               }}
@@ -665,6 +972,11 @@ const CustomerHome = () => {
                               .then(data => {
                                 const name = data.display_name?.split(',')[0] || 'Selected Point';
                                 setLocationName(name);
+                                setUserMandal(data.address?.suburb || data.address?.locality || data.address?.village || data.address?.town || data.address?.city_district || '');
+                                setUserDistrict(data.address?.district || data.address?.city || data.address?.town || '');
+                                setUserState(data.address?.state || '');
+                                setUserCountry(data.address?.country || '');
+                                setSelectedLocationType('');
                                 toast.success('Location updated manually');
                               });
                           }}
@@ -718,23 +1030,52 @@ const CustomerHome = () => {
                     className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-[#202020] rounded-xl shadow-xl border border-border/50 overflow-hidden z-50 origin-top"
                   >
                     <ul>
-                      {searchSuggestions.map((suggestion, idx) => (
+                      {searchSuggestions.map((suggestion: any, idx) => (
                         <li key={idx}>
                           <button
                             onClick={() => {
-                              setSearch(suggestion);
+                              if (suggestion.type === 'location') {
+                                setLocationName(suggestion.name);
+                                // Map adminType to locationType for the full hierarchy
+                                const lt = suggestion.adminType === 'country' ? 'country'
+                                  : suggestion.adminType === 'state' ? 'state'
+                                  : suggestion.adminType === 'district' ? 'district'
+                                  : suggestion.adminType === 'mandal' ? 'mandal'
+                                  : '';
+                                setSelectedLocationType(lt);
+                                if (suggestion.lat && suggestion.lng) {
+                                  setUserLat(suggestion.lat);
+                                  setUserLng(suggestion.lng);
+                                }
+                                if (suggestion.adminType === 'mandal') setUserMandal(suggestion.name);
+                                if (suggestion.adminType === 'district') setUserDistrict(suggestion.name);
+                                if (suggestion.adminType === 'state') setUserState(suggestion.name);
+                                if (suggestion.adminType === 'country') setUserCountry(suggestion.name);
+                                setSearch('');
+                                toast.success(`Showing stores in ${suggestion.name}`);
+                                return;
+                              }
+
+                              setSearch(suggestion.name);
                               setIsSearching(true);
                               setTimeout(() => {
                                 startTransition(() => {
-                                  setActiveSearch(suggestion);
+                                  setActiveSearch(suggestion.name);
                                   setIsSearching(false);
                                 });
-                              }, 600);
+                              }, 200);
                             }}
-                            className="w-full text-left px-4 py-3 hover:bg-secondary/50 flex items-center gap-3 transition-colors border-b border-border/10 last:border-0"
+                            className="w-full text-left px-4 py-3 hover:bg-secondary/50 flex items-center justify-between gap-3 transition-colors border-b border-border/10 last:border-0"
                           >
-                            <Search className="w-4 h-4 text-muted-foreground shrink-0" />
-                            <span className="text-sm font-medium text-foreground truncate">{suggestion}</span>
+                            <div className="flex items-center gap-3 min-w-0">
+                              {suggestion.type === 'location' ? <MapPin className="w-4 h-4 text-primary shrink-0" /> : <Search className="w-4 h-4 text-muted-foreground shrink-0" />}
+                              <span className="text-sm font-medium text-foreground truncate">{suggestion.name}</span>
+                            </div>
+                            {suggestion.type !== 'product' && (
+                              <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground bg-secondary px-2 py-0.5 rounded-full shrink-0">
+                                {suggestion.type === 'location' ? suggestion.adminType : 'Store'}
+                              </span>
+                            )}
                           </button>
                         </li>
                       ))}
@@ -864,13 +1205,25 @@ const CustomerHome = () => {
                                     onClick={() => setSelectedCategory(selectedCategory === cat?.name ? null : cat?.name)}
                                     className="flex flex-col items-center gap-2 group transition-all"
                                   >
-                                    <div className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-sm border relative overflow-hidden ${selectedCategory === cat?.name ? 'border-primary ring-4 ring-primary/20 scale-105 shadow-lg shadow-primary/10' : 'bg-white dark:bg-[#202020] border-border group-hover:border-primary/30 group-hover:shadow-md'}`} style={selectedCategory === cat?.name ? { backgroundColor: cat?.color } : {}}>
+                                    <div 
+                                      className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-sm border relative overflow-hidden ${selectedCategory === cat?.name ? 'border-primary ring-4 ring-primary/20 scale-105 shadow-lg shadow-primary/10' : 'border-border/40 group-hover:border-primary/30 group-hover:shadow-md'}`} 
+                                      style={{ 
+                                        backgroundColor: selectedCategory === cat?.name ? cat?.color : `${cat?.color}15`,
+                                        borderColor: selectedCategory === cat?.name ? cat?.color : undefined
+                                      }}
+                                    >
                                       <div className={`absolute inset-0 opacity-10 bg-gradient-to-br ${cat?.gradient}`} />
-                                      <div className={`relative z-10 transition-all duration-300 ${selectedCategory === cat?.name ? 'text-white scale-110' : ''}`} style={selectedCategory !== cat?.name ? { color: cat?.color } : {}}>
-                                        {Icon && <Icon className="w-7 h-7" />}
+                                      <div 
+                                        className={`relative z-10 transition-all duration-300 ${selectedCategory === cat?.name ? 'text-white scale-110' : ''}`} 
+                                        style={{ color: selectedCategory === cat?.name ? '#fff' : cat?.color }}
+                                      >
+                                        {Icon && <Icon className="w-5.5 h-5.5" />}
                                       </div>
                                     </div>
-                                    <span className={`text-[9px] font-black uppercase tracking-wider text-center leading-tight transition-colors line-clamp-2 max-w-[70px] ${selectedCategory === cat?.name ? 'text-primary' : 'text-muted-foreground'}`} style={selectedCategory !== cat?.name ? {} : { color: cat?.color }}>
+                                    <span 
+                                      className={`text-[9px] font-black uppercase tracking-wider text-center leading-tight transition-colors line-clamp-2 max-w-[70px] ${selectedCategory === cat?.name ? 'text-primary' : 'text-muted-foreground'}`}
+                                      style={selectedCategory === cat?.name ? { color: cat?.color } : {}}
+                                    >
                                       {t(`categories.${cat?.name}`, { defaultValue: cat?.name.split(' & ')[0] })}
                                     </span>
                                   </motion.button>
@@ -945,13 +1298,25 @@ const CustomerHome = () => {
                                     onClick={() => setSelectedCategory(selectedCategory === cat?.name ? null : cat?.name)}
                                     className="flex flex-col items-center gap-2 group transition-all"
                                   >
-                                    <div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-sm border relative overflow-hidden ${selectedCategory === cat?.name ? 'border-primary ring-4 ring-primary/20 scale-105 shadow-lg shadow-primary/10' : 'bg-white dark:bg-[#202020] border-border group-hover:border-primary/30 group-hover:shadow-md'}`} style={selectedCategory === cat?.name ? { backgroundColor: cat?.color } : {}}>
+                                    <div 
+                                      className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-sm border relative overflow-hidden ${selectedCategory === cat?.name ? 'border-primary ring-4 ring-primary/20 scale-105 shadow-lg shadow-primary/10' : 'border-border group-hover:border-primary/30 group-hover:shadow-md'}`} 
+                                      style={{ 
+                                        backgroundColor: selectedCategory === cat?.name ? cat?.color : `${cat?.color}15`,
+                                        borderColor: selectedCategory === cat?.name ? cat?.color : undefined
+                                      }}
+                                    >
                                       <div className={`absolute inset-0 opacity-10 bg-gradient-to-br ${cat?.gradient}`} />
-                                      <div className={`relative z-10 transition-all duration-300 ${selectedCategory === cat?.name ? 'text-white scale-110' : ''}`} style={selectedCategory !== cat?.name ? { color: cat?.color } : {}}>
+                                      <div 
+                                        className={`relative z-10 transition-all duration-300 ${selectedCategory === cat?.name ? 'text-white scale-110' : ''}`} 
+                                        style={{ color: selectedCategory === cat?.name ? '#fff' : cat?.color }}
+                                      >
                                         {Icon && <Icon className="w-6 h-6 sm:w-7 sm:h-7" />}
                                       </div>
                                     </div>
-                                    <span className={`text-[9px] font-black uppercase tracking-wider text-center leading-tight transition-colors line-clamp-2 max-w-[70px] ${selectedCategory === cat?.name ? 'text-primary' : 'text-muted-foreground'}`} style={selectedCategory !== cat?.name ? {} : { color: cat?.color }}>
+                                    <span 
+                                      className={`text-[9px] font-black uppercase tracking-wider text-center leading-tight transition-colors line-clamp-2 max-w-[70px] ${selectedCategory === cat?.name ? 'text-primary' : 'text-muted-foreground'}`} 
+                                      style={selectedCategory === cat?.name ? { color: cat?.color } : {}}
+                                    >
                                       {t(`categories.${cat?.name}`, { defaultValue: cat?.name.split(' & ')[0] })}
                                     </span>
                                   </motion.button>
@@ -1000,234 +1365,68 @@ const CustomerHome = () => {
                   showRating={true}
                   ratingSort={ratingSort}
                   onRatingSortChange={setRatingSort}
+                  distanceSort={distanceSort}
+                  onDistanceSortChange={setDistanceSort}
                   maxDistance={maxDistance}
                   onMaxDistanceChange={setMaxDistance}
                 />
               </div>
             </div>
 
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-20">
-              {filteredStores.length === 0 ? (
-                <div className="col-span-full glass rounded-3xl p-12 text-center space-y-4 border-2 border-dashed border-muted-foreground/20">
-                  <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center mx-auto opacity-40">
-                    <StoreIcon className="w-8 h-8 text-foreground" />
+            <div className={activeSearch ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 pb-20" : "grid sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-20"}>
+              {activeSearch ? (
+                searchedProducts.length === 0 ? (
+                  <div className="col-span-full glass rounded-3xl p-16 text-center space-y-4 border-2 border-dashed border-muted-foreground/20">
+                    <div className="w-20 h-20 rounded-full bg-secondary flex items-center justify-center mx-auto opacity-40">
+                      <Search className="w-10 h-10" />
+                    </div>
+                    <div>
+                      <p className="text-lg font-bold text-foreground">{t('common.no_results')} "{activeSearch}"</p>
+                      <p className="text-sm text-muted-foreground mt-1">{t('home.try_changing_search')}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-bold text-foreground">{t('home.no_shops_found')}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{t('home.try_changing_location')}</p>
-                  </div>
-                </div>
+                ) : (
+                  searchedProducts.map((p, idx) => (
+                    <ProductCard
+                      key={p.id + idx}
+                      p={p}
+                      t={t}
+                      count={cart.find(item => item.product.id === p.id)?.quantity || 0}
+                      onAdd={() => addToCart({ product: p, storeId: p.vendorId || '', storeName: p.storeName || '', quantity: 1 })}
+                      onUpdate={(q) => updateQuantity(p.id, q)}
+                      onRemove={() => removeFromCart(p.id)}
+                      onClick={() => handleProductClick(p.id, p.vendorId || '')}
+                    />
+                  ))
+                )
               ) : (
-                filteredStores.map((store, i) => (
-                  <motion.div
-                    key={store.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.08 }}
-                    onClick={() => handleStoreClick(store.id)}
-                    className={`glass rounded-2xl overflow-hidden cursor-pointer hover:shadow-lg transition-all group relative ${store.plan === 'pro' ? 'border-2 border-primary shadow-lg shadow-primary/20' : ''}`}
-                  >
-                    <Link to={store.slug ? `/stores/${store.slug}` : `/store/${store.id}`} className="sr-only" itemProp="url">Visit {store.name}</Link>
-                    <div className="relative h-40 overflow-hidden">
-                      <img src={store.image} alt={store.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                      <div className="absolute top-3 right-3 flex flex-col items-end gap-2">
-                        <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full shadow-lg backdrop-blur-md ${store.isOpen ? 'bg-accent/80 text-accent-foreground' : 'bg-destructive/90 text-destructive-foreground'}`}>
-                          {store.isOpen ? t('home.open_now') : t('home.closed')}
-                        </span>
-                      </div>
-
-                      {/* Pro Store Logo */}
-                      {store.plan === 'pro' && store.logo && (
-                        <div className="absolute bottom-3 left-3 w-10 h-10 rounded-lg bg-white p-0.5 shadow-lg border border-border/10 overflow-hidden">
-                          <img src={store.logo} alt="Logo" className="w-full h-full object-contain rounded-md" />
-                        </div>
-                      )}
+                filteredStores.length === 0 ? (
+                  <div className="col-span-full glass rounded-3xl p-12 text-center space-y-4 border-2 border-dashed border-muted-foreground/20">
+                    <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center mx-auto opacity-40">
+                      <StoreIcon className="w-8 h-8 text-foreground" />
                     </div>
-                    <div className="p-4">
-                      <div className="flex items-start justify-between mb-1">
-                        <h3 className="font-bold text-foreground">{store.name}</h3>
-
-                        <div className="flex flex-col items-end">
-                          {Array.isArray(store.reviews) && store.reviews.length > 0 ? (
-                            <>
-                              <div className="flex items-center gap-1 text-primary">
-                                <Star className="w-3.5 h-3.5 fill-current" />
-                                <span className="text-xs font-semibold">
-                                  {(store.reviews.reduce((acc, r) => acc + (Number(r.rating) || 0), 0) / store.reviews.length).toFixed(1)}
-                                </span>
-                              </div>
-                              <span className="text-[10px] text-muted-foreground">({store.reviews.length})</span>
-                            </>
-                          ) : (
-                            <>
-                              <div className="flex items-center gap-1 text-primary">
-                                <Star className="w-3.5 h-3.5 fill-current" />
-                                <span className="text-xs font-semibold">{store.rating}</span>
-                              </div>
-                              <span className="text-[10px] text-muted-foreground">(No reviews)</span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between mt-2">
-                        <div 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const query = (store.lat && store.lng) ? `${store.lat},${store.lng}` : encodeURIComponent(store.address);
-                            window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
-                          }}
-                          className="flex items-center gap-1.5 text-xs text-muted-foreground min-w-0 flex-1 hover:text-primary transition-colors cursor-pointer group/addr"
-                        >
-                          <MapPin className="w-3.5 h-3.5 shrink-0 text-primary/50 group-hover/addr:text-primary transition-colors" />
-                          <span className="truncate font-medium group-hover/addr:underline">
-                            {store.address ? (store.address.split(',')[1]?.trim() || store.address.split(',')[0]) : 'Local Area'}
-                          </span>
-                        </div>
-                        <span className="text-[10px] font-black text-primary bg-primary/10 px-2 py-0.5 rounded-lg shrink-0">
-                          {store.distance?.toFixed(1)} km
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground mt-2 opacity-70">
-                        <Clock className="w-2.5 h-2.5 shrink-0" />
-                        <span className="font-medium">{store.timings ? `${store.timings.open} - ${store.timings.close}` : '10 AM - 10 PM'}</span>
-                      </div>
-
-                      {/* Integrated Product Search Results */}
-                      {activeSearch && storeMatchingProducts[store.id] && (
-                        <div className="mt-4 pt-4 border-t border-border/50">
-                          <div className="flex items-center justify-between mb-2 px-1">
-                            <span className="text-[10px] font-black uppercase tracking-widest text-primary/70">Found Products</span>
-                            <span className="text-[10px] font-bold text-muted-foreground">{storeMatchingProducts[store.id].length} items</span>
-                          </div>
-                          <div className="flex gap-2.5 overflow-x-auto pb-2 -mx-2 px-2 scrollbar-hide snap-x">
-                            {storeMatchingProducts[store.id].map((p, idx) => {
-                              const hasDiscount = !!p.discountedPrice && Number(p.discountedPrice) > 0 && Number(p.discountedPrice) < p.price;
-                              const discountedPrice = hasDiscount ? Number(p.discountedPrice) : p.price;
-                              const discountPercent = hasDiscount ? Math.round(((p.price - discountedPrice) / p.price) * 100) : 0;
-
-                              return (
-                                <motion.div
-                                  key={p.id + idx}
-                                  initial={{ opacity: 0, x: 20 }}
-                                  animate={{ opacity: 1, x: 0 }}
-                                  transition={{ delay: idx * 0.05 }}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleProductClick(p.id, store.id);
-                                  }}
-                                  className="flex-shrink-0 w-[115px] bg-white dark:bg-slate-900 rounded-2xl border border-border/40 hover:border-primary/30 transition-all duration-300 snap-start group/prod p-1.5 flex flex-col hover:shadow-xl cursor-pointer relative overflow-hidden"
-                                >
-                                  <div className="relative h-18 shrink-0 overflow-hidden p-1">
-                                    <div className="w-full h-full rounded-xl overflow-hidden bg-secondary/15 relative">
-                                      <img src={p.image} className="w-full h-full object-cover group-hover/prod:scale-110 transition-transform duration-700 ease-out" />
-                                      <div className="absolute inset-0 bg-gradient-to-t from-black/5 to-transparent opacity-0 group-hover/prod:opacity-100 transition-opacity duration-500" />
-                                    </div>
-                                    {/* Discount badge for Pro stores */}
-                                    {hasDiscount && (
-                                      <div className="absolute top-1.5 left-1.5 bg-primary text-primary-foreground text-[7px] font-black px-1 py-0.5 rounded-md flex items-center gap-0.5 shadow-md z-10 border border-white/10 uppercase tracking-tighter">
-                                        <Tag className="w-2 h-2" />
-                                        {discountPercent}% OFF
-                                      </div>
-                                    )}
-
-                                    {/* Quantity Tag */}
-                                    {p.quantity && (
-                                      <div className="absolute top-1.5 right-1.5 bg-slate-900/80 backdrop-blur-md text-white text-[7px] font-black px-1.5 py-0.5 rounded-md flex items-center gap-0.5 shadow-md z-10 border border-white/10 uppercase tracking-tighter">
-                                        {p.quantity.includes(' - ') ? p.quantity : p.quantity.replace(/([0-9.]+)([a-zA-Z]+)/, '$1 - $2')}
-                                      </div>
-                                    )}
-                                  </div>
-                                  <div className="flex flex-col flex-1 justify-between px-1 pb-0.5">
-                                    <div className="mb-1">
-                                      <p className="text-[9px] font-extrabold text-foreground line-clamp-1 group-hover/prod:text-primary transition-colors tracking-tight">{p.name}</p>
-                                      <div className="flex items-baseline gap-1 mt-0.5">
-                                        <span className="text-[10px] font-black text-foreground">₹{discountedPrice}</span>
-                                        {hasDiscount && (
-                                          <span className="text-[7px] text-muted-foreground line-through opacity-50">₹{p.price}</span>
-                                        )}
-                                      </div>
-                                    </div>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        addToCart({ product: p, storeId: store.id, storeName: store.name, quantity: 1 });
-                                      }}
-                                      className="w-full h-7 rounded-lg bg-primary text-white text-[8px] font-black flex items-center justify-center gap-1 hover:bg-primary/90 active:scale-95 transition-all shadow-lg shadow-primary/10"
-                                    >
-                                      <Plus className="w-2.5 h-2.5" />
-                                      Add
-                                    </button>
-                                  </div>
-                                </motion.div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
+                    <div>
+                      <p className="font-bold text-foreground">{t('home.no_shops_found')}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{t('home.try_changing_location')}</p>
                     </div>
-                  </motion.div>
-                ))
+                  </div>
+                ) : (
+                  filteredStores.map((store, i) => (
+                    <StoreCard
+                      key={store.id}
+                      store={store}
+                      onClick={() => handleStoreClick(store.id)}
+                      t={t}
+                    />
+                  ))
+                )
               )}
             </div>
+
+
           </div>
         )}
 
-        {/* Active Order Tracking Widget (Live) */}
-        {user && activeOrders.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 100 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="fixed bottom-24 left-4 right-4 z-40 sm:hidden"
-          >
-            <div
-              onClick={() => navigate('/receipts')}
-              className="glass rounded-[2rem] p-4 flex items-center justify-between shadow-[0_20px_50px_rgba(0,0,0,0.1)] border border-primary/20 cursor-pointer bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl group hover:scale-[1.02] active:scale-[0.98] transition-all"
-            >
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary relative overflow-hidden">
-                  <motion.div
-                    animate={{ scale: [1, 1.2, 1], rotate: [0, 5, -5, 0] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                  >
-                    <ShoppingBasket className="w-6 h-6" />
-                  </motion.div>
-                  {/* Status Dot */}
-                  <div className="absolute top-2 right-2 w-2.5 h-2.5 bg-accent rounded-full border-2 border-white animate-pulse" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <p className="text-xs font-black uppercase tracking-widest text-primary">Active Order</p>
-                    <span className="w-1 h-1 rounded-full bg-border" />
-                    <p className="text-[10px] font-bold text-muted-foreground">{activeOrders[0].storeName}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <h4 className="text-sm font-black text-foreground capitalize">
-                      {t(`common.order_status.${activeOrders[0].status}`, { defaultValue: activeOrders[0].status })}
-                    </h4>
-                    <div className="flex items-center gap-0.5">
-                      {[1, 2, 3, 4].map(step => {
-                        const steps = ['pending', 'accepted', 'packed', 'completed'];
-                        const currentIdx = steps.indexOf(activeOrders[0].status);
-                        const stepIdx = step - 1;
-                        return (
-                          <div
-                            key={step}
-                            className={`h-1 w-4 rounded-full transition-all duration-500 ${stepIdx <= currentIdx ? 'bg-primary' : 'bg-primary/10'}`}
-                          />
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-muted-foreground group-hover:bg-primary group-hover:text-white transition-colors">
-                <ChevronRight className="w-5 h-5" />
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Footer */}
         <footer className="py-8 px-4 border-t border-border mt-12 bg-transparent backdrop-blur-sm">
           <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex flex-col md:flex-row items-center gap-4">

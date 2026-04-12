@@ -3,6 +3,7 @@ export interface Product {
   name: string;
   price: number;
   image: string;
+  image2?: string;
   category: string;
   description: string;
   inStock: boolean;
@@ -58,6 +59,11 @@ export interface Store {
   storeType?: 'product' | 'service';
   isBlocked?: boolean;
   availableTimeSlots?: string[];
+  autoClose?: boolean;
+  mandal?: string;
+  district?: string;
+  state?: string;
+  country?: string;
 }
 
 // ... rest of the interfaces
@@ -77,13 +83,15 @@ export interface Order {
   storeName: string;
   items: CartItem[];
   total: number;
-  status: 'pending' | 'accepted' | 'packed' | 'ready' | 'completed' | 'rejected';
+  status: 'pending' | 'accepted' | 'packed' | 'ready' | 'out_for_delivery' | 'completed' | 'rejected';
   paymentMethod: 'online' | 'pickup' | 'delivery';
   deliveryMethod?: 'pickup' | 'delivery';
   deliveryFee?: number;
   date: string;
   pickupCode?: string;
   rejectedAt?: string;
+  rejectionReason?: string;
+  rejectionViewed?: boolean;
   review?: {
     rating: number;
     text: string;
@@ -94,9 +102,13 @@ export interface Order {
   userId?: string;
   userName?: string;
   userPhone?: string;
+  customerName?: string;
+  customerPhone?: string;
+  customerAddress?: string;
   storePhone?: string;
   deletedByUser?: boolean;
   deletedByVendor?: boolean;
+  completedAt?: string;
 }
 
 export interface ServiceBooking {
@@ -113,6 +125,9 @@ export interface ServiceBooking {
   timeSlot: string;
   status: 'pending' | 'accepted' | 'completed' | 'rejected';
   pickupCode?: string;
+  rejectionReason?: string;
+  rejectedAt?: string;
+  rejectionViewed?: boolean;
   createdAt: string;
   vendorId: string;
   userId?: string;
@@ -127,6 +142,7 @@ export interface ServiceBooking {
   };
   deletedByUser?: boolean;
   deletedByVendor?: boolean;
+  completedAt?: string;
 }
 
 
@@ -154,6 +170,12 @@ export interface User {
   address?: string;
   autoPay?: boolean;
   autoPayFailed?: boolean;
+  mandal?: string;
+  district?: string;
+  state?: string;
+  country?: string;
+  deviceType?: 'native_app' | 'web_push';
+  lastTokenRefresh?: string;
 }
 
 export interface Staff {
@@ -221,5 +243,29 @@ export interface Coupon {
   usageType: 'single' | 'multiple';
   redemptionCount: number;
   usedAt?: string;
+  createdAt: string;
+}
+
+export interface Deal {
+  id: string;
+  productId: string;
+  vendorId: string;
+  originalPrice: number;
+  dealPrice: number;
+  startTime: string; // ISO string
+  endTime: string;   // ISO string
+  stockLimit?: number;
+  status: 'active' | 'expired';
+  dealTag?: string;
+  createdAt: string;
+}
+
+export interface Note {
+  id: string;
+  vendorId: string;
+  itemName: string;
+  quantity: string | number;
+  description?: string;
+  type: 'note' | 'oos';
   createdAt: string;
 }

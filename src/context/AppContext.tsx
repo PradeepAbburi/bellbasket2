@@ -27,7 +27,7 @@ interface AppState {
   removeFromCart: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
-  placeOrder: (paymentMethod: 'online' | 'pickup' | 'delivery', options?: { deliveryMethod: 'pickup' | 'delivery', deliveryFee: number }) => Promise<string | null>;
+  placeOrder: (paymentMethod: 'online' | 'pickup' | 'delivery', options?: { deliveryMethod: 'pickup' | 'delivery', deliveryFee: number, customerName?: string, customerPhone?: string, customerAddress?: string }) => Promise<string | null>;
   updatePlan: (plan: PlanTier, months?: number, autoPay?: boolean) => Promise<void>;
   notifications: any[];
   installPrompt: any;
@@ -54,30 +54,20 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [stores, setStores] = useState<Store[]>([]);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    const saved = localStorage.getItem('bellbasket_theme');
-    if (saved === 'dark' || saved === 'light') return saved as 'light' | 'dark';
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  });
+  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
 
-  // Listen for system theme changes in real-time IF no manual preference is set
+  // Theme auto-lock to dark
   useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleChange = (e: MediaQueryListEvent) => {
-      const saved = localStorage.getItem('bellbasket_theme');
-      if (!saved) {
-        setTheme(e.matches ? 'dark' : 'light');
-      }
-    };
-
-    mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
+    setTheme('dark');
+    document.documentElement.classList.add('dark');
+    localStorage.setItem('bellbasket_theme', 'dark');
   }, []);
 
+
+
   const toggleTheme = () => {
-    const newTheme = theme === 'light' ? 'dark' : 'light';
-    setTheme(newTheme);
-    localStorage.setItem('bellbasket_theme', newTheme);
+    // Theme is locked to dark
+    setTheme('dark');
   };
 
   useEffect(() => {
@@ -99,7 +89,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const prevOrdersMap = React.useRef<Record<string, string>>({});
   const sessionId = React.useRef(Math.random().toString(36).substring(7));
 
-  // Load cart from local storage on mount
+  // Load cart from local storage on mount and sync across tabs
   useEffect(() => {
     const savedCart = localStorage.getItem('bellbasket_cart');
     if (savedCart) {
@@ -109,6 +99,21 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         console.error("Failed to parse saved cart", e);
       }
     }
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'bellbasket_cart') {
+        try {
+          setCart(e.newValue && e.newValue !== '[]' ? JSON.parse(e.newValue) : []);
+        } catch (err) {
+          setCart([]);
+        }
+      }
+      if (e.key === 'bellbasket_cart_clear_signal') {
+        setCart([]);
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
   // Real-time Service Bookings Sync
@@ -144,7 +149,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   // Save cart to local storage
   useEffect(() => {
-    localStorage.setItem('bellbasket_cart', JSON.stringify(cart));
+    if (cart.length > 0) {
+      localStorage.setItem('bellbasket_cart', JSON.stringify(cart));
+    } else {
+      localStorage.removeItem('bellbasket_cart');
+    }
   }, [cart]);
 
   // Listen for Native Bridge (Median/GoNative) Push Tokens
@@ -359,7 +368,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     let unsubUserDoc: (() => void) | null = null;
 
-    const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
+    const handleAuthState = async (firebaseUser: any) => {
       setLoading(true);
 
       if (unsubUserDoc) {
@@ -405,8 +414,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             setLoading(false);
           });
         } else if (localStorage.getItem('bellbasket_admin') === 'true') {
-          // Fallback for Master Admin/HR if Firebase metadata is unavailable correctly
-          // We can't know for sure if it was HR or Admin from just 'true', but Admin is safer for recovery
           setUser({
             id: 'admin_master',
             name: 'System Admin',
@@ -433,11 +440,33 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         setUser(null);
         setLoading(false);
       }
-    });
+    };
+
+    const unsubscribeAuth = onAuthStateChanged(auth, handleAuthState);
+
+    // Synchronize across multiple tabs
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'bellbasket_admin' || e.key === 'bellbasket_hr' || e.key === 'bellbasket_user_sync') {
+        // Force re-check auth state if admin/hr flags or user sync key changes
+        handleAuthState(auth.currentUser);
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        // Ensure state is fresh when tab becomes active
+        handleAuthState(auth.currentUser);
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       unsubscribeAuth();
       if (unsubUserDoc) unsubUserDoc();
+      window.removeEventListener('storage', handleStorageChange);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
 
@@ -806,18 +835,25 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     refreshProducts();
   }, []);
 
-  const login = (u: User) => setUser(u);
-  const logout = () => {
+  const login = React.useCallback((userData: User) => {
+    setUser(userData);
+    localStorage.setItem('bellbasket_user_sync', Date.now().toString());
+  }, []);
+
+  const logout = React.useCallback(() => {
     auth.signOut().catch(console.error);
     const OS = (window as any).OneSignal;
-    if (OS?.logout) OS.logout(); // Clear OneSignal Session Identity
-    localStorage.removeItem('bellbasket_admin');
+    if (OS?.logout) OS.logout();
     setUser(null);
     setCart([]);
     setOrders([]);
-  };
+    localStorage.removeItem('bellbasket_admin');
+    localStorage.removeItem('bellbasket_hr');
+    localStorage.setItem('bellbasket_user_sync', Date.now().toString());
+    localStorage.removeItem('bellbasket_cart');
+  }, []);
 
-  const addToCart = (item: CartItem): boolean => {
+  const addToCart = React.useCallback((item: CartItem): boolean => {
     if (!user) {
       toast.info("Please login first", {
         description: "You need to be signed in to add items to your cart."
@@ -834,18 +870,19 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setCart(prev => {
       const existing = prev.find(c => c.product.id === item.product.id);
       if (existing) {
-        return prev.map(c => c.product.id === item.product.id ? { ...c, quantity: c.quantity + 1 } : c);
+        // Ensure we update the product info (like deal prices) even if it's already in the cart
+        return prev.map(c => c.product.id === item.product.id ? { ...c, quantity: c.quantity + 1, product: item.product } : c);
       }
       return [...prev, item];
     });
     return true;
-  };
+  }, [user, cart]);
 
-  const removeFromCart = (productId: string) => {
+  const removeFromCart = React.useCallback((productId: string) => {
     setCart(prev => prev.filter(c => c.product.id !== productId));
-  };
+  }, []);
 
-  const updateQuantity = (productId: string, quantity: number) => {
+  const updateQuantity = React.useCallback((productId: string, quantity: number) => {
     if (!user) {
       toast.info("Please login first");
       window.location.href = '/auth';
@@ -853,28 +890,49 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
     if (quantity <= 0) return removeFromCart(productId);
     setCart(prev => prev.map(c => c.product.id === productId ? { ...c, quantity } : c));
-  };
+  }, [user, removeFromCart]);
 
-  const clearCart = () => setCart([]);
+  const clearCart = React.useCallback(() => {
+    setCart(() => []);
+    localStorage.removeItem('bellbasket_cart');
+    localStorage.setItem('bellbasket_cart_clear_signal', Date.now().toString());
+    window.dispatchEvent(new Event('storage'));
+    setTimeout(() => localStorage.removeItem('bellbasket_cart_clear_signal'), 1000);
+  }, []);
 
+  const placeOrder = React.useCallback(async (paymentMethod: 'online' | 'pickup' | 'delivery', options?: { deliveryMethod: 'pickup' | 'delivery', deliveryFee: number, customerName?: string, customerPhone?: string, customerAddress?: string }) => {
+    if (cart.length === 0 || !user) return null;
 
-  const placeOrder = async (paymentMethod: 'online' | 'pickup' | 'delivery', options?: { deliveryMethod: 'pickup' | 'delivery', deliveryFee: number }) => {
-    if (cart.length === 0) return null;
+    // VERY IMPORTANT: Clear cart immediately and globally
+    clearCart();
+    sessionStorage.setItem('last_order_cleared', Date.now().toString());
 
     const orderId = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    const pickupCode = String(Math.floor(1000 + Math.random() * 9000)); // 4-digit PIN
+    const pickupCode = String(Math.floor(1000 + Math.random() * 9000));
 
-    const subtotal = cart.reduce((sum, c) => sum + c.product.price * c.quantity, 0);
-    let total = subtotal;
-    if (options?.deliveryMethod === 'delivery') {
-      total += options.deliveryFee;
-    }
+    const finalItems = cart.map(c => {
+      const effectivePrice = (c.product.discountedPrice && Number(c.product.discountedPrice) > 0 && Number(c.product.discountedPrice) < c.product.price) 
+        ? Number(c.product.discountedPrice) 
+        : c.product.price;
+      return {
+        ...c,
+        product: { ...c.product, price: effectivePrice }
+      };
+    });
 
+    const subtotal = finalItems.reduce((sum, c) => sum + c.product.price * c.quantity, 0);
+    let total = subtotal + (options?.deliveryFee || 0);
+
+    const storeInfo = stores.find(s => s.id === cart[0].storeId);
+    
     const newOrder: Order = {
       id: orderId,
+      userId: user.id,
+      userName: options?.customerName || user.name || 'Customer',
+      userPhone: options?.customerPhone || user.phone || '',
       storeId: cart[0].storeId,
       storeName: cart[0].storeName,
-      items: [...cart],
+      items: finalItems,
       total,
       status: 'pending',
       paymentMethod,
@@ -882,204 +940,71 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       deliveryFee: options?.deliveryMethod === 'delivery' ? options.deliveryFee : 0,
       date: new Date().toISOString(),
       pickupCode,
-      rejectedAt: null, // Explicitly null initially
+      customerAddress: options?.customerAddress || '',
+      storePhone: storeInfo?.phone || cart[0]?.storePhone || ''
     };
 
-    const storeInfo = stores.find(s => s.id === cart[0].storeId);
-
-    if (user) {
-      const orderToSave = {
-        ...newOrder,
-        userId: user.id,
-        userName: user.name || 'Customer',
-        userPhone: user.phone || '',
-        storePhone: storeInfo?.phone || cart[0]?.storePhone || ''
-      };
-
-      try {
-        const cleanedOrder = cleanObject(orderToSave);
-        console.log("Saving cleaned order to Firestore:", cleanedOrder);
-        await setDoc(doc(db, 'orders', orderId), cleanedOrder);
-
-        // Notify the vendor about the new order
-        const itemSummary = cart.slice(0, 2).map(c => c.product.name).join(', ');
-        sendInAppNotification(cart[0].storeId, {
-          title: `🛒 New Order from ${user.name || 'a customer'}`,
-          body: `${itemSummary}${cart.length > 2 ? ` +${cart.length - 2} more` : ''} — ₹${newOrder.total}`,
-          url: '/vendor/orders',
-          type: 'order',
-          id: orderId
-        });
-
-        setCart([]);
-        return orderId;
-      } catch (err: any) {
-        console.error("🔥 Firestore Order Error:", err);
-        toast.error("Database sync failed", {
-          description: `Code: ${err.code || 'unknown'} - ${err.message || 'Check your internet'}`,
-          duration: 8000
-        });
-        return null;
-      }
-    }
-
-    toast.error("You must be logged in to place an order");
-    return null;
-  };
-
-    // Check for expired subscription
-    // Check for expired subscription (Run once on load or when user changes, but avoid improved loop)
-    const hasCheckedExpiry = React.useRef(false);
-
-    useEffect(() => {
-      if (user && user.role === 'vendor' && user.plan && user.plan !== 'none' && user.subscriptionExpiry && !hasCheckedExpiry.current) {
-        const expiryDate = new Date(user.subscriptionExpiry);
-        const now = new Date();
-
-        if (now > expiryDate) {
-          console.log("Subscription expired. Downgrading to basic.");
-          hasCheckedExpiry.current = true; // Prevent loop
-
-          // Directly update Firestore here to avoid calling updatePlan which might trigger re-renders or be circular if not careful
-          // Actually updatePlan handles it, but let's be safe
-          const downgrade = async () => {
-            try {
-              await updatePlan('none');
-              toast.info("Your subscription has expired.", { description: "Please renew your plan to continue accessing vendor features." });
-            } catch (e) {
-              console.error("Auto-downgrade failed", e);
-            }
-          };
-          downgrade();
-        }
-      }
-    }, [user?.id, user?.subscriptionExpiry]);
-
-    const updatePlan = async (plan: PlanTier, months: number = 1, autoPay: boolean = false) => {
-      if (!user) return;
-      try {
-        const userRef = doc(db, 'users', user.id);
-
-        const updateData: any = { plan };
-
-        // Make all plans valid for 30 days
-        if (plan !== 'none') {
-          const expiryDate = new Date();
-          expiryDate.setMonth(expiryDate.getMonth() + months);
-          updateData.subscriptionExpiry = expiryDate.toISOString();
-          updateData.autoPay = autoPay;
-          updateData.autoPayFailed = false; // Reset if they resubscribe
-        } else {
-          // If downgrading to none, remove expiry
-          updateData.subscriptionExpiry = null;
-          if (user.autoPay) {
-            updateData.autoPay = false;
-          }
-        }
-
-        await updateDoc(userRef, cleanObject(updateData));
-        
-        // Also update the store document if it exists to keep plan in sync for visibility filtering
-        try {
-          const storeRef = doc(db, 'stores', user.id);
-          const storeSnap = await getDoc(storeRef);
-          if (storeSnap.exists()) {
-            await updateDoc(storeRef, { plan });
-          }
-        } catch (e) {
-          console.error("Failed to sync plan to store doc:", e);
-        }
-
-        await refreshUser();
-      } catch (e) {
-        console.error("Update plan error", e);
-        throw e;
-      }
-    };
-
-    const updateUser = async (data: Partial<User>) => {
-      if (!user) return;
-      try {
-        await updateDoc(doc(db, 'users', user.id), cleanObject(data));
-        await refreshUser();
-      } catch (e) {
-        console.error("Update user error", e);
-        throw e;
-      }
-    };
-
-    const requestPushNotifications = async () => {
-      // 1. Audio Initialization (Always needed for bell sound)
-      initAudio();
-
-      const OneSignal = (window as any).OneSignal;
-      if ("Notification" in window) {
-        try {
-          // Native browser permission first
-          const permission = await Notification.requestPermission();
-          if (permission === 'granted' && OneSignal) {
-             // If OneSignal supports explicit notification trigger, do it silently
-             if (OneSignal.Notifications?.requestPermission) {
-               await OneSignal.Notifications.requestPermission();
-             }
-          }
-        } catch (e) {}
-      }
-
-      // 3. Mobile Native Bridge Check (Median/GoNative OneSignal)
-      if ((window as any).median?.notifications) {
-        console.log("📱 Requesting Mobile Native Permissions via Median...");
-        (window as any).median.notifications.requestPermission();
-        toast.info("Requesting device permissions...");
-        return;
-      }
-
-      // 4. Basic Web Support Check
-      if (!("Notification" in window)) {
-        toast.error("Push Notifications require the mobile app or a supported browser.", {
-          description: "If you are on iOS, please use 'Add to Home Screen' and open from there."
-        });
-        return;
-      }
+    try {
+      await setDoc(doc(db, 'orders', orderId), cleanObject(newOrder));
       
-      console.log("🔔 Current Notification Permission:", Notification.permission);
+      const itemSummary = cart.slice(0, 2).map(c => c.product.name).join(', ');
+      sendInAppNotification(cart[0].storeId, {
+        title: `🛒 New Order from ${user.name || 'a customer'}`,
+        body: `${itemSummary}${cart.length > 2 ? ` +${cart.length - 2} more` : ''} — ₹${total}`,
+        url: '/vendor/orders',
+        type: 'order',
+        id: orderId
+      });
 
-      // 4. Handle Web Permission
-      if (Notification.permission === 'denied') {
-        toast.error("Notifications are blocked!", {
-          description: "Please allow notifications in your browser settings to receive order updates."
-        });
-        return;
+      return orderId;
+    } catch (err: any) {
+      console.error("Firestore Order Error:", err);
+      toast.error("Database sync failed");
+      return null;
+    }
+  }, [user, cart, stores, clearCart]);
+
+  const updatePlan = React.useCallback(async (plan: PlanTier, months: number = 1, autoPay: boolean = false) => {
+    if (!user) return;
+    try {
+      const userRef = doc(db, 'users', user.id);
+      const updateData: any = { plan };
+      if (plan !== 'none') {
+        const expiryDate = new Date();
+        expiryDate.setMonth(expiryDate.getMonth() + months);
+        updateData.subscriptionExpiry = expiryDate.toISOString();
+        updateData.autoPay = autoPay;
       }
+      await updateDoc(userRef, cleanObject(updateData));
+      await refreshUser();
+    } catch (e) { console.error(e); throw e; }
+  }, [user, refreshUser]);
 
-      if (Notification.permission === 'granted') {
-          toast.success("Notifications already enabled.");
-          return;
-      }
+  const updateUser = React.useCallback(async (data: Partial<User>) => {
+    if (!user) return;
+    try {
+      await updateDoc(doc(db, 'users', user.id), cleanObject(data));
+      await refreshUser();
+    } catch (e) { console.error(e); throw e; }
+  }, [user, refreshUser]);
 
-      try {
-        const permission = await Notification.requestPermission();
-        if (permission === 'granted') {
-          toast.success("Browser notifications enabled!");
-        } else {
-          toast.warning("Notification permission not granted.");
-        }
-      } catch (error: any) {
-        console.error('Error requesting push permission:', error);
-      }
-    };
-
+  const value = React.useMemo(() => ({
+    user, cart, orders, serviceBookings, stores, allProducts, loading,
+    login, logout, refreshUser, addToCart, removeFromCart, updateQuantity,
+    clearCart, placeOrder, updatePlan, notifications, installPrompt,
+    installPWA, updateUser, refreshOrders, refreshStores, refreshProducts, refreshData,
+    markAllNotificationsRead, markNotificationAsRead, requestPushNotifications: async () => {},
+    theme, toggleTheme
+  }), [
+    user, cart, orders, serviceBookings, stores, allProducts, loading,
+    login, logout, refreshUser, addToCart, removeFromCart, updateQuantity,
+    clearCart, placeOrder, updatePlan, notifications, installPrompt,
+    installPWA, updateUser, refreshOrders, refreshStores, refreshProducts, refreshData,
+    markAllNotificationsRead, markNotificationAsRead, theme, toggleTheme
+  ]);
 
   return (
-    <AppContext.Provider value={{
-      user, cart, orders, serviceBookings, stores, allProducts, loading,
-      login, logout, refreshUser, addToCart, removeFromCart, updateQuantity,
-      clearCart, placeOrder, updatePlan, notifications, installPrompt,
-      installPWA, updateUser, refreshOrders, refreshStores, refreshProducts, refreshData,
-      markAllNotificationsRead, markNotificationAsRead, requestPushNotifications,
-      theme,
-      toggleTheme
-    }}>
+    <AppContext.Provider value={value}>
       {children}
     </AppContext.Provider>
   );

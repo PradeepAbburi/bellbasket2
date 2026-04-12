@@ -200,8 +200,7 @@
         "store_closed": "স্টোর বর্তমানে বন্ধ",
         "ordering_disabled": "অর্ডার দেওয়া বন্ধ থাকবে যতক্ষণ না",
         "cannot_place_orders": "আপনি এখন অর্ডার দিতে পারবেন না।",
-        "finding_matches": "ম্যাচ খোঁজা হচ্ছে",
-        "quality_assured": "গুণমান নিশ্চিত পণ্য"
+        "finding_matches": "ম্যাচ খোঁজা হচ্ছে"
     },
     "categories": {
         "Grocery": "মুদি",

@@ -26,8 +26,10 @@ import { sendInAppNotification } from '@/utils/notifications';
 import { Product } from '@/types';
 import { CATEGORY_METADATA } from '@/constants/categories';
 import { cleanObject } from '@/utils/firebase';
+import { smartSearchProducts } from '../utils/search';
 
 import { Helmet } from 'react-helmet';
+import { StoreDetailSkeleton } from '@/components/SkeletonLoader';
 
 const StoreDetail = () => {
   const { id, slug } = useParams();
@@ -36,7 +38,7 @@ const StoreDetail = () => {
   const productIdFromUrl = searchParams.get('productId');
   const searchQueryFromUrl = searchParams.get('search');
   const { t } = useTranslation();
-  const { cart, addToCart, updateQuantity, stores, allProducts } = useApp();
+  const { cart, addToCart, updateQuantity, stores, allProducts, user, clearCart } = useApp();
   const [store, setStore] = useState<any>(stores.find(s => s.id === id));
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,7 +52,6 @@ const StoreDetail = () => {
   const [bookingData, setBookingData] = useState({ name: '', phone: '', location: '', description: '', date: '', timeSlot: '' });
   const [isBooking, setIsBooking] = useState(false);
   const [priceSort, setPriceSort] = useState<'none' | 'low-high' | 'high-low'>('none');
-  const { user } = useApp();
   
   // 0. Immediate Visibility Check (for stores already in context)
   useEffect(() => {
@@ -217,12 +218,7 @@ const StoreDetail = () => {
   }, [id, slug]); // Re-run when ID or slug changes
 
   const filteredProducts = useMemo(() => {
-    const q = activeSearch.toLowerCase();
-    let result = products.filter(p =>
-      p.name.toLowerCase().includes(q) ||
-      p.category.toLowerCase().includes(q) ||
-      (p.description && p.description.toLowerCase().includes(q))
-    );
+    let result = smartSearchProducts(products, activeSearch) as Product[];
 
     if (priceSort !== 'none') {
       result = [...result].sort((a, b) => {
@@ -348,6 +344,7 @@ const StoreDetail = () => {
       });
       setBookingService(null);
       setBookingData({ name: '', phone: '', location: '', description: '', date: '', timeSlot: '' });
+      clearCart();
       navigate('/receipts');
     } catch (e: any) {
       console.error("🔥 Booking Error:", e);
@@ -359,10 +356,8 @@ const StoreDetail = () => {
     }
   };
 
-  if (!store) {
-    return (
-      <Loader fullScreen text={t('store.connecting')} subtext={t('store.wait_moment')} />
-    );
+  if (!store || loading) {
+    return <StoreDetailSkeleton />;
   }
 
   return (
@@ -549,51 +544,69 @@ const StoreDetail = () => {
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
 
               <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
-                <span className={`text-[10px] md:text-xs font-bold px-3 py-1.5 rounded-full shadow-lg backdrop-blur-md border border-white/20 ${store.isOpen ? 'bg-green-500/90 text-white' : 'bg-red-500/90 text-white'}`}>
+                <span className={`text-[9.5px] md:text-[11px] font-black px-3 py-1.5 rounded-full shadow-lg backdrop-blur-md border border-black/5 uppercase tracking-widest bg-white text-black flex items-center gap-1.5`}>
+                  <div className={`w-2 h-2 rounded-full ${store.isOpen ? 'bg-green-500' : 'bg-red-500'} animate-pulse`} />
                   {store.isOpen ? t('home.open_now') : t('home.currently_closed')}
                 </span>
               </div>
 
+              {/* Category Tag */}
+              <div className="absolute top-4 left-4 flex items-center gap-2 z-10">
+                <span 
+                  className="px-2.5 py-1 rounded-full shadow-lg backdrop-blur-md bg-white text-black text-[9.5px] md:text-[11px] font-black flex items-center gap-1 border border-black/5 uppercase tracking-widest"
+                >
+                  {CATEGORY_METADATA[store.category]?.icon && (() => {
+                    const Icon = CATEGORY_METADATA[store.category].icon;
+                    return <Icon className="w-3 h-3 md:w-3.5 h-3.5" style={{ color: CATEGORY_METADATA[store.category]?.color || 'inherit' }} />;
+                  })()}
+                  {t(`categories.${store.category}`, { defaultValue: store.category })}
+                </span>
+              </div>
+
               {/* Store Branding Overlay */}
-              <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 flex items-end gap-3 md:gap-5 translate-y-8 md:translate-y-10 z-20">
-                {(store.logo && store.plan === 'pro') ? (
-                  <div className="w-16 h-16 md:w-24 md:h-24 rounded-2xl bg-white p-1.5 md:p-2 shadow-xl shrink-0 border border-slate-100">
-                    <img src={store.logo} alt="Logo" className="w-full h-full object-contain rounded-xl" />
-                  </div>
-                ) : (
-                  <div className="w-16 h-16 md:w-24 md:h-24 rounded-2xl bg-primary/10 p-1.5 md:p-2 shadow-xl shrink-0 border border-primary/20 flex flex-col items-center justify-center text-primary">
-                    <span className="text-2xl md:text-3xl font-black">{store.name.charAt(0)}</span>
-                  </div>
-                )}
-                <div className="flex-1 pb-8 md:pb-10">
-                  <h1 className="text-2xl md:text-3xl lg:text-4xl font-black text-white drop-shadow-lg tracking-tight leading-none mb-1">
-                    {(store.brandText && store.plan === 'pro') ? store.brandText : store.name}
-                  </h1>
-                  <p 
-                    onClick={() => {
-                      if (store.lat && store.lng) {
-                        window.open(`https://www.google.com/maps/search/?api=1&query=${store.lat},${store.lng}`, '_blank');
-                      } else {
-                        window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(store.address)}`, '_blank');
-                      }
-                    }}
-                    className="text-[10px] md:text-xs font-bold text-white/90 drop-shadow-md mb-2 flex items-center gap-1.5 opacity-90 cursor-pointer hover:text-white transition-colors"
-                  >
-                    <MapPin className="w-3 h-3" />
-                    {store.address || 'Address not registered'}
-                  </p>
-                  <div className="flex items-center gap-2 text-[9px] text-white/70 bg-black/30 backdrop-blur-md w-fit px-2.5 py-1 rounded-full border border-white/10">
-                    <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
-                    {t('home.live_storefront')}
+              <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 translate-y-12 md:translate-y-14 z-20">
+                <div className="bg-black/40 backdrop-blur-md p-4 md:p-5 rounded-3xl border border-white/10 shadow-2xl flex items-center gap-4 md:gap-6">
+                  {(store.logo && store.plan === 'pro') ? (
+                    <div className="w-14 h-14 md:w-20 md:h-20 rounded-2xl bg-white p-1 md:p-1.5 shadow-xl shrink-0 flex items-center justify-center">
+                      <img src={store.logo} alt="Logo" className="w-full h-full object-contain rounded-xl" />
+                    </div>
+                  ) : (
+                    <div className="w-14 h-14 md:w-20 md:h-20 rounded-2xl bg-primary/20 backdrop-blur-sm p-1 md:p-1.5 shadow-xl shrink-0 border border-primary/30 flex flex-col items-center justify-center text-primary">
+                      <span className="text-xl md:text-2xl font-black">{store.name.charAt(0)}</span>
+                    </div>
+                  )}
+                  
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <h1 className="text-xl md:text-2xl lg:text-3xl font-black text-white drop-shadow-lg tracking-tight leading-tight truncate">
+                        {(store.brandText && store.plan === 'pro') ? store.brandText : store.name}
+                      </h1>
+                    </div>
+                    <p 
+                      onClick={() => {
+                        if (store.lat && store.lng) {
+                          window.open(`https://www.google.com/maps/search/?api=1&query=${store.lat},${store.lng}`, '_blank');
+                        } else {
+                          window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(store.address)}`, '_blank');
+                        }
+                      }}
+                      className="text-[10px] md:text-xs font-bold text-white/90 drop-shadow-md flex items-center gap-1.5 opacity-90 cursor-pointer hover:text-white transition-colors line-clamp-1"
+                    >
+                      <MapPin className="w-3 h-3 text-primary" />
+                      {store.address || 'Address not registered'}
+                    </p>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="pt-12 md:pt-16 px-4 md:px-8 pb-6 md:pb-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+            <div className="pt-16 md:pt-20 px-4 md:px-8 pb-6 md:pb-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
               <div className="grid grid-cols-2 md:flex items-center gap-x-6 gap-y-4 md:gap-8 w-full md:w-auto">
                 {Array.isArray(store.reviews) && store.reviews.length > 0 ? (
-                  <div className="flex flex-col items-start md:items-center bg-secondary/30 px-4 py-2 rounded-xl">
+                  <div 
+                    onClick={() => setShowReviews(true)}
+                    className="flex flex-col items-start md:items-center bg-secondary/30 px-4 py-2 rounded-xl cursor-pointer hover:bg-secondary/50 transition-colors"
+                  >
                     <div className="flex items-center gap-1.5 text-primary">
                       <Star className="w-4 h-4 md:w-5 md:h-5 fill-current" />
                       <span className="font-black text-lg md:text-xl">
@@ -603,7 +616,10 @@ const StoreDetail = () => {
                     <span className="text-[10px] uppercase font-bold text-muted-foreground whitespace-nowrap tracking-wider">{store.reviews.length} {t('common.reviews')}</span>
                   </div>
                 ) : (
-                  <div className="flex flex-col items-start md:items-center bg-secondary/30 px-4 py-2 rounded-xl">
+                  <div 
+                    onClick={() => setShowReviews(true)}
+                    className="flex flex-col items-start md:items-center bg-secondary/30 px-4 py-2 rounded-xl cursor-pointer hover:bg-secondary/50 transition-colors"
+                  >
                     <div className="flex items-center gap-1.5 text-primary">
                       <Star className="w-4 h-4 md:w-5 md:h-5 fill-current" />
                       <span className="font-black text-lg md:text-xl">{store.rating || '4.5'}</span>
@@ -682,10 +698,13 @@ const StoreDetail = () => {
           </motion.div>
         )}
 
+
+
         <ReviewModal
           isOpen={showReviews}
           onClose={() => setShowReviews(false)}
           reviews={store.reviews || []}
+          storeId={store.id}
           storeName={store.name}
         />
 
@@ -707,8 +726,8 @@ const StoreDetail = () => {
 
         {/* Search Bar inside Store */}
         <div className="sticky top-16 z-30 py-3 -mx-4 px-4 bg-white/95 dark:bg-[#202020]/95 backdrop-blur-md border-b border-border/10 shadow-sm">
-          <div className="relative group flex gap-2">
-            <div className="relative flex-1">
+          <div className="flex gap-2 items-center">
+            <div className="relative flex-1 group">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
               <input
                 type="text"
@@ -777,15 +796,10 @@ const StoreDetail = () => {
                 </>
               )}
             </button>
+            <SortOptions priceSort={priceSort} onPriceSortChange={setPriceSort} compact={true} className="py-3 rounded-2xl px-4 md:px-5" />
           </div>
         </div>
           
-        <div className="mt-4 flex items-center justify-end mb-8">
-          <SortOptions 
-            priceSort={priceSort}
-            onPriceSortChange={setPriceSort}
-          />
-        </div>
 
         <AnimatePresence>
           {isSearching && (
@@ -921,7 +935,7 @@ const StoreDetail = () => {
                                 <img
                                   src={product.image}
                                   alt={product.name}
-                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-400 ease-out"
+                                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-in-out"
                                 />
                                 {/* Gradient overlay bottom */}
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent" />
@@ -955,12 +969,13 @@ const StoreDetail = () => {
                                   </div>
                                 )}
 
-                                {/* Qty tag */}
-                                {displayQty && (
-                                  <div className="absolute bottom-2 right-2 z-20 bg-black/70 backdrop-blur-sm text-white text-[8px] font-bold px-1.5 py-0.5 rounded-md">
-                                    {displayQty}
+                                  <div className="absolute bottom-2 right-2 flex flex-col items-end gap-1.5 z-20">
+                                    {displayQty && (
+                                      <div className="bg-black/70 backdrop-blur-sm text-white text-[8px] font-bold px-1.5 py-0.5 rounded-md">
+                                        {displayQty}
+                                      </div>
+                                    )}
                                   </div>
-                                )}
                               </div>
 
                               {/* Content */}
@@ -974,17 +989,16 @@ const StoreDetail = () => {
                                 {(() => {
                                   const desc = product.description
                                     ? t(`products_desc.${product.name}`, { defaultValue: product.description })
-                                    : t('store.quality_assured');
-                                  const isLong = desc.length > 60;
+                                    : '';
                                   return (
-                                    <div className="mb-1">
-                                      <p className="text-[10px] text-muted-foreground line-clamp-2 leading-relaxed inline">
+                                    <div className="mb-1 relative">
+                                      <p className="text-[10px] text-muted-foreground line-clamp-2 leading-relaxed pr-10">
                                         {desc}
                                       </p>
-                                      {isLong && (
+                                      {desc.length > 40 && (
                                         <button
                                           onClick={e => { e.stopPropagation(); setSelectedProduct(product); }}
-                                          className="text-[10px] text-primary font-bold ml-1 hover:underline whitespace-nowrap"
+                                          className="absolute bottom-0 right-0 text-[10px] text-primary font-black hover:underline bg-white dark:bg-[#202020] px-1"
                                         >
                                           +more
                                         </button>
@@ -1020,7 +1034,8 @@ const StoreDetail = () => {
                                           whileTap={{ scale: 0.95 }}
                                           onClick={e => {
                                             e.stopPropagation();
-                                            addToCart({ product, storeId: store.id, storeName: store.name, storePhone: store.phone, quantity: 1 });
+                                            const productToCart = hasDiscount ? { ...product, price: discountedPrice } : product;
+                                            addToCart({ product: productToCart, storeId: store.id, storeName: store.name, storePhone: store.phone, quantity: 1 });
                                           }}
                                           className="w-full h-8 rounded-xl bg-primary text-primary-foreground text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5 shadow-md shadow-primary/20 hover:opacity-90 active:scale-95 transition-all"
                                         >
@@ -1103,10 +1118,29 @@ const StoreDetail = () => {
                   <X className="w-4 h-4 text-foreground" />
                 </button>
 
-                {/* Image */}
+                {/* Image Gallery */}
                 <div className="relative h-56 sm:h-64 w-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                  <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+                  <div className="flex w-full h-full overflow-x-auto snap-x snap-mandatory scrollbar-hide">
+                    <div className="min-w-full h-full snap-center shrink-0">
+                      <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
+                    </div>
+                    {p.image2 && (
+                      <div className="min-w-full h-full snap-center shrink-0">
+                        <img src={p.image2} alt={`${p.name} 2`} className="w-full h-full object-cover" />
+                      </div>
+                    )}
+                  </div>
+                  
+                  {p.image2 && (
+                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-30">
+                      <div className="w-2 h-2 rounded-full bg-white shadow-md"></div>
+                      <div className="w-1.5 h-1.5 rounded-full bg-white/40 shadow-md"></div>
+                    </div>
+                  )}
+
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
+
+
 
                   {hasDisc && (
                     <div className="absolute top-4 left-4 z-20 bg-green-500 text-white text-[10px] font-black px-2 py-1 rounded-lg uppercase shadow">
@@ -1114,15 +1148,20 @@ const StoreDetail = () => {
                     </div>
                   )}
                   {dispQty && (
-                    <div className="absolute bottom-4 left-4 bg-black/70 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-1 rounded-lg">
+                    <div className="absolute bottom-4 left-4 bg-black/70 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-1 rounded-lg z-20">
                       {dispQty}
                     </div>
                   )}
                   {!p.inStock && (
-                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-40">
                       <span className="bg-red-500 text-white font-black text-sm px-4 py-2 rounded-full uppercase tracking-widest">
                         {t('common.out_of_stock')}
                       </span>
+                    </div>
+                  )}
+                  {p.image2 && (
+                    <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/50 backdrop-blur-md text-white text-[8px] font-black px-3 py-1 rounded-full uppercase tracking-widest z-20">
+                      Swipe for gallery
                     </div>
                   )}
                 </div>
@@ -1165,7 +1204,8 @@ const StoreDetail = () => {
                         <motion.button
                           whileTap={{ scale: 0.92 }}
                           onClick={() => {
-                            addToCart({ product: p, storeId: store.id, storeName: store.name, storePhone: store.phone, quantity: 1 });
+                            const productToCart = hasDisc ? { ...p, price: finalPrice } : p;
+                            addToCart({ product: productToCart, storeId: store.id, storeName: store.name, storePhone: store.phone, quantity: 1 });
                           }}
                           className="h-11 px-8 rounded-xl gradient-primary text-primary-foreground text-sm font-black uppercase tracking-widest shadow-lg hover:opacity-90 transition-all"
                         >

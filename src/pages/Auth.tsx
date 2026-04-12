@@ -34,7 +34,7 @@ const Auth = () => {
   const [needsVerification, setNeedsVerification] = useState(false);
   const [referralCode, setReferralCode] = useState('');
 
-  const { login, refreshUser, theme, toggleTheme } = useApp();
+  const { login, refreshUser } = useApp(); // theme/toggleTheme removed
   const navigate = useNavigate();
   const searchParams = new URLSearchParams(window.location.search);
   const returnTo = searchParams.get('returnTo');
@@ -444,7 +444,7 @@ const Auth = () => {
               <button
                 onClick={checkVerificationStatus}
                 disabled={loading}
-                className="w-full gradient-primary text-primary-foreground py-4 rounded-2xl font-bold flex items-center justify-center gap-2"
+                className="w-full bg-primary text-primary-foreground py-4 rounded-2xl font-bold flex items-center justify-center gap-2"
               >
                 {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'I have verified'}
               </button>
@@ -470,25 +470,7 @@ const Auth = () => {
 
   return (
     <div className="h-screen overflow-hidden gradient-warm relative flex items-center justify-center px-4 w-full">
-      {/* Theme Toggle Button */}
-      <motion.button
-        whileTap={{ scale: 0.9 }}
-        onClick={toggleTheme}
-        className="fixed top-6 right-6 z-50 w-12 h-12 rounded-full glass border border-white/20 flex items-center justify-center shadow-xl text-foreground hover:bg-white/10 transition-colors"
-        title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
-      >
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={theme}
-            initial={{ rotate: -90, opacity: 0 }}
-            animate={{ rotate: 0, opacity: 1 }}
-            exit={{ rotate: 90, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-          >
-            {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
-          </motion.div>
-        </AnimatePresence>
-      </motion.button>
+
       <Helmet>
         <title>{showForgotPassword ? 'Reset Password' : (isLogin ? 'Sign In' : 'Sign Up')} - BellBasket</title>
         <meta name="description" content="Secure login and register for BellBasket. Join our community marketplace." />
@@ -501,7 +483,7 @@ const Auth = () => {
 
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-md relative z-10 max-h-[98vh] overflow-y-auto scrollbar-hide py-4 sm:py-8">
         <div className="text-center mb-6 sm:mb-10">
-          <span className="text-3xl sm:text-4xl font-black block tracking-tight">BellBasket</span>
+          <span className="text-2xl sm:text-3xl font-black block tracking-tight">BellBasket</span>
           <p className="text-[10px] sm:text-xs font-bold text-primary uppercase mt-2 opacity-80 tracking-widest">Find It. Grab It.</p>
         </div>
 
@@ -653,7 +635,7 @@ const Auth = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full gradient-primary text-primary-foreground py-3.5 sm:py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-all shadow-lg shadow-primary/20 mt-2 active:scale-[0.98] disabled:opacity-50"
+              className="w-full bg-primary text-primary-foreground py-3.5 sm:py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-all shadow-md mt-2 active:scale-[0.98] disabled:opacity-50"
             >
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (showForgotPassword ? 'Send Reset Link' : (isLogin ? 'Sign In' : 'Sign Up'))}
               {!loading && <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />}

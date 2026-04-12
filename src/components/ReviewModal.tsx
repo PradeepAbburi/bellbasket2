@@ -1,31 +1,52 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Star, CheckCircle } from 'lucide-react';
+import { X, Star, CheckCircle, MessageSquare, Send, Loader2, User } from 'lucide-react';
 import { StoreReview } from '@/types';
 import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useApp } from '@/context/AppContext';
+import { db } from '@/lib/firebase';
+import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { toast } from 'sonner';
 
 interface ReviewModalProps {
     isOpen: boolean;
     onClose: () => void;
     reviews: StoreReview[];
+    storeId: string;
     storeName: string;
 }
 
-const ReviewModal = ({ isOpen, onClose, reviews: allReviews = [], storeName }: ReviewModalProps) => {
+const ReviewModal = ({ isOpen, onClose, reviews: allReviews = [], storeId, storeName }: ReviewModalProps) => {
     const { t } = useTranslation();
+    const { user } = useApp();
     const [selectedStar, setSelectedStar] = useState<number | null>(null);
+    const [showWriteReview, setShowWriteReview] = useState(false);
+    
+    // New review state
+    const [newRating, setNewRating] = useState(5);
+    const [newComment, setNewComment] = useState('');
+    const [newName, setNewName] = useState(user?.name || '');
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const reviews = useMemo(() => allReviews.filter(r => r.comment && r.comment.trim() !== ''), [allReviews]);
+    const reviews = useMemo(() => {
+        if (!allReviews) return [];
+        return allReviews.filter(r => r.comment && r.comment.trim() !== '');
+    }, [allReviews]);
+
+    const hasReviewed = useMemo(() => {
+        if (!user?.id || !allReviews) return false;
+        return Array.isArray(allReviews) && allReviews.some((r: any) => r.userId === user.id);
+    }, [user, allReviews]);
 
     const stats = useMemo(() => {
         const counts = [0, 0, 0, 0, 0, 0];
-        reviews.forEach(r => {
+        allReviews.forEach(r => {
             const rTag = Math.round(Number(r.rating) || 0);
             if (rTag >= 1 && rTag <= 5) {
                 counts[rTag]++;
             }
         });
-        const total = reviews.length || 1;
+        const total = allReviews.length || 1;
         return {
             5: { count: counts[5], pct: (counts[5] / total) * 100 },
             4: { count: counts[4], pct: (counts[4] / total) * 100 },
@@ -33,7 +54,7 @@ const ReviewModal = ({ isOpen, onClose, reviews: allReviews = [], storeName }: R
             2: { count: counts[2], pct: (counts[2] / total) * 100 },
             1: { count: counts[1], pct: (counts[1] / total) * 100 },
         };
-    }, [reviews]);
+    }, [allReviews]);
 
     const filteredReviews = useMemo(() => {
         if (selectedStar === null) return reviews;
@@ -41,10 +62,47 @@ const ReviewModal = ({ isOpen, onClose, reviews: allReviews = [], storeName }: R
     }, [reviews, selectedStar]);
 
     const averageRating = useMemo(() => {
-        if (!Array.isArray(reviews) || reviews.length === 0) return "0.0";
-        const sum = reviews.reduce((acc, r) => acc + (Number(r.rating) || 0), 0);
-        return (sum / reviews.length).toFixed(1);
-    }, [reviews]);
+        if (!Array.isArray(allReviews) || allReviews.length === 0) return "0.0";
+        const sum = allReviews.reduce((acc, r) => acc + (Number(r.rating) || 0), 0);
+        return (sum / allReviews.length).toFixed(1);
+    }, [allReviews]);
+
+    const handleReviewSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newComment.trim()) {
+            toast.error("Please write a comment.");
+            return;
+        }
+        if (!user) {
+            toast.error("Please log in to post a review.");
+            return;
+        }
+
+        setIsSubmitting(true);
+        const reviewData = {
+            id: `rev-${Date.now()}`,
+            userName: newName || user.name || 'Customer',
+            rating: newRating,
+            comment: newComment.trim(),
+            date: new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }),
+            userId: user.id,
+            isAnonymous: !newName && !user.name
+        };
+
+        try {
+            await updateDoc(doc(db, 'stores', storeId), {
+                reviews: arrayUnion(reviewData)
+            });
+            toast.success("Review submitted! Thank you.");
+            setNewComment('');
+            setShowWriteReview(false);
+        } catch (e) {
+            console.error("Submission failed", e);
+            toast.error("Failed to submit review.");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
     return (
         <AnimatePresence>
@@ -61,7 +119,7 @@ const ReviewModal = ({ isOpen, onClose, reviews: allReviews = [], storeName }: R
                         initial={{ scale: 0.9, opacity: 0, y: 20 }}
                         animate={{ scale: 1, opacity: 1, y: 0 }}
                         exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                        className="relative w-full max-w-lg glass-strong rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+                        className="relative w-full max-w-lg glass-strong rounded-[2.5rem] overflow-hidden shadow-2xl flex flex-col max-h-[90vh] border border-white/20"
                     >
                         {/* Header */}
                         <div className="p-6 border-b border-border flex items-center justify-between bg-secondary/30">
@@ -72,7 +130,7 @@ const ReviewModal = ({ isOpen, onClose, reviews: allReviews = [], storeName }: R
                                         <Star className="w-4 h-4 fill-current" />
                                     </div>
                                     <span className="text-sm font-bold text-foreground">{averageRating}</span>
-                                    <span className="text-xs text-muted-foreground">• {reviews.length} {t('common.reviews')}</span>
+                                    <span className="text-xs text-muted-foreground">• {allReviews.length} {t('common.reviews')}</span>
                                 </div>
                             </div>
                             <button onClick={onClose} className="p-2 hover:bg-secondary rounded-full transition-colors">
@@ -82,6 +140,78 @@ const ReviewModal = ({ isOpen, onClose, reviews: allReviews = [], storeName }: R
 
                         {/* Scrollable Content */}
                         <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
+                            
+                            {/* Write Review Section */}
+                            {!showWriteReview && !hasReviewed && (
+                                <button 
+                                    onClick={() => setShowWriteReview(true)}
+                                    className="w-full gradient-primary text-white py-4 rounded-2xl font-black uppercase text-xs tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-primary/20 transition-all"
+                                >
+                                    <MessageSquare className="w-4 h-4" /> Give a Review
+                                </button>
+                            )}
+
+                            {hasReviewed && (
+                                <div className="w-full bg-green-500/10 text-green-500 py-3 rounded-2xl font-black uppercase text-[9px] tracking-widest flex items-center justify-center gap-2 border border-green-500/20">
+                                    <CheckCircle className="w-3.5 h-3.5" /> You've already reviewed this store
+                                </div>
+                            )}
+
+                            <AnimatePresence>
+                                {showWriteReview && (
+                                    <motion.div 
+                                        initial={{ opacity: 0, height: 0 }}
+                                        animate={{ opacity: 1, height: 'auto' }}
+                                        exit={{ opacity: 0, height: 0 }}
+                                        className="overflow-hidden"
+                                    >
+                                        <div className="bg-secondary/40 rounded-3xl p-6 border border-primary/20 space-y-6">
+                                            <div className="flex justify-between items-center">
+                                                <h3 className="font-black text-sm uppercase tracking-wider text-foreground">Write Your Review</h3>
+                                                <button onClick={() => setShowWriteReview(false)} className="text-muted-foreground hover:text-foreground">
+                                                    <X className="w-4 h-4" />
+                                                </button>
+                                            </div>
+
+                                            <div className="flex flex-col items-center gap-2">
+                                                <div className="flex gap-2">
+                                                    {[1, 2, 3, 4, 5].map(star => (
+                                                        <button
+                                                            key={star}
+                                                            type="button"
+                                                            onClick={() => setNewRating(star)}
+                                                            className={`transition-all ${newRating >= star ? 'text-primary scale-110' : 'text-primary/10'}`}
+                                                        >
+                                                            <Star className={`w-8 h-8 ${newRating >= star ? 'fill-current' : ''}`} />
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-4">
+                                                <div className="space-y-1">
+                                                    <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Comments</label>
+                                                    <textarea 
+                                                        value={newComment}
+                                                        onChange={e => setNewComment(e.target.value)}
+                                                        rows={3}
+                                                        placeholder="Share your experience..."
+                                                        className="w-full bg-white dark:bg-[#151515] rounded-xl px-4 py-3 text-sm font-medium text-foreground outline-none border border-border focus:border-primary transition-all resize-none"
+                                                    />
+                                                </div>
+                                                <button 
+                                                    onClick={handleReviewSubmit}
+                                                    disabled={isSubmitting}
+                                                    className="w-full gradient-primary text-white py-3.5 rounded-xl font-black uppercase text-xs tracking-widest flex items-center justify-center gap-2 shadow-lg disabled:opacity-50"
+                                                >
+                                                    {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Send className="w-4 h-4" /> Submit Review</>}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+
                             {/* Ratings Summary */}
                             <div className="space-y-3">
                                 {[5, 4, 3, 2, 1].map(star => (
@@ -130,7 +260,7 @@ const ReviewModal = ({ isOpen, onClose, reviews: allReviews = [], storeName }: R
                                 ) : (
                                     filteredReviews.map((review, i) => (
                                         <motion.div
-                                            key={review.id}
+                                            key={review.id || i}
                                             initial={{ opacity: 0, y: 10 }}
                                             animate={{ opacity: 1, y: 0 }}
                                             transition={{ delay: i * 0.05 }}
@@ -162,8 +292,8 @@ const ReviewModal = ({ isOpen, onClose, reviews: allReviews = [], storeName }: R
                                                 </div>
                                             </div>
                                             {review.comment && (
-                                                <p className="text-sm text-foreground/90 font-medium leading-relaxed pl-10 border-l-2 ml-4 py-1 border-primary/10">
-                                                    {t(`reviews.${review.id}`, { defaultValue: review.comment })}
+                                                <p className="text-sm text-foreground/90 font-medium leading-relaxed pl-10 border-l-2 ml-4 py-1 border-primary/10 italic">
+                                                    "{review.comment}"
                                                 </p>
                                             )}
 

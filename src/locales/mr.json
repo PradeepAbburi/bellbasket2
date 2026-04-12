@@ -200,8 +200,7 @@
         "store_closed": "स्टोअर सध्या बंद आहे",
         "ordering_disabled": "ऑर्डर देणे तात्पुरते बंद आहे",
         "cannot_place_orders": "तुम्ही आता ऑर्डर देऊ शकत नाही.",
-        "finding_matches": "सामने शोधत आहे",
-        "quality_assured": "गुणवत्ता खात्री असलेले उत्पादन"
+        "finding_matches": "सामने शोधत आहे"
     },
     "categories": {
         "Grocery": "किराणा",
