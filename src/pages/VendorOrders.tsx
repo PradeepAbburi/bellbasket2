@@ -790,7 +790,7 @@ const VendorOrders = () => {
 
                 <div className="space-y-4">
                   <div className="flex flex-wrap gap-2">
-                    {['Out of stock', 'Store closed', 'Too busy', 'Price mismatch'].map((preset) => (
+                    {['OOS', 'Store closed', 'Too busy', 'Price mismatch'].map((preset) => (
                       <button
                         key={preset}
                         onClick={() => setRejectionReasonInput(preset)}

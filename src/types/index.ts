@@ -109,6 +109,7 @@ export interface Order {
   deletedByUser?: boolean;
   deletedByVendor?: boolean;
   completedAt?: string;
+  threadId?: string;
 }
 
 export interface ServiceBooking {
@@ -267,5 +268,19 @@ export interface Note {
   quantity: string | number;
   description?: string;
   type: 'note' | 'oos';
+  createdAt: string;
+}
+
+export interface ProductRequest {
+  id: string;
+  userId: string;
+  userName?: string;
+  userPhone?: string;
+  storeId: string;
+  storeName?: string;
+  productName: string;
+  description?: string;
+  status: 'pending' | 'fulfilled';
+  image?: string;
   createdAt: string;
 }

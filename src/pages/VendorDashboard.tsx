@@ -1,21 +1,21 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Store as StoreIcon, Power, PowerOff, Package, TrendingUp, ShoppingCart, Crown, Check, Star, MessageSquare, Send, Zap, Building2, BarChart3, Clock, Scissors, Settings, MessageCircle, ArrowRight, Image as ImageIcon, Lock, Save, Mail, XCircle, Share2, Phone, ShoppingBasket, Camera, Upload, MapPin, Search, Navigation, X, KeyRound, ShieldAlert, BellRing, Rocket, FileText } from 'lucide-react';
+import { Store as StoreIcon, Power, PowerOff, Package, TrendingUp, ShoppingCart, Crown, Check, Star, MessageSquare, Send, Zap, Building2, BarChart3, Clock, Scissors, Settings, MessageCircle, ArrowRight, Image as ImageIcon, Lock, Save, Mail, XCircle, Share2, Phone, Camera, Upload, MapPin, Search, Navigation, X, KeyRound, ShieldAlert, BellRing, Rocket, FileText, StickyNote, Plus, PackageSearch } from 'lucide-react';
 import { getStoreVisualStatus } from '@/utils/store-status';
 import Header from '@/components/Header';
 import { useApp } from '@/context/AppContext';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, updateDoc, collection, query, where, getDocs, addDoc, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, collection, query, where, getDocs, addDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
 import QRCodeWithLogo from '@/components/ui/qr-code-with-logo';
 import PullToRefresh from '@/components/ui/PullToRefresh';
 import { DashboardSkeleton } from '@/components/SkeletonLoader';
 import { StoreReview } from '@/types';
 
 const VendorDashboard = () => {
-  const { user, loading, orders: allOrders, serviceBookings, stores, updateUser, refreshData } = useApp();
+  const { user, loading, orders: allOrders, serviceBookings, stores, updateUser, refreshData, productRequests = [] } = useApp();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const ua = navigator.userAgent;
@@ -27,11 +27,15 @@ const VendorDashboard = () => {
   const [isOpen, setIsOpen] = useState(true);
   const [productCount, setProductCount] = useState(0);
   const [revenue, setRevenue] = useState(0);
+  const [recentNotes, setRecentNotes] = useState<any[]>([]);
   const [vendorStore, setVendorStore] = useState<any>(null);
   const [replyInputs, setReplyInputs] = useState<Record<string, string>>({});
   const [daysToExpiry, setDaysToExpiry] = useState<number | null>(null);
   const [hideExpiryBanner, setHideExpiryBanner] = useState(false);
   const [contactEmail, setContactEmail] = useState('');
+  const [showSupportModal, setShowSupportModal] = useState(false);
+  const [supportQuery, setSupportQuery] = useState('');
+  const [selectedRequest, setSelectedRequest] = useState<any>(null);
 
   useEffect(() => {
     if (user?.subscriptionExpiry && user.plan !== 'none') {
@@ -144,6 +148,17 @@ const VendorDashboard = () => {
     setContactEmail(user?.email || '');
     setShowSupportModal(true);
   };
+
+  // Fetch recent notes for the dashboard preview
+  useEffect(() => {
+    if (!user?.id) return;
+    const q = query(collection(db, 'notes'), where('vendorId', '==', user.id));
+    const unsub = onSnapshot(q, (snap) => {
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setRecentNotes(data.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 3));
+    });
+    return () => unsub();
+  }, [user?.id]);
 
   const handleSubmitTicket = async () => {
     if (!user) return;
@@ -352,13 +367,6 @@ const VendorDashboard = () => {
     }
   };
 
-  const [showSupportModal, setShowSupportModal] = useState(false);
-  const [supportQuery, setSupportQuery] = useState('');
-
-
-
-
-
   const sendPromotion = () => {
     if (user?.plan !== 'pro') return toast.error('Pro plan required for broadcasts');
     const msg = window.prompt("Enter promotional message to broadcast to all nearby customers:");
@@ -453,7 +461,8 @@ const VendorDashboard = () => {
       </AnimatePresence>
 
       <PullToRefresh onRefresh={refreshData} className="pt-20 pb-40 lg:pb-8 px-4 max-w-4xl mx-auto">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-y-5 mb-8 pt-4">
+        <div className="space-y-10">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-y-5 mb-8 pt-4">
           <div className="space-y-1">
             <h1 className="text-2xl font-bold text-foreground">{t('common.dashboard')}</h1>
           </div>
@@ -837,34 +846,180 @@ const VendorDashboard = () => {
         </div>
 
         {/* Productivity & Operations */}
-        <div className="mb-10">
-          <div className="flex items-center justify-between mb-4 px-1">
-            <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
-              <Zap className="w-5 h-5 text-blue-500" />
-              Vendor Productivity
-            </h2>
-          </div>
 
-          <div className="grid grid-cols-1 gap-4">
-             <div 
-                onClick={() => navigate('/vendor/notes')}
-                className="bg-white dark:bg-[#202020] rounded-3xl p-6 flex items-center justify-between border-blue-500/20 bg-blue-500/5 cursor-pointer   transition-all group border"
-             >
-                <div className="flex items-center gap-5">
-                    <div className="w-14 h-14 rounded-2xl bg-blue-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                        <FileText className="w-7 h-7 text-blue-600" />
-                    </div>
-                    <div>
-                        <h3 className="text-foreground font-black text-base">Bell Notes</h3>
-                        <p className="text-xs text-muted-foreground mt-0.5">Quickly list items to restock or remember later.</p>
-                    </div>
-                </div>
-                <div className="w-10 h-10 rounded-full bg-blue-500 text-white flex items-center justify-center shadow-sm">
-                    <ArrowRight className="w-5 h-5" />
-                </div>
-             </div>
+
+  {/* Product Requests Section */}
+  <div className="mb-10">
+    <div className="flex items-center justify-between mb-4 px-1">
+      <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+        <StickyNote className="w-5 h-5 text-primary" />
+        Bell Notes & Req
+      </h2>
+      {(productRequests.length > 0 || recentNotes.length > 0) && (
+        <span className="text-[10px] font-black bg-primary/20 text-primary px-2 py-0.5 rounded-full uppercase tracking-widest">
+          {productRequests.filter((r: any) => r.status === 'pending').length + recentNotes.length} Total
+        </span>
+      )}
+    </div>
+
+    <div className="space-y-3">
+      {productRequests.length === 0 && recentNotes.length === 0 ? (
+        <div 
+          onClick={() => navigate('/vendor/notes')}
+          className="bg-white dark:bg-[#202020] rounded-3xl p-8 text-center border border-dashed border-border/60 shadow-sm opacity-60 cursor-pointer hover:opacity-100 transition-all hover:bg-primary/5"
+        >
+          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
+            <Plus className="w-5 h-5 text-primary" />
           </div>
+          <p className="text-sm text-muted-foreground font-medium">Add notes or check customer reqs</p>
         </div>
+      ) : (
+        <div className="space-y-3">
+          {/* Notes Preview */}
+          {recentNotes.map((note: any) => (
+            <div 
+              key={note.id} 
+              onClick={() => navigate('/vendor/notes')}
+              className="bg-white dark:bg-[#202020] rounded-22 p-4 border border-primary/5 shadow-sm hover:border-primary/30 transition-all cursor-pointer flex items-center gap-3"
+            >
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                <FileText className="w-5 h-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                 <h3 className="font-bold text-foreground text-sm truncate">{note.itemName}</h3>
+                 <p className="text-[10px] text-muted-foreground font-medium truncate capitalize">{note.quantity} • {new Date(note.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}</p>
+              </div>
+              <ArrowRight className="w-4 h-4 text-muted-foreground/30" />
+            </div>
+          ))}
+
+          {/* Product Requests Preview */}
+          {productRequests.filter((r: any) => r.status === 'pending').slice(0, 3).map((request: any) => (
+            <div 
+              key={request.id} 
+              onClick={() => setSelectedRequest(request)}
+              className="bg-white dark:bg-[#202020] rounded-22 p-4 border border-amber-500/10 shadow-sm hover:border-amber-500/30 transition-all cursor-pointer flex items-center gap-3"
+            >
+              <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 shrink-0 overflow-hidden border border-amber-500/5">
+                {request.image ? (
+                  <img src={request.image} alt="Ref" className="w-full h-full object-cover" />
+                ) : (
+                  <PackageSearch className="w-5 h-5" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                 <div className="flex items-center gap-1.5 mb-0.5">
+                    <span className="w-1 h-1 rounded-full bg-amber-400 animate-pulse" />
+                    <span className="text-[8px] font-black text-amber-500 uppercase tracking-widest">Req</span>
+                 </div>
+                 <h3 className="font-bold text-foreground text-sm truncate">{request.productName}</h3>
+                 <p className="text-[10px] text-muted-foreground font-medium truncate italic">Requested by {request.userName || 'Customer'}</p>
+              </div>
+              <ArrowRight className="w-4 h-4 text-muted-foreground/30" />
+            </div>
+          ))}
+        </div>
+      )}
+
+      <button 
+        onClick={() => navigate('/vendor/notes')}
+        className="w-full py-4 rounded-2xl bg-secondary/50 text-foreground font-black text-[10px] uppercase tracking-[0.2em] border border-border/40 hover:bg-secondary transition-all active:scale-95"
+      >
+        Open Bell Notes & Req
+      </button>
+    </div>
+
+    {/* Quick Request Details Modal */}
+    <AnimatePresence>
+      {selectedRequest && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+          onClick={() => setSelectedRequest(null)}
+        >
+          <motion.div
+            initial={{ scale: 0.9, y: 20 }}
+            animate={{ scale: 1, y: 0 }}
+            exit={{ scale: 0.9, y: 20 }}
+            className="bg-white dark:bg-[#1A1A1A] w-full max-w-sm rounded-[2.5rem] overflow-hidden shadow-2xl border border-white/5"
+            onClick={e => e.stopPropagation()}
+          >
+            {selectedRequest.image && (
+              <div className="aspect-square w-full bg-black relative">
+                <img src={selectedRequest.image} alt="Preview" className="w-full h-full object-contain" />
+                <button 
+                  onClick={() => setSelectedRequest(null)}
+                  className="absolute top-4 right-4 p-2 rounded-full bg-black/40 text-white backdrop-blur-md hover:bg-black/60 transition-all"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            )}
+            
+            <div className="p-8">
+              {!selectedRequest.image && (
+                <div className="flex justify-between items-start mb-6">
+                   <h2 className="text-xl font-black text-foreground">{selectedRequest.productName}</h2>
+                   <button onClick={() => setSelectedRequest(null)}><X className="w-6 h-6 text-muted-foreground" /></button>
+                </div>
+              )}
+              
+              {selectedRequest.image && <h2 className="text-xl font-black text-foreground mb-4">{selectedRequest.productName}</h2>}
+              
+              <div className="space-y-4">
+                <div className="p-4 rounded-2xl bg-secondary/50 border border-border/40">
+                  <p className="text-sm text-foreground/80 leading-relaxed font-medium">
+                    {selectedRequest.description || "No specific details provided."}
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between pt-2">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-black text-primary uppercase tracking-widest mb-1">Customer</span>
+                    <span className="font-bold text-foreground">{selectedRequest.userName || 'Anonymous'}</span>
+                  </div>
+                  {selectedRequest.userPhone && (
+                    <a href={`tel:${selectedRequest.userPhone}`} className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-lg shadow-primary/5 hover:scale-105 active:scale-95 transition-all">
+                      <Phone className="w-5 h-5" />
+                    </a>
+                  )}
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                   <button 
+                    onClick={() => {
+                        navigate('/vendor/notes');
+                        setSelectedRequest(null);
+                    }}
+                    className="flex-1 py-4 rounded-2xl bg-secondary text-foreground font-black text-[10px] uppercase tracking-widest hover:bg-secondary/80 transition-all"
+                   >
+                     Go to Notes
+                   </button>
+                   <button 
+                    onClick={async () => {
+                      const toastId = toast.loading("Marking as fulfilled...");
+                      try {
+                        await updateDoc(doc(db, 'product_requests', selectedRequest.id), { status: 'fulfilled' });
+                        toast.success("Request Fulfilled!", { id: toastId });
+                        setSelectedRequest(null);
+                      } catch (e) {
+                        toast.error("Failed to update", { id: toastId });
+                      }
+                    }}
+                    className="flex-1 py-4 rounded-2xl bg-emerald-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:opacity-90 transition-all active:scale-95"
+                   >
+                     Fulfilled
+                   </button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  </div>
 
 
         {/* Recent Orders/Bookings - Limited to 3 */}
@@ -1129,8 +1284,9 @@ const VendorDashboard = () => {
           )}
         </AnimatePresence>
 
-      </PullToRefresh>
-    </div>
+          </div>
+        </PullToRefresh>
+      </div>
   );
 };
 

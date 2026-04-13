@@ -334,6 +334,35 @@ const Receipts = () => {
   const displayOrders = view === 'active' ? activeOrders : pastOrders;
   const displayBookings = view === 'active' ? activeBookings : pastBookings;
 
+  // Group orders by threadId for visual "threading"
+  const threadedGroups = useMemo(() => {
+    const groups: Record<string, Order[]> = {};
+    const processedThreadIds = new Set<string>();
+    const result: { type: 'standalone' | 'thread'; orders: Order[]; threadId?: string }[] = [];
+
+    displayOrders.forEach(order => {
+      if (order.threadId) {
+        if (!groups[order.threadId]) groups[order.threadId] = [];
+        groups[order.threadId].push(order);
+      }
+    });
+
+    displayOrders.forEach(order => {
+      if (!order.threadId) {
+        result.push({ type: 'standalone', orders: [order] });
+      } else if (!processedThreadIds.has(order.threadId)) {
+        processedThreadIds.add(order.threadId);
+        result.push({ 
+          type: 'thread', 
+          orders: groups[order.threadId].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
+          threadId: order.threadId 
+        });
+      }
+    });
+
+    return result;
+  }, [displayOrders]);
+
   const handleDeleteSelected = async () => {
     if (selectedIds.length === 0) return;
     const confirmDelete = window.confirm(`Are you sure you want to delete ${selectedIds.length} items?`);
@@ -498,44 +527,74 @@ const Receipts = () => {
                   <p className="text-muted-foreground">{t('common.receipts.no_orders')}</p>
                 </div>
               ) : (
-                <div className="grid md:grid-cols-2 gap-4">
-                  {filterType === 'orders' ? displayOrders.map((order, i) => (
-                    <RenderOrderCard
-                      key={order.id} order={order} i={i}
-                      review={reviews[order.id] || (order.review ? { ...order.review, submitted: true } : { rating: 0, text: '', submitted: false, isAnonymous: false })}
-                      onRate={(star) => handleRating(order.id, star)}
-                      onReviewChange={(text) => setReviews(prev => ({ ...prev, [order.id]: { ...(prev[order.id] || { rating: 0, submitted: false, isAnonymous: false }), text } }))}
-                      onAnonymous={(anon) => handleAnonymous(order.id, anon)}
-                      onSubmit={() => handleReviewSubmit(order.id, 'order')}
-                      t={t} storePhone={getStoreForOrder(order.storeId)?.phone}
-                      vendorInfo={vendorInfoState[order.storeId]} getStoreForOrder={getStoreForOrder}
-                      userCoords={userCoords} isSelected={selectedIds.includes(order.id)}
-                      onToggleSelect={() => toggleSelect(order.id)} onLongPress={() => toggleSelect(order.id)}
-                      showSelection={view === 'history' && selectedIds.length > 0}
-                      hasReviewedStore={Array.isArray(getStoreForOrder(order.storeId)?.reviews) && getStoreForOrder(order.storeId)!.reviews!.some((r: any) => r.userId === user?.id)}
-                       onClick={() => { 
-                         navigate(`/receipt/${order.id}`); 
-                       }}
-                    />
-                  )) : displayBookings.map((booking, i) => (
-                    <RenderBookingCard
-                      key={booking.id} booking={booking} i={i}
-                      review={reviews[booking.id] || (booking.review ? { ...booking.review, submitted: true } : { rating: 0, text: '', submitted: false, isAnonymous: false })}
-                      onRate={(star) => handleRating(booking.id, star)}
-                      onReviewChange={(text) => setReviews(prev => ({ ...prev, [booking.id]: { ...(prev[booking.id] || { rating: 0, submitted: false, isAnonymous: false }), text } }))}
-                      onAnonymous={(anon) => handleAnonymous(booking.id, anon)}
-                      onSubmit={() => handleReviewSubmit(booking.id, 'booking')}
-                      t={t} storePhone={getStoreForOrder(booking.storeId)?.phone}
-                      vendorInfo={vendorInfoState[booking.storeId]} getStoreForOrder={getStoreForOrder}
-                      userCoords={userCoords} isSelected={selectedIds.includes(booking.id)}
-                      onToggleSelect={() => toggleSelect(booking.id)} onLongPress={() => toggleSelect(booking.id)}
-                      showSelection={view === 'history' && selectedIds.length > 0}
-                      hasReviewedStore={Array.isArray(getStoreForOrder(booking.storeId)?.reviews) && getStoreForOrder(booking.storeId)!.reviews!.some((r: any) => r.userId === user?.id)}
-                       onClick={() => { 
-                         navigate(`/receipt/${booking.id}`); 
-                       }}
-                    />
-                  ))}
+                <div className="space-y-8">
+                  {filterType === 'orders' ? threadedGroups.map((group, gIdx) => (
+                    <div key={group.threadId || gIdx} className="relative space-y-4">
+                      {group.type === 'thread' && group.orders.length > 1 && (
+                        <>
+                          <div className="absolute left-[34px] sm:left-[38px] top-16 bottom-16 w-1 bg-primary/20 rounded-full hidden sm:block" />
+                          <div className="flex items-center gap-3 px-2 mb-2">
+                             <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                                <Navigation className="w-4 h-4 text-primary animate-pulse" />
+                             </div>
+                             <div>
+                                <h3 className="text-xs font-black text-primary uppercase tracking-[0.2em]">Connected Route ({group.orders.length} Shops)</h3>
+                                <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest">Multiple pick-ups in a single trip</p>
+                             </div>
+                          </div>
+                        </>
+                      )}
+                      
+                      <div className={`grid ${group.type === 'thread' ? 'grid-cols-1' : 'md:grid-cols-2'} gap-4`}>
+                        {group.orders.map((order, i) => (
+                          <div key={order.id} className="relative">
+                            <RenderOrderCard
+                              order={order} i={i}
+                              review={reviews[order.id] || (order.review ? { ...order.review, submitted: true } : { rating: 0, text: '', submitted: false, isAnonymous: false })}
+                              onRate={(star) => handleRating(order.id, star)}
+                              onReviewChange={(text) => setReviews(prev => ({ ...prev, [order.id]: { ...(prev[order.id] || { rating: 0, submitted: false, isAnonymous: false }), text } }))}
+                              onAnonymous={(anon) => handleAnonymous(order.id, anon)}
+                              onSubmit={() => handleReviewSubmit(order.id, 'order')}
+                              t={t} storePhone={getStoreForOrder(order.storeId)?.phone}
+                              vendorInfo={vendorInfoState[order.storeId]} getStoreForOrder={getStoreForOrder}
+                              userCoords={userCoords} isSelected={selectedIds.includes(order.id)}
+                              onToggleSelect={() => toggleSelect(order.id)} onLongPress={() => toggleSelect(order.id)}
+                              showSelection={view === 'history' && selectedIds.length > 0}
+                              hasReviewedStore={Array.isArray(getStoreForOrder(order.storeId)?.reviews) && getStoreForOrder(order.storeId)!.reviews!.some((r: any) => r.userId === user?.id)}
+                              onClick={() => { 
+                                navigate(`/receipt/${order.id}`); 
+                              }}
+                            />
+                            {group.type === 'thread' && i < group.orders.length - 1 && (
+                              <div className="absolute -bottom-4 left-[34px] sm:left-[38px] z-20 w-1.5 h-4 bg-primary rounded-full hidden sm:block" />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )) : (
+                    <div className="grid md:grid-cols-2 gap-4">
+                      {displayBookings.map((booking, i) => (
+                        <RenderBookingCard
+                          key={booking.id} booking={booking} i={i}
+                          review={reviews[booking.id] || (booking.review ? { ...booking.review, submitted: true } : { rating: 0, text: '', submitted: false, isAnonymous: false })}
+                          onRate={(star) => handleRating(booking.id, star)}
+                          onReviewChange={(text) => setReviews(prev => ({ ...prev, [booking.id]: { ...(prev[booking.id] || { rating: 0, submitted: false, isAnonymous: false }), text } }))}
+                          onAnonymous={(anon) => handleAnonymous(booking.id, anon)}
+                          onSubmit={() => handleReviewSubmit(booking.id, 'booking')}
+                          t={t} storePhone={getStoreForOrder(booking.storeId)?.phone}
+                          vendorInfo={vendorInfoState[booking.storeId]} getStoreForOrder={getStoreForOrder}
+                          userCoords={userCoords} isSelected={selectedIds.includes(booking.id)}
+                          onToggleSelect={() => toggleSelect(booking.id)} onLongPress={() => toggleSelect(booking.id)}
+                          showSelection={view === 'history' && selectedIds.length > 0}
+                          hasReviewedStore={Array.isArray(getStoreForOrder(booking.storeId)?.reviews) && getStoreForOrder(booking.storeId)!.reviews!.some((r: any) => r.userId === user?.id)}
+                          onClick={() => { 
+                            navigate(`/receipt/${booking.id}`); 
+                          }}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </motion.div>

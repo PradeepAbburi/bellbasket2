@@ -1,6 +1,6 @@
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Star, MapPin, Clock, Plus, Minus, Loader2, MessageSquare, Search, X, Tag, Phone, ChevronRight, ChevronLeft, Share2, Sparkles, ShoppingBasket, Calendar, AlertCircle, ArrowUpDown, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Star, MapPin, Clock, Plus, Minus, Loader2, MessageSquare, Search, X, Tag, Phone, ChevronRight, ChevronLeft, Share2, Sparkles, Calendar, AlertCircle, ArrowUpDown, ChevronDown, XCircle, ImageIcon, PackageSearch } from 'lucide-react';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -52,6 +52,11 @@ const StoreDetail = () => {
   const [bookingData, setBookingData] = useState({ name: '', phone: '', location: '', description: '', date: '', timeSlot: '' });
   const [isBooking, setIsBooking] = useState(false);
   const [priceSort, setPriceSort] = useState<'none' | 'low-high' | 'high-low'>('none');
+  const [showRequestModal, setShowRequestModal] = useState(false);
+  const [requestData, setRequestData] = useState({ productName: '', description: '', image: '' });
+  const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
+  const [showCallModal, setShowCallModal] = useState(false);
+  const { requestProduct } = useApp();
   
   // 0. Immediate Visibility Check (for stores already in context)
   useEffect(() => {
@@ -136,20 +141,22 @@ const StoreDetail = () => {
         if (snap.exists()) {
           const data = snap.data();
           let phone = data.phone;
+          let ownerName = data.ownerName;
 
-          if (!phone && data.vendorId) {
+          if ((!phone || !ownerName) && data.vendorId) {
             try {
               const userSnap = await getDoc(doc(db, 'users', data.vendorId));
               if (userSnap.exists()) {
                 const userData = userSnap.data();
-                phone = userData.phone;
+                if (!phone) phone = userData.phone;
+                if (!ownerName) ownerName = userData.name;
               }
             } catch (e) {
-              console.log("Failed to fetch vendor phone", e);
+              console.log("Failed to fetch vendor details", e);
             }
           }
 
-          setStore({ id: snap.id, ...data, phone });
+          setStore({ id: snap.id, ...data, phone, ownerName });
 
           // Visibility Check
           if (data.isBlocked) {
@@ -353,6 +360,27 @@ const StoreDetail = () => {
       });
     } finally {
       setIsBooking(false);
+    }
+  };
+
+  const handleRequestSubmit = async () => {
+    if (!requestData.productName.trim()) {
+      toast.error("Please enter a product name");
+      return;
+    }
+    setIsSubmittingRequest(true);
+    try {
+      await requestProduct({
+        storeId: store.id,
+        storeName: store.name,
+        productName: requestData.productName,
+        description: requestData.description,
+        image: requestData.image
+      });
+      setShowRequestModal(false);
+      setRequestData({ productName: '', description: '', image: '' });
+    } finally {
+      setIsSubmittingRequest(false);
     }
   };
 
@@ -676,13 +704,13 @@ const StoreDetail = () => {
                 </button>
 
                 {store.phone && (
-                  <a
-                    href={`tel:${store.phone}`}
+                  <button
+                    onClick={() => setShowCallModal(true)}
                     className="flex-none flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-primary text-white hover:bg-primary/90 font-bold transition-all shadow-md"
                   >
                     <Phone className="w-4 h-4" />
                     <span className="hidden md:inline">{t('common.call')}</span>
-                  </a>
+                  </button>
                 )}
 
                 <button
@@ -957,7 +985,7 @@ const StoreDetail = () => {
                                 {!product.inStock && (
                                   <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px] z-20 flex items-center justify-center">
                                     <span className="text-white text-[9px] font-black uppercase tracking-widest bg-red-500/90 px-2.5 py-1 rounded-full shadow">
-                                      {t('common.out_of_stock')}
+                                      {t('common.out_of_stock', { defaultValue: 'OOS' })}
                                     </span>
                                   </div>
                                 )}
@@ -1064,7 +1092,7 @@ const StoreDetail = () => {
                                     </div>
                                   ) : (
                                     <div className="w-full h-8 rounded-xl bg-secondary/60 flex items-center justify-center">
-                                      <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Out of Stock</span>
+                                      <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">OOS</span>
                                     </div>
                                   )}
                                 </div>
@@ -1080,6 +1108,36 @@ const StoreDetail = () => {
             )}
           </div>
         )}
+
+        {/* Product Request Section */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="mt-16 mb-8 p-8 md:p-12 bg-white dark:bg-[#202020] rounded-[3rem] border border-border/40 text-center space-y-6 shadow-sm relative overflow-hidden"
+        >
+          <div className="absolute top-0 right-0 p-8 opacity-5">
+            <PackageSearch className="w-32 h-32 text-primary" />
+          </div>
+          
+          <div className="w-20 h-20 rounded-3xl bg-primary/10 flex items-center justify-center mx-auto text-primary relative z-10">
+            <PackageSearch className="w-10 h-10" />
+          </div>
+          
+          <div className="space-y-2 relative z-10">
+            <h3 className="text-2xl font-black text-foreground tracking-tight">{t('store.request_product_title', { defaultValue: "Can't find what you're looking for?" })}</h3>
+            <p className="text-muted-foreground text-sm max-w-sm mx-auto font-medium">
+              {t('store.request_product_desc', { defaultValue: "Let the shopkeeper know! Request a product and we'll check if we can source it for you." })}
+            </p>
+          </div>
+          
+          <button 
+            onClick={() => setShowRequestModal(true)}
+            className="px-10 py-4 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest transition-all active:scale-95 relative z-10 shadow-lg shadow-primary/20"
+          >
+            {t('store.request_product_btn', { defaultValue: "Product Req" })}
+          </button>
+        </motion.div>
       </div>
 
       {/* ── Product Detail Popup Modal ── */}
@@ -1154,9 +1212,7 @@ const StoreDetail = () => {
                   )}
                   {!p.inStock && (
                     <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-40">
-                      <span className="bg-red-500 text-white font-black text-sm px-4 py-2 rounded-full uppercase tracking-widest">
-                        {t('common.out_of_stock')}
-                      </span>
+                      <span className="bg-rose-500 text-white text-[9px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest shadow-xl">OOS</span>
                     </div>
                   )}
                   {p.image2 && (
@@ -1398,6 +1454,162 @@ const StoreDetail = () => {
               >
                 {isBooking ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Confirm Booking'}
               </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {/* ── Call Confirmation Modal ── */}
+      <AnimatePresence>
+        {showCallModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="bg-white dark:bg-[#202020] w-full max-w-xs rounded-[2.5rem] p-8 relative shadow-2xl border border-white/10 text-center"
+            >
+              <button
+                onClick={() => setShowCallModal(false)}
+                className="absolute top-6 right-6 p-2 rounded-full hover:bg-secondary/50 text-muted-foreground transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              <div className="space-y-6 pt-2">
+                <div className="w-20 h-20 rounded-[2rem] bg-primary/10 flex items-center justify-center mx-auto text-primary">
+                  <Phone className="w-10 h-10" />
+                </div>
+                
+                <div className="space-y-1">
+                  <h3 className="text-xl font-black text-foreground">{store.name}</h3>
+                  {store.ownerName && (
+                    <p className="text-[11px] font-black text-primary uppercase tracking-widest">{store.ownerName}</p>
+                  )}
+                  <p className="text-[10px] text-muted-foreground font-medium line-clamp-1 italic px-4">{store.address}</p>
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  <a 
+                    href={`tel:${store.phone}`}
+                    onClick={() => setShowCallModal(false)}
+                    className="w-full py-4 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest shadow-lg shadow-primary/20 hover:opacity-90 transition-all flex items-center justify-center gap-2"
+                  >
+                    <Phone className="w-4 h-4" /> Call Now
+                  </a>
+                  <button 
+                    onClick={() => setShowCallModal(false)}
+                    className="w-full py-4 rounded-2xl bg-secondary text-foreground font-bold text-xs uppercase tracking-widest transition-all"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {/* ── Product Request Modal ── */}
+      <AnimatePresence>
+        {showRequestModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="bg-white dark:bg-[#202020] w-full max-w-sm rounded-[2.5rem] p-8 relative shadow-2xl border border-white/10"
+            >
+              <button
+                onClick={() => setShowRequestModal(false)}
+                className="absolute top-6 right-6 p-2 rounded-full hover:bg-secondary/50 text-muted-foreground transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="space-y-6">
+                <div className="text-center space-y-2">
+                  <h2 className="text-2xl font-black text-foreground tracking-tight">Product Req</h2>
+                  <p className="text-sm text-muted-foreground font-medium">Tell us what you need from {store.name}</p>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">Product Name *</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Organic Almond Milk"
+                      value={requestData.productName}
+                      onChange={e => setRequestData({ ...requestData, productName: e.target.value })}
+                      className="w-full bg-secondary/50 rounded-xl px-4 py-3.5 text-sm font-bold text-foreground outline-none focus:ring-2 focus:ring-primary/50"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">Notes (Optional)</label>
+                    <textarea
+                      placeholder="Specify brand, quantity or weight..."
+                      rows={3}
+                      value={requestData.description}
+                      onChange={e => setRequestData({ ...requestData, description: e.target.value })}
+                      className="w-full bg-secondary/50 rounded-xl px-4 py-3.5 text-sm font-bold text-foreground outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">Photo (Optional)</label>
+                    <div className="relative">
+                      {requestData.image ? (
+                        <div className="relative w-full h-32 rounded-xl overflow-hidden group">
+                          <img src={requestData.image} alt="Request" className="w-full h-full object-cover" />
+                          <button 
+                            onClick={() => setRequestData({ ...requestData, image: '' })}
+                            className="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-full hover:bg-black/70 transition-all"
+                          >
+                            <XCircle className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <label className="flex flex-col items-center justify-center w-full h-24 bg-secondary/30 rounded-xl border-2 border-dashed border-border/50 cursor-pointer hover:bg-secondary/50 transition-all">
+                          <ImageIcon className="w-6 h-6 text-muted-foreground mb-1" />
+                          <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Upload Reference</span>
+                          <input 
+                            type="file" 
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                if (file.size > 800000) { // 800KB limit for base64 + firestore overhead
+                                  toast.error("Image too large. Please select a smaller photo (under 800KB).");
+                                  return;
+                                }
+                                const reader = new FileReader();
+                                reader.onloadend = () => setRequestData({ ...requestData, image: reader.result as string });
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                          />
+                        </label>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleRequestSubmit}
+                  disabled={isSubmittingRequest}
+                  className="w-full py-4 rounded-xl bg-primary text-white font-black text-xs uppercase tracking-widest hover:opacity-90 active:scale-95 transition-all flex items-center justify-center shadow-lg shadow-primary/20"
+                >
+                  {isSubmittingRequest ? <Loader2 className="w-5 h-5 animate-spin" /> : "Send Req"}
+                </button>
+              </div>
             </motion.div>
           </motion.div>
         )}

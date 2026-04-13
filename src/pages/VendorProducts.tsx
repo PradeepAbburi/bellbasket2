@@ -106,7 +106,7 @@ const VendorProducts = () => {
       const productRef = doc(db, 'products', product.id);
       await updateDoc(productRef, { inStock });
       setProducts(prev => prev.map(p => p.id === product.id ? { ...p, inStock } : p));
-      toast.success(inStock ? 'Stock Restored' : 'Out of Stock');
+      toast.success(inStock ? 'Stock Restored' : 'OOS');
     } catch (error) {
       toast.error('Update failed');
     }
@@ -156,7 +156,7 @@ const VendorProducts = () => {
                     <motion.div key={p.id} layout className={`glass rounded-[2.5rem] p-3 sm:p-4 flex gap-3 sm:gap-5 border border-border/50 group hover:shadow-2xl hover:shadow-primary/5 transition-all ${!p.inStock ? 'opacity-70' : ''}`}>
                       <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-[1.5rem] sm:rounded-3xl overflow-hidden relative shadow-lg bg-secondary/20 shrink-0">
                         <img src={p.image} className="w-full h-full object-cover transition-transform group-hover:scale-110 duration-700" alt="" />
-                        {!p.inStock && <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] flex items-center justify-center"><span className="bg-rose-500 text-white text-[8px] font-black px-2 py-1 rounded-full uppercase truncate">Out of Stock</span></div>}
+                        {!p.inStock && <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] flex items-center justify-center"><span className="bg-rose-500 text-white text-[8px] font-black px-2 py-1 rounded-full uppercase truncate">OOS</span></div>}
                       </div>
                       <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
                         <div>

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { User, CartItem, Order, Store, Product, PlanTier, ServiceBooking } from '@/types';
+import { User, CartItem, Order, Store, Product, PlanTier, ServiceBooking, ProductRequest } from '@/types';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, getDocs, setDoc, updateDoc, collection, onSnapshot, query, where, addDoc, or } from 'firebase/firestore';
@@ -40,6 +40,8 @@ interface AppState {
   markAllNotificationsRead: () => Promise<void>;
   markNotificationAsRead: (id: string) => Promise<void>;
   requestPushNotifications: () => Promise<void>;
+  productRequests: ProductRequest[];
+  requestProduct: (data: any) => Promise<void>;
   theme: 'light' | 'dark';
   toggleTheme: () => void;
 }
@@ -53,6 +55,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [serviceBookings, setServiceBookings] = useState<ServiceBooking[]>([]);
   const [stores, setStores] = useState<Store[]>([]);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [productRequests, setProductRequests] = useState<ProductRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
 
@@ -142,6 +145,33 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       
       fetchedBookings.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       setServiceBookings(fetchedBookings);
+    }, (error) => {
+      console.error("Service Bookings sync error:", error);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  // Real-time Product Requests Sync
+  useEffect(() => {
+    if (!user) {
+      setProductRequests([]);
+      return;
+    }
+
+    const q = query(
+      collection(db, 'product_requests'),
+      or(
+        where('storeId', '==', user.id),
+        where('userId', '==', user.id)
+      )
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ProductRequest));
+      setProductRequests(fetched.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+    }, (error) => {
+      console.error("Product Requests sync error:", error);
     });
 
     return () => unsubscribe();
@@ -808,6 +838,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         }
         prevBookingsMap.current[change.doc.id] = data.status;
       });
+    }, (error) => {
+      console.error("Service Bookings Notifications sync error:", error);
     });
 
     setTimeout(() => { isFirstLoad.current = false; }, 2000);
@@ -862,11 +894,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       return false;
     }
 
-    if (cart.length > 0 && cart[0].storeId !== item.storeId) {
-      toast.error("You can only order from one store at a time. Please clear your cart first.");
-      return false;
-    }
-
     setCart(prev => {
       const existing = prev.find(c => c.product.id === item.product.id);
       if (existing) {
@@ -903,66 +930,101 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const placeOrder = React.useCallback(async (paymentMethod: 'online' | 'pickup' | 'delivery', options?: { deliveryMethod: 'pickup' | 'delivery', deliveryFee: number, customerName?: string, customerPhone?: string, customerAddress?: string }) => {
     if (cart.length === 0 || !user) return null;
 
+    // Split cart into multiple orders by storeId
+    const threadId = `THREAD-${Date.now()}`;
+    const storesInCart = [...new Set(cart.map(c => c.storeId))];
+    
     // VERY IMPORTANT: Clear cart immediately and globally
     clearCart();
     sessionStorage.setItem('last_order_cleared', Date.now().toString());
 
-    const orderId = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    const pickupCode = String(Math.floor(1000 + Math.random() * 9000));
+    let firstOrderId: string | null = null;
 
-    const finalItems = cart.map(c => {
-      const effectivePrice = (c.product.discountedPrice && Number(c.product.discountedPrice) > 0 && Number(c.product.discountedPrice) < c.product.price) 
-        ? Number(c.product.discountedPrice) 
-        : c.product.price;
-      return {
-        ...c,
-        product: { ...c.product, price: effectivePrice }
-      };
-    });
+    for (const storeId of storesInCart) {
+      const orderId = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+      if (!firstOrderId) firstOrderId = orderId;
 
-    const subtotal = finalItems.reduce((sum, c) => sum + c.product.price * c.quantity, 0);
-    let total = subtotal + (options?.deliveryFee || 0);
+      const pickupCode = String(Math.floor(1000 + Math.random() * 9000));
+      const storeItems = cart.filter(c => c.storeId === storeId);
 
-    const storeInfo = stores.find(s => s.id === cart[0].storeId);
-    
-    const newOrder: Order = {
-      id: orderId,
-      userId: user.id,
-      userName: options?.customerName || user.name || 'Customer',
-      userPhone: options?.customerPhone || user.phone || '',
-      storeId: cart[0].storeId,
-      storeName: cart[0].storeName,
-      items: finalItems,
-      total,
-      status: 'pending',
-      paymentMethod,
-      deliveryMethod: options?.deliveryMethod || 'pickup',
-      deliveryFee: options?.deliveryMethod === 'delivery' ? options.deliveryFee : 0,
-      date: new Date().toISOString(),
-      pickupCode,
-      customerAddress: options?.customerAddress || '',
-      storePhone: storeInfo?.phone || cart[0]?.storePhone || ''
-    };
-
-    try {
-      await setDoc(doc(db, 'orders', orderId), cleanObject(newOrder));
-      
-      const itemSummary = cart.slice(0, 2).map(c => c.product.name).join(', ');
-      sendInAppNotification(cart[0].storeId, {
-        title: `🛒 New Order from ${user.name || 'a customer'}`,
-        body: `${itemSummary}${cart.length > 2 ? ` +${cart.length - 2} more` : ''} — ₹${total}`,
-        url: '/vendor/orders',
-        type: 'order',
-        id: orderId
+      const finalItems = storeItems.map(c => {
+        const effectivePrice = (c.product.discountedPrice && Number(c.product.discountedPrice) > 0 && Number(c.product.discountedPrice) < c.product.price) 
+          ? Number(c.product.discountedPrice) 
+          : c.product.price;
+        return {
+          ...c,
+          product: { ...c.product, price: effectivePrice }
+        };
       });
 
-      return orderId;
-    } catch (err: any) {
-      console.error("Firestore Order Error:", err);
-      toast.error("Database sync failed");
-      return null;
+      const subtotal = finalItems.reduce((sum, c) => sum + c.product.price * c.quantity, 0);
+      
+      // Split delivery fee among stores if there are multiple stores (or keep it per store if simple)
+      // For simplicity, we'll apply it to the first store if multiple, or just the store itself
+      const fee = (storesInCart.indexOf(storeId) === 0) ? (options?.deliveryFee || 0) : 0;
+      let total = subtotal + fee;
+
+      const storeInfo = stores.find(s => s.id === storeId);
+      
+      const newOrder: Order = {
+        id: orderId,
+        threadId,
+        userId: user.id,
+        userName: options?.customerName || user.name || 'Customer',
+        userPhone: options?.customerPhone || user.phone || '',
+        storeId: storeId,
+        storeName: storeItems[0].storeName,
+        items: finalItems,
+        total,
+        status: 'pending',
+        paymentMethod,
+        deliveryMethod: options?.deliveryMethod || 'pickup',
+        deliveryFee: fee,
+        date: new Date().toISOString(),
+        pickupCode,
+        customerAddress: options?.customerAddress || '',
+        storePhone: storeInfo?.phone || storeItems[0]?.storePhone || ''
+      };
+
+      try {
+        await setDoc(doc(db, 'orders', orderId), cleanObject(newOrder));
+        
+        const itemSummary = storeItems.slice(0, 2).map(c => c.product.name).join(', ');
+        sendInAppNotification(storeId, {
+          title: `🛒 New Order from ${user.name || 'a customer'}`,
+          body: `${itemSummary}${storeItems.length > 2 ? ` +${storeItems.length - 2} more` : ''} — ₹${total}`,
+          url: '/vendor/orders',
+          type: 'order',
+          id: orderId
+        });
+      } catch (err: any) {
+        console.error("Firestore Order Error:", err);
+      }
     }
+
+    return firstOrderId;
   }, [user, cart, stores, clearCart]);
+
+  const requestProduct = React.useCallback(async (data: any) => {
+    if (!user) {
+      toast.error("Please login to request products");
+      return;
+    }
+    try {
+      await addDoc(collection(db, 'product_requests'), {
+        ...data,
+        userId: user.id,
+        userName: user.name || 'Customer',
+        userPhone: user.phone || '',
+        status: 'pending',
+        createdAt: new Date().toISOString()
+      });
+      toast.success("Request sent successfully!");
+    } catch (e) {
+      console.error("Product Request Error:", e);
+      toast.error("Failed to send request");
+    }
+  }, [user]);
 
   const updatePlan = React.useCallback(async (plan: PlanTier, months: number = 1, autoPay: boolean = false) => {
     if (!user) return;
@@ -994,13 +1056,16 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     clearCart, placeOrder, updatePlan, notifications, installPrompt,
     installPWA, updateUser, refreshOrders, refreshStores, refreshProducts, refreshData,
     markAllNotificationsRead, markNotificationAsRead, requestPushNotifications: async () => {},
+    productRequests, requestProduct,
     theme, toggleTheme
   }), [
     user, cart, orders, serviceBookings, stores, allProducts, loading,
     login, logout, refreshUser, addToCart, removeFromCart, updateQuantity,
     clearCart, placeOrder, updatePlan, notifications, installPrompt,
     installPWA, updateUser, refreshOrders, refreshStores, refreshProducts, refreshData,
-    markAllNotificationsRead, markNotificationAsRead, theme, toggleTheme
+    markAllNotificationsRead, markNotificationAsRead, 
+    productRequests, requestProduct,
+    theme, toggleTheme
   ]);
 
   return (

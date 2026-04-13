@@ -1,6 +1,6 @@
 import { useState, startTransition } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Minus, Plus, Trash2, CreditCard, Wallet, ArrowLeft, CheckCircle, AlertCircle, Clock, Phone, ShoppingBag, User as UserIcon, XCircle } from 'lucide-react';
+import { Minus, Plus, Trash2, CreditCard, Wallet, ArrowLeft, CheckCircle, AlertCircle, Clock, Phone, ShoppingBag, User as UserIcon, XCircle, Store } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import { useApp } from '@/context/AppContext';
@@ -29,9 +29,14 @@ const Cart = () => {
     );
   }
 
-  const currentStore = cart.length > 0 ? stores.find(s => s.id === cart[0].storeId) : null;
-  const offersDelivery = currentStore?.offersDelivery || false;
-  const deliveryFee = currentStore?.deliveryFee || 0;
+  // Group cart items by store
+  const cartGroups = cart.reduce((acc, item) => {
+    if (!acc[item.storeId]) acc[item.storeId] = { name: item.storeName, items: [], storeInfo: stores.find(s => s.id === item.storeId) };
+    acc[item.storeId].items.push(item);
+    return acc;
+  }, {} as Record<string, { name: string, items: any[], storeInfo?: any }>);
+
+  const groupIds = Object.keys(cartGroups);
 
   const subtotal = cart.reduce((s, c) => {
     const price = (c.product.discountedPrice && Number(c.product.discountedPrice) > 0 && Number(c.product.discountedPrice) < c.product.price) 
@@ -39,16 +44,15 @@ const Cart = () => {
       : c.product.price;
     return s + price * c.quantity;
   }, 0);
+
+  // For multi-shop, we'll take the max delivery fee or a flat fee
+  const deliveryFee = Math.max(...groupIds.map(id => cartGroups[id].storeInfo?.deliveryFee || 0));
   const total = subtotal + (selectedDelivery === 'delivery' ? deliveryFee : 0);
 
   // Check if any store in the cart is closed, blocked or expired
-  const restrictedStores = cart.reduce((acc, item) => {
-    const store = stores.find(s => s.id === item.storeId);
-    if (store && (!store.isOpen || store.isBlocked || store.plan === 'none' || !store.plan) && !acc.some(s => s.id === store.id)) {
-      acc.push(store);
-    }
-    return acc;
-  }, [] as any[]);
+  const restrictedStores = groupIds
+    .map(id => cartGroups[id].storeInfo)
+    .filter(store => store && (!store.isOpen || store.isBlocked || store.plan === 'none' || !store.plan));
 
   const isCheckoutDisabled = restrictedStores.length > 0;
 
@@ -121,48 +125,100 @@ const Cart = () => {
           </div>
         ) : (
           <>
-            <div className="space-y-3 mb-6">
-              {cart.map((item, i) => (
-                <motion.div
-                  key={item.product.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.05 }}
-                  className="bg-white dark:bg-[#202020] rounded-[1.8rem] p-4 flex gap-4 border border-border/40 shadow-sm hover:shadow-md transition-all group"
-                >
-                  <div className="relative w-20 h-20 shrink-0">
-                    <img src={item.product.image} alt={item.product.name} className="w-full h-full rounded-2xl object-cover transition-transform group-hover:scale-110" />
+            {groupIds.length > 1 && (
+              <motion.div 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-primary/5 border border-primary/20 rounded-3xl p-5 mb-8 flex items-center gap-4 relative overflow-hidden group"
+              >
+                <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -translate-x-12 -translate-y-12 blur-3xl" />
+                <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0 border border-primary/20 shadow-xl shadow-primary/5">
+                  <ShoppingBag className="w-7 h-7 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="px-2 py-0.5 rounded-lg bg-primary text-black text-[9px] font-black uppercase tracking-widest">Multi-Store</span>
+                    <span className="text-[10px] text-primary font-bold uppercase tracking-widest animate-pulse">Thread Active</span>
                   </div>
-                  <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
+                  <h2 className="text-lg font-black text-foreground tracking-tight leading-none mb-1.5">Thread Order Mode</h2>
+                  <p className="text-xs text-muted-foreground font-medium leading-relaxed">
+                    You're ordering from <span className="text-foreground font-black underline decoration-primary/30 decoration-2">{groupIds.length} different stores</span> at once.
+                  </p>
+                </div>
+                <div className="flex flex-col items-end gap-1 shrink-0 ml-2">
+                   <div className="flex -space-x-3">
+                      {groupIds.slice(0, 3).map((id, i) => (
+                        <div key={id} className={`w-8 h-8 rounded-full border-2 border-[#E8F0F2] dark:border-[#1A1A1A] bg-primary/20 flex items-center justify-center overflow-hidden shadow-md z-[${3-i}]`}>
+                          {cartGroups[id].storeInfo?.logo ? <img src={cartGroups[id].storeInfo.logo} className="w-full h-full object-cover" /> : <Store className="w-4 h-4 text-primary" />}
+                        </div>
+                      ))}
+                      {groupIds.length > 3 && (
+                        <div className="w-8 h-8 rounded-full border-2 border-[#E8F0F2] dark:border-[#1A1A1A] bg-secondary flex items-center justify-center text-[10px] font-black z-0 shadow-md">
+                          +{groupIds.length - 3}
+                        </div>
+                      )}
+                   </div>
+                </div>
+              </motion.div>
+            )}
+
+            <div className="space-y-8 mb-6">
+              {Object.entries(cartGroups).map(([storeId, group], groupIdx) => (
+                <div key={storeId} className="space-y-3">
+                  <div className="flex items-center gap-2 px-1">
+                    <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center">
+                      <Store className="w-4 h-4 text-primary" />
+                    </div>
                     <div>
-                      <h3 className="font-extrabold text-foreground text-[15px] tracking-tight line-clamp-1">{t(`products.${item.product.name}`, { defaultValue: item.product.name })}</h3>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        {item.product.quantity && (
-                          <span className="text-[9px] font-black text-primary bg-primary/5 px-1.5 py-0.5 rounded-md border border-primary/10 w-fit">
-                            {item.product.quantity.includes(' - ') ? item.product.quantity : item.product.quantity.replace(/([0-9.]+)([a-zA-Z]+)/, '$1 - $2')}
-                          </span>
-                        )}
-                        <p className="text-[10px] font-black uppercase tracking-widest text-primary/60">{item.storeName}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between mt-auto">
-                      <span className="font-black text-foreground text-base">₹{item.product.price * item.quantity}</span>
-                      <div className="flex items-center gap-1.5 bg-secondary/30 p-1 rounded-xl border border-border/40">
-                        <button onClick={() => updateQuantity(item.product.id, item.quantity - 1)} className="w-7 h-7 rounded-lg bg-white dark:bg-[#333333] text-primary flex items-center justify-center shadow-sm hover:scale-105 active:scale-95 transition-all">
-                          <Minus className="w-3.5 h-3.5" />
-                        </button>
-                        <span className="text-xs font-black text-foreground w-5 text-center">{item.quantity}</span>
-                        <button onClick={() => updateQuantity(item.product.id, item.quantity + 1)} className="w-7 h-7 rounded-lg bg-primary text-white flex items-center justify-center shadow-md hover:scale-105 active:scale-95 transition-all">
-                          <Plus className="w-3.5 h-3.5" />
-                        </button>
-                        <div className="w-px h-4 bg-border/50 mx-0.5" />
-                        <button onClick={() => removeFromCart(item.product.id)} className="w-7 h-7 rounded-lg bg-destructive/10 text-destructive flex items-center justify-center hover:bg-destructive hover:text-white transition-all">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
+                      <h2 className="text-sm font-black text-foreground uppercase tracking-tight">{group.name}</h2>
+                      <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">
+                        {group.items.length} {t('common.items')}
+                      </p>
                     </div>
                   </div>
-                </motion.div>
+                  
+                  <div className="space-y-3">
+                    {group.items.map((item, i) => (
+                      <motion.div
+                        key={item.product.id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: (groupIdx * 0.1) + (i * 0.05) }}
+                        className="bg-white dark:bg-[#202020] rounded-[1.8rem] p-4 flex gap-4 border border-border/40 shadow-sm hover:shadow-md transition-all group"
+                      >
+                        <div className="relative w-20 h-20 shrink-0">
+                          <img src={item.product.image} alt={item.product.name} className="w-full h-full rounded-2xl object-cover transition-transform group-hover:scale-110" />
+                        </div>
+                        <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
+                          <div>
+                            <h3 className="font-extrabold text-foreground text-[15px] tracking-tight line-clamp-1">{t(`products.${item.product.name}`, { defaultValue: item.product.name })}</h3>
+                            {item.product.quantity && (
+                              <span className="text-[9px] font-black text-primary bg-primary/5 px-1.5 py-0.5 rounded-md border border-primary/10 w-fit block mt-0.5">
+                                {item.product.quantity.includes(' - ') ? item.product.quantity : item.product.quantity.replace(/([0-9.]+)([a-zA-Z]+)/, '$1 - $2')}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center justify-between mt-auto">
+                            <span className="font-black text-foreground text-base">₹{item.product.price * item.quantity}</span>
+                            <div className="flex items-center gap-1.5 bg-secondary/30 p-1 rounded-xl border border-border/40">
+                              <button onClick={() => updateQuantity(item.product.id, item.quantity - 1)} className="w-7 h-7 rounded-lg bg-white dark:bg-[#333333] text-primary flex items-center justify-center shadow-sm hover:scale-105 active:scale-95 transition-all">
+                                <Minus className="w-3.5 h-3.5" />
+                              </button>
+                              <span className="text-xs font-black text-foreground w-5 text-center">{item.quantity}</span>
+                              <button onClick={() => updateQuantity(item.product.id, item.quantity + 1)} className="w-7 h-7 rounded-lg bg-primary text-white flex items-center justify-center shadow-md hover:scale-105 active:scale-95 transition-all">
+                                <Plus className="w-3.5 h-3.5" />
+                              </button>
+                              <div className="w-px h-4 bg-border/50 mx-0.5" />
+                              <button onClick={() => removeFromCart(item.product.id)} className="w-7 h-7 rounded-lg bg-destructive/10 text-destructive flex items-center justify-center hover:bg-destructive hover:text-white transition-all">
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
 
@@ -189,7 +245,7 @@ const Cart = () => {
             {/* Summary */}
             <div className="glass rounded-2xl p-6 mb-6">
 
-              {offersDelivery && (
+              {groupIds.some(id => cartGroups[id].storeInfo?.offersDelivery) && (
                 <div className="mb-6 space-y-3 pb-4 border-b border-border/50">
                   <h3 className="text-sm font-bold text-foreground">{t('common.delivery_method')}</h3>
                   <div className="grid grid-cols-2 gap-3">
@@ -238,7 +294,7 @@ const Cart = () => {
                   onClick={() => startOrder(selectedDelivery === 'pickup' ? 'pickup' : 'delivery')}
                   className={`py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all ${isCheckoutDisabled ? 'bg-secondary text-muted-foreground opacity-50 cursor-not-allowed' : 'gradient-primary text-primary-foreground hover:shadow-lg hover:shadow-primary/20 active:scale-95'}`}
                 >
-                  <Wallet className="w-4 h-4" /> {selectedDelivery === 'pickup' ? t('common.pay_on_pickup') : 'Get Delivery'}
+                  <Wallet className="w-4 h-4" /> {groupIds.length > 1 ? 'Start Thread Order' : (selectedDelivery === 'pickup' ? t('common.pay_on_pickup') : 'Get Delivery')}
                 </button>
                 <button
                   disabled={isCheckoutDisabled}
@@ -293,9 +349,9 @@ const Cart = () => {
               <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
                 <AlertCircle className="w-8 h-8 text-primary" />
               </div>
-              <h2 className="text-xl font-bold text-foreground mb-2">{t('common.confirm_order')}</h2>
+              <h2 className="text-xl font-bold text-foreground mb-2">{groupIds.length > 1 ? 'Start Thread Order?' : t('common.confirm_order')}</h2>
               <p className="text-sm text-muted-foreground mb-6">
-                {t('common.place_order_confirm')} <strong>{pendingMethod === 'pickup' ? t('common.pay_on_pickup') : pendingMethod === 'delivery' ? t('common.pay_on_delivery') : t('common.pay_online')}</strong>?
+                {groupIds.length > 1 ? `This will initiate a multi-store thread covering all ${groupIds.length} orders.` : t('common.place_order_confirm')} <strong>{pendingMethod === 'pickup' ? t('common.pay_on_pickup') : pendingMethod === 'delivery' ? t('common.pay_on_delivery') : t('common.pay_online')}</strong>?
               </p>
               <div className="grid gap-3">
                 <button

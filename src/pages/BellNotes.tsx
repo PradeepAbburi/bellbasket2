@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, X, ArrowLeft, Trash2, ShoppingBasket, Clock, Search, Package2, ListTodo, MoreVertical, Edit2, AlertCircle, FileText, PackageX, StickyNote, ChevronRight } from 'lucide-react';
+import { Plus, X, ArrowLeft, Trash2, Clock, Search, Package2, ListTodo, MoreVertical, Edit2, AlertCircle, FileText, PackageX, StickyNote, ChevronRight, Phone, CheckCircle2, MessageCircle, Info, ArrowRight, PackageSearch } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import { useApp } from '@/context/AppContext';
@@ -50,22 +50,23 @@ const NoteCard = ({ note, onEdit, onDeleteClick, index }: { note: Note, onEdit: 
                   <>
                       <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
                       <motion.div
-                          initial={{ opacity: 0, scale: 0.95 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          exit={{ opacity: 0, scale: 0.95 }}
-                          className="absolute right-0 top-full mt-1 w-36 bg-[#141414] border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden"
+                          initial={{ opacity: 0, scale: 0.9, y: -10 }}
+                          animate={{ opacity: 1, scale: 1, y: 0 }}
+                          exit={{ opacity: 0, scale: 0.9, y: -10 }}
+                          className="absolute right-0 top-[110%] w-48 bg-[#141414] border border-white/10 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-50 overflow-hidden backdrop-blur-xl"
                       >
                           <button 
                               onClick={() => { onEdit(note); setShowMenu(false); }}
-                              className="w-full px-3.5 py-2.5 text-left text-[11px] font-semibold text-white/50 hover:bg-white/5 hover:text-white transition-all flex items-center gap-2"
+                              className="w-full px-5 py-4 text-left text-sm font-black uppercase tracking-widest text-white/40 hover:bg-white/[0.03] hover:text-primary transition-all flex items-center justify-between"
                           >
-                              <Edit2 className="w-3 h-3" /> Edit
+                              Edit Note <Edit2 className="w-4 h-4" />
                           </button>
+                          <div className="h-[1px] bg-white/[0.04]" />
                           <button 
                               onClick={() => { onDeleteClick(note); setShowMenu(false); }}
-                              className="w-full px-3.5 py-2.5 text-left text-[11px] font-semibold text-rose-400/60 hover:bg-rose-500/10 hover:text-rose-400 transition-all flex items-center gap-2"
+                              className="w-full px-5 py-4 text-left text-sm font-black uppercase tracking-widest text-rose-500/60 hover:bg-rose-500/5 hover:text-rose-500 transition-all flex items-center justify-between"
                           >
-                              <Trash2 className="w-3 h-3" /> Delete
+                              Delete <Trash2 className="w-4 h-4" />
                           </button>
                       </motion.div>
                   </>
@@ -79,7 +80,7 @@ const NoteCard = ({ note, onEdit, onDeleteClick, index }: { note: Note, onEdit: 
 
 const BellNotes = () => {
   const navigate = useNavigate();
-  const { user } = useApp();
+  const { user, productRequests, updateUser } = useApp();
   const [notes, setNotes] = useState<Note[]>([]);
   const [oosProducts, setOosProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -88,13 +89,14 @@ const BellNotes = () => {
   const [deletingNote, setDeletingNote] = useState<Note | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedRequest, setSelectedRequest] = useState<any>(null);
   
   const [formData, setFormData] = useState({
     itemName: '',
     quantity: '',
     description: ''
   });
-  const [activeTab, setActiveTab] = useState<'note' | 'oos'>('note');
+  const [activeTab, setActiveTab] = useState<'note' | 'oos' | 'requests'>('note');
 
   // Fetch notes from Firestore (real-time)
   useEffect(() => {
@@ -141,6 +143,15 @@ const BellNotes = () => {
     if (!searchQuery.trim()) return oosProducts;
     return oosProducts.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
   }, [oosProducts, searchQuery]);
+
+  const filteredRequests = useMemo(() => {
+    const vendorRequests = productRequests.filter(r => r.storeId === user?.id);
+    if (!searchQuery.trim()) return vendorRequests;
+    return vendorRequests.filter(r => 
+      r.productName.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      r.userName?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [productRequests, searchQuery, user?.id]);
 
   const handleSaveNote = async () => {
     if (!formData.itemName.trim() || !formData.quantity.trim() || !user) {
@@ -255,10 +266,10 @@ const BellNotes = () => {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-3 mb-6">
+        <div className="flex gap-2 mb-6 overflow-x-auto pb-2 scrollbar-hide">
             <button
                 onClick={() => setActiveTab('note')}
-                className={`flex-1 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2.5 ${
+                className={`flex-1 min-w-[100px] py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
                     activeTab === 'note' 
                         ? 'bg-primary text-black shadow-lg shadow-primary/20' 
                         : 'bg-white/[0.03] text-white/25 border border-white/[0.04] hover:bg-white/[0.06]'
@@ -268,17 +279,32 @@ const BellNotes = () => {
             </button>
             <button
                 onClick={() => setActiveTab('oos')}
-                className={`flex-1 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2.5 relative ${
+                className={`flex-1 min-w-[100px] py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 relative ${
                     activeTab === 'oos' 
                         ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/20' 
                         : 'bg-white/[0.03] text-white/25 border border-white/[0.04] hover:bg-white/[0.06]'
                 }`}
             >
-                <PackageX className="w-4 h-4" /> Out of Stock
+                <PackageX className="w-4 h-4" /> OOS
                 {oosProducts.length > 0 && (
-                    <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black ${
+                    <span className={`px-2 py-0.5 rounded-lg text-[8px] font-black ml-1.5 ${
                         activeTab === 'oos' ? 'bg-white/20' : 'bg-rose-500/20 text-rose-400'
                     }`}>{oosProducts.length}</span>
+                )}
+            </button>
+            <button
+                onClick={() => setActiveTab('requests')}
+                className={`flex-1 min-w-[110px] py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 relative ${
+                    activeTab === 'requests' 
+                        ? 'bg-amber-400 text-black shadow-lg shadow-amber-400/20' 
+                        : 'bg-white/[0.03] text-white/25 border border-white/[0.04] hover:bg-white/[0.06]'
+                }`}
+            >
+                <PackageSearch className="w-4 h-4" /> Req
+                {filteredRequests.filter(r => r.status === 'pending').length > 0 && (
+                    <span className={`px-2 py-0.5 rounded-lg text-[8px] font-black ml-1.5 ${
+                        activeTab === 'requests' ? 'bg-black/10' : 'bg-amber-400/20 text-amber-400'
+                    }`}>{filteredRequests.filter(r => r.status === 'pending').length}</span>
                 )}
             </button>
         </div>
@@ -297,6 +323,68 @@ const BellNotes = () => {
             ) : (
               filteredNotes.map((note, i) => (
                 <NoteCard key={note.id} note={note} onEdit={startEdit} onDeleteClick={setDeletingNote} index={i} />
+              ))
+            )}
+          </div>
+        )}
+
+        {/* Requests Tab */}
+        {activeTab === 'requests' && (
+          <div className="space-y-3">
+            {filteredRequests.length === 0 ? (
+              <div className="py-16 text-center px-6">
+                  <div className="w-12 h-12 bg-amber-400/5 rounded-xl flex items-center justify-center mx-auto mb-4 border border-amber-400/10">
+                      <PackageSearch className="w-5 h-5 text-amber-400/30" />
+                  </div>
+                  <p className="text-white/30 text-sm font-medium">{searchQuery ? 'No matches' : 'No requests yet'}</p>
+                  <p className="text-white/15 text-xs mt-1">Check back later for customer requests</p>
+              </div>
+            ) : (
+              filteredRequests.map((request, i) => (
+                <motion.div
+                    key={request.id}
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.04, duration: 0.3 }}
+                    onClick={() => setSelectedRequest(request)}
+                    className="bg-[#1A1A1A] rounded-3xl p-5 border border-white/[0.04] relative group overflow-hidden cursor-pointer active:scale-[0.98] transition-all"
+                >
+                    
+                    <div className="flex gap-4">
+                        {request.image && (
+                            <div className="w-20 h-20 rounded-2xl overflow-hidden bg-white/[0.02] border border-white/[0.05] shrink-0">
+                                <img src={request.image} alt={request.productName} className="w-full h-full object-cover" />
+                            </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between mb-1">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-white/30">{request.status}</span>
+                                </div>
+                                <div className="flex flex-col items-end">
+                                    <span className="text-[10px] text-white/10">{new Date(request.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
+                                    {request.status === 'fulfilled' && (
+                                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 mt-0.5" />
+                                    )}
+                                </div>
+                            </div>
+                            <h3 className="text-white font-bold text-base leading-snug">{request.productName}</h3>
+                            {request.description && (
+                                <p className="text-white/40 text-xs mt-1.5 line-clamp-1">{request.description}</p>
+                            )}
+                            
+                            <div className="flex items-center justify-between mt-4">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-6 h-6 rounded-full bg-white/5 flex items-center justify-center text-[10px] font-bold text-white/40">
+                                        {(request.userName || 'C').charAt(0)}
+                                    </div>
+                                    <span className="text-white/60 font-bold text-[11px] truncate whitespace-nowrap overflow-hidden max-w-[100px]">{request.userName || 'Customer'}</span>
+                                </div>
+                                <ArrowRight className="w-3.5 h-3.5 text-white/10 group-hover:text-amber-400 group-hover:translate-x-1 transition-all" />
+                            </div>
+                        </div>
+                    </div>
+                </motion.div>
               ))
             )}
           </div>
@@ -338,8 +426,8 @@ const BellNotes = () => {
                             )}
                         </div>
                     </div>
-                    <div className="px-3 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/10">
-                      <span className="text-rose-400 text-[9px] font-black uppercase tracking-wider">OOS</span>
+                    <div className="shrink-0 px-3 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/10">
+                      <span className="text-rose-400 text-[9px] font-black uppercase tracking-widest">OOS</span>
                     </div>
                   </div>
                 </motion.div>
@@ -475,6 +563,129 @@ const BellNotes = () => {
                     </motion.div>
                 </motion.div>
             )}
+        </AnimatePresence>
+        {/* Request Detail Modal */}
+        <AnimatePresence>
+          {selectedRequest && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[1001] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+              onClick={() => setSelectedRequest(null)}
+            >
+              <motion.div
+                initial={{ scale: 0.9, y: 20 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.9, y: 20 }}
+                className="bg-[#1A1A1A] w-full max-w-sm rounded-[3rem] overflow-hidden shadow-2xl border border-white/5"
+                onClick={e => e.stopPropagation()}
+              >
+                {selectedRequest.image && (
+                  <div className="aspect-square w-full bg-black relative">
+                    <img src={selectedRequest.image} alt="Preview" className="w-full h-full object-contain" />
+                    <button 
+                      onClick={() => setSelectedRequest(null)}
+                      className="absolute top-6 right-6 p-2 rounded-full bg-black/40 text-white backdrop-blur-md hover:bg-black/60 transition-all border border-white/10"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                    <div className="absolute bottom-6 right-6 px-3 py-1 rounded-lg bg-amber-400 text-black text-[10px] font-black uppercase tracking-widest shadow-xl">
+                        Product Req
+                    </div>
+                  </div>
+                )}
+                
+                <div className="p-8">
+                  <div className="flex justify-between items-start mb-6">
+                    <div>
+                        {!selectedRequest.image && <p className="text-amber-400 text-[10px] font-black uppercase tracking-[0.2em] mb-2">Service Req</p>}
+                        <h2 className="text-2xl font-black text-white leading-tight">{selectedRequest.productName}</h2>
+                        <div className="flex items-center gap-2 mt-2">
+                            <Clock className="w-3.5 h-3.5 text-white/20" />
+                            <span className="text-[11px] font-bold text-white/30 uppercase tracking-wider">
+                                {new Date(selectedRequest.createdAt).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })} • {new Date(selectedRequest.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })}
+                            </span>
+                        </div>
+                    </div>
+                    {!selectedRequest.image && (
+                        <button onClick={() => setSelectedRequest(null)} className="p-2 rounded-xl bg-white/[0.04] text-white/20 hover:text-white transition-all">
+                            <X className="w-5 h-5" />
+                        </button>
+                    )}
+                  </div>
+                  
+                  <div className="space-y-6">
+                    <div className="p-5 rounded-3xl bg-white/[0.03] border border-white/[0.06]">
+                      <p className="text-sm text-white/60 leading-relaxed font-medium">
+                        {selectedRequest.description || "The customer provided no additional description for this item."}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary font-black text-xl">
+                            {(selectedRequest.userName || 'C').charAt(0)}
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-black text-white/20 uppercase tracking-widest mb-0.5">Req By</span>
+                            <span className="font-bold text-white text-lg">{selectedRequest.userName || 'Anonymous'}</span>
+                        </div>
+                      </div>
+                      {selectedRequest.userPhone && (
+                        <a href={`tel:${selectedRequest.userPhone}`} className="w-14 h-14 rounded-2xl bg-amber-400/10 border border-amber-400/20 flex items-center justify-center text-amber-400 shadow-xl shadow-amber-400/5 hover:scale-105 active:scale-95 transition-all group">
+                          <Phone className="w-6 h-6 group-hover:animate-shake" />
+                        </a>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col gap-3 pt-4">
+                       <div className="flex gap-3">
+                           {selectedRequest.status === 'pending' ? (
+                               <button 
+                                onClick={async () => {
+                                  const toastId = toast.loading("Finalizing request...");
+                                  try {
+                                    await updateDoc(doc(db, 'product_requests', selectedRequest.id), { status: 'fulfilled' });
+                                    toast.success("Request Fulfilled!", { id: toastId });
+                                    setSelectedRequest(null);
+                                  } catch (e) {
+                                    toast.error("Update failed", { id: toastId });
+                                  }
+                                }}
+                                className="flex-1 py-4 rounded-2xl bg-amber-400 text-black font-black text-xs uppercase tracking-[0.15em] shadow-xl shadow-amber-400/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"
+                               >
+                                 <CheckCircle2 className="w-4 h-4" /> Fulfilled
+                               </button>
+                           ) : (
+                               <div className="flex-1 py-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2">
+                                   <CheckCircle2 className="w-4 h-4" /> Completed
+                               </div>
+                           )}
+
+                           <button 
+                            onClick={async () => {
+                              if (!window.confirm("Are you sure you want to delete this request?")) return;
+                              const toastId = toast.loading("Deleting request...");
+                              try {
+                                await deleteDoc(doc(db, 'product_requests', selectedRequest.id));
+                                toast.success("Request deleted", { id: toastId });
+                                setSelectedRequest(null);
+                              } catch (e) {
+                                toast.error("Deletion failed", { id: toastId });
+                              }
+                            }}
+                            className="w-14 h-14 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center shrink-0 shadow-lg shadow-rose-500/5"
+                           >
+                             <Trash2 className="w-5 h-5" />
+                           </button>
+                       </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
         </AnimatePresence>
       </div>
     </div>

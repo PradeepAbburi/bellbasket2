@@ -168,7 +168,7 @@ const ProductCard = memo(({ p, count, onAdd, onUpdate, onRemove, onClick, t }: {
         )}
         {p.inStock === false && (
           <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] flex items-center justify-center z-10 transition-all">
-            <span className="bg-rose-500 text-white text-[9px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest shadow-xl">Out of Stock</span>
+            <span className="bg-rose-500 text-white text-[9px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest shadow-xl">OOS</span>
           </div>
         )}
       </div>
@@ -185,7 +185,7 @@ const ProductCard = memo(({ p, count, onAdd, onUpdate, onRemove, onClick, t }: {
         <div className="mt-auto pt-3 border-t border-slate-100 dark:border-white/5" onClick={e => e.stopPropagation()}>
           {p.inStock === false ? (
             <button disabled className="w-full h-8 rounded-xl bg-muted text-muted-foreground text-[9px] font-black flex items-center justify-center uppercase tracking-widest cursor-not-allowed">
-              Sold Out
+              OOS
             </button>
           ) : count === 0 ? (
             <button onClick={onAdd} className="w-full h-8 rounded-xl bg-primary text-white text-[10px] font-black flex items-center justify-center gap-1.5 hover:bg-primary/90 active:scale-[0.98] transition-all shadow-lg shadow-primary/20">
