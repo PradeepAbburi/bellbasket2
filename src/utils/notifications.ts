@@ -76,9 +76,13 @@ export const playBellSound = async (forceSound = false) => {
         
         console.log(`🔔 [Notifications] Triggering bell sound (Force: ${forceSound})`);
         
-        // 📳 Haptic feedback for mobile - do this immediately
-        if ('vibrate' in navigator) {
-            navigator.vibrate([100, 50, 100]); 
+        // 📳 Haptic feedback for mobile - only if user has interacted (primed)
+        if ('vibrate' in navigator && isAudioPrimed) {
+            try {
+                navigator.vibrate([100, 50, 100]); 
+            } catch (e) {
+                // Silent fail for vibration restrictions
+            }
         }
 
         // Re-init if missing
