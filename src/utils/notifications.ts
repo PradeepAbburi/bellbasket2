@@ -185,7 +185,9 @@ export const sendInAppNotification = async (
         console.log(`[Notification] In-app alert queued for user ${targetUserId} (Type: ${notification.type})`);
 
         // Attempt push notification via backend. 
-        // Note: This 404s on local 'npm run dev' unless a backend server is running on port 8080.
+        // Note: This 404s on local 'npm run dev' unless 'vercel dev' is used.
+        const isLocal = window.location.hostname === 'localhost';
+        
         fetch('/api/notify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -198,12 +200,22 @@ export const sendInAppNotification = async (
             })
         }).then(async (res) => {
             if (!res.ok) {
+                if (res.status === 404 && isLocal) {
+                    console.info('ℹ️ [Push] Backend notified: 404 (Local dev skip). Tip: Run "vercel dev" to test local push notifications.');
+                    return;
+                }
                 const errData = await res.json().catch(() => ({ error: 'Unknown Error' }));
-                console.error('❌ [Push] Backend failed:', res.status, errData);
+                console.warn('⚠️ [Push] Backend skipped/failed:', res.status, errData);
             } else {
                 console.log('✅ [Push] Backend notified successfully');
             }
-        }).catch(err => console.error('❌ [Push] Network/Fetch failed:', err));
+        }).catch(err => {
+            if (isLocal) {
+                console.info('ℹ️ [Push] Backend unreachable (Local dev).');
+            } else {
+                console.error('❌ [Push] Network/Fetch failed:', err);
+            }
+        });
 
     } catch (err) {
         console.error('[Notification] Failed to send in-app alert:', err);

@@ -44,9 +44,24 @@ const StoreDetail = () => {
   const [store, setStore] = useState<any>(() => location.state?.store || stores.find(s => s.id === id || (slug && s.slug === slug)));
   const [products, setProducts] = useState<Product[]>(() => {
     const targetId = (location.state?.store?.id) || stores.find(s => s.id === id || (slug && s.slug === slug))?.id || id;
-    return allProducts.filter(p => p.vendorId === targetId);
+    const contextProducts = allProducts.filter(p => p.vendorId === targetId);
+    // Instant Enrichment for context products
+    return contextProducts.map(p => {
+      if (p.isCombo && p.comboItems && p.comboItems.length > 0) {
+        return {
+          ...p,
+          comboItemsData: contextProducts.filter(item => p.comboItems?.includes(item.id))
+        };
+      }
+      return p;
+    });
   });
-  const [loading, setLoading] = useState(!store); // Instant render if we have store metadata
+  const [loading, setLoading] = useState(() => {
+    const targetId = (location.state?.store?.id) || stores.find(s => s.id === id || (slug && s.slug === slug))?.id || id;
+    const hasStore = !!(location.state?.store || stores.find(s => s.id === id || (slug && s.slug === slug)));
+    const hasProducts = allProducts.some(p => p.vendorId === targetId);
+    return !(hasStore && hasProducts);
+  });
   const [showReviews, setShowReviews] = useState(false);
   const [searchTerm, setSearchTerm] = useState(searchQueryFromUrl || '');
   const [isSearching, setIsSearching] = useState(false);
@@ -145,127 +160,97 @@ const StoreDetail = () => {
     return Array.from(suggestions).map(s => JSON.parse(s)).slice(0, 10);
   }, [searchTerm, products, isSearching, activeSearch]);
 
-  // 1. Setup Real-time Store Listener & Fetch Products
+  // 1. Setup Data Sync
   useEffect(() => {
     if (!id && !slug) return;
 
     let unsubscribeStore: (() => void) | null = null;
+    let isMounted = true;
 
     const setupListener = (storeId: string) => {
       return onSnapshot(doc(db, 'stores', storeId), async (snap) => {
-        if (snap.exists()) {
+        if (snap.exists() && isMounted) {
           const data = snap.data();
           let phone = data.phone;
           let ownerName = data.ownerName;
 
           if ((!phone || !ownerName) && data.vendorId) {
-            try {
-              const userSnap = await getDoc(doc(db, 'users', data.vendorId));
-              if (userSnap.exists()) {
-                const userData = userSnap.data();
-                if (!phone) phone = userData.phone;
-                if (!ownerName) ownerName = userData.name;
-              }
-            } catch (e) {
-              console.log("Failed to fetch vendor details", e);
-            }
+             const userSnap = await getDoc(doc(db, 'users', data.vendorId));
+             if (userSnap.exists()) {
+               const userData = userSnap.data();
+               if (!phone) phone = userData.phone;
+               if (!ownerName) ownerName = userData.name;
+             }
           }
 
-          setStore({ id: snap.id, ...data, phone, ownerName });
-
-          // Visibility Check
+          setStore((prev: any) => ({ ...prev, id: snap.id, ...data, phone, ownerName }));
+          
           if (data.isBlocked) {
-            toast.error("This store has been restricted by administrators.");
+            toast.error("This store has been restricted.");
             navigate('/', { replace: true });
-            return;
-          }
-          if (data.plan === 'none' || !data.plan) {
-            toast.info("This store is currently undergoing maintenance.");
-            navigate('/', { replace: true });
-            return;
           }
         }
-      }, (error) => {
-        console.warn("Real-time store sync failed:", error);
       });
     };
 
     const loadData = async () => {
       let targetId = id;
 
+      // 1. Resolve ID from slug if needed
       if (!targetId && slug) {
-        // Find store by slug
         const q = query(collection(db, 'stores'), where('slug', '==', slug));
         const snap = await getDocs(q);
         if (!snap.empty) {
           targetId = snap.docs[0].id;
-          const data = snap.docs[0].data();
-          setStore({ id: targetId, ...data });
+          if (isMounted) setStore({ id: targetId, ...snap.docs[0].data() });
         }
       }
 
-      if (targetId) {
+      if (targetId && isMounted) {
         unsubscribeStore = setupListener(targetId);
 
-        // Fetch products in background
-        // Removing artificial loading state to ensure instant feel
+        // 2. Parallel Product Fetch
         try {
           const q = query(collection(db, 'products'), where('vendorId', '==', targetId));
           const querySnapshot = await getDocs(q);
+          
+          if (!isMounted) return;
+
           const productData = querySnapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
           })) as Product[];
 
           if (productData.length > 0) {
+            // Optimization: Use a Map for O(1) enrichment lookups
+            const productMap = new Map(productData.map(p => [p.id, p]));
             const enriched = productData.map(p => {
-              if (p.isCombo && p.comboItems && p.comboItems.length > 0) {
+              if (p.isCombo && p.comboItems?.length) {
                 return {
                   ...p,
-                  comboItemsData: productData.filter(item => p.comboItems?.includes(item.id))
+                  comboItemsData: p.comboItems.map(cid => productMap.get(cid)).filter(Boolean) as Product[]
                 };
               }
               return p;
             });
             setProducts(enriched);
-          } else {
-            console.log("No DB products found, trying context for", targetId);
-            const contextProducts = allProducts.filter(p => p.vendorId === targetId);
-            const enrichedContext = contextProducts.map(p => {
-              if (p.isCombo && p.comboItems && p.comboItems.length > 0) {
-                return {
-                  ...p,
-                  comboItemsData: contextProducts.filter(item => p.comboItems?.includes(item.id))
-                };
-              }
-              return p;
-            });
-            setProducts(enrichedContext);
-          }
-
-          // If store is still missing from state (e.g. context was empty on mount), try syncing from context
-          if (!store) {
-            const contextStore = stores.find(s => s.id === targetId || s.slug === slug);
-            if (contextStore) setStore(contextStore);
           }
         } catch (error) {
-          console.warn("Product fetch failed:", error);
-          // Fallback to context products on error
-          const contextProducts = allProducts.filter(p => p.vendorId === targetId);
-          setProducts(contextProducts);
+          console.warn("Product refresh failed, using context", error);
         } finally {
-          setLoading(false);
+          if (isMounted) setLoading(false);
         }
-      } else {
+      } else if (isMounted) {
         setLoading(false);
       }
     };
 
     loadData();
     return () => {
+      isMounted = false;
       if (unsubscribeStore) unsubscribeStore();
     };
-  }, [id, slug, stores, allProducts]); // Re-run when context loads or ID/slug changes
+  }, [id, slug]); // Reduced dependencies to prevent infinite loops
 
   const filteredProducts = useMemo(() => {
     let result = smartSearchProducts(products, activeSearch) as Product[];
@@ -320,7 +305,12 @@ const StoreDetail = () => {
     return days;
   }, [bookingService]);
 
-  const getCartQty = (productId: string) => cart.find(c => c.product.id === productId)?.quantity || 0;
+  const getCartQty = (productId: string, variantId?: string) => {
+    if (variantId) {
+      return cart.find(c => c.product.id === productId && c.selectedVariant?.id === variantId)?.quantity || 0;
+    }
+    return cart.find(c => c.product.id === productId && !c.selectedVariant)?.quantity || 0;
+  };
 
   const isServiceStore = store?.storeType === 'service';
 
@@ -933,151 +923,130 @@ const StoreDetail = () => {
                   ))
                 ) : (
                   <>
-                    {activeSearch && (
+                {activeSearch && (
                   <div className="flex items-center justify-between px-1 mb-6">
                     <h2 className="text-xl font-bold text-foreground">{t('common.showing_results')} "{activeSearch}"</h2>
                     <span className="text-sm text-muted-foreground font-bold">{filteredProducts.length} {t('common.items')} found</span>
                   </div>
                 )}
-                {Object.entries(
-                  filteredProducts.reduce((acc, p) => {
+                {(() => {
+                  const groupedMap: Record<string, Product[]> = {};
+                  filteredProducts.forEach(p => {
                     const cat = p.category || 'Other Items';
-                    if (!acc[cat]) acc[cat] = [];
-                    acc[cat].push(p);
-                    return acc;
-                  }, {} as Record<string, Product[]>)
-                ).map(([category, items], ci) => (
-                  <motion.div
-                    key={category}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: ci * 0.1 }}
-                    className="space-y-4"
-                  >
-                    <div className="flex items-center gap-4 px-1">
-                      {CATEGORY_METADATA[category] && (
-                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center bg-gradient-to-br ${CATEGORY_METADATA[category].gradient} text-white shadow-md`}>
-                          {(() => {
-                            const Icon = CATEGORY_METADATA[category].icon;
-                            return <Icon className="w-6 h-6" />;
-                          })()}
-                        </div>
-                      )}
-                      <h2 className="text-2xl font-black text-foreground tracking-tight">{t(`categories.${category}`, { defaultValue: category })}</h2>
-                      <div className="h-px flex-1 bg-border/50" />
-                      <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">{items.length} {t('common.units')}</span>
-                    </div>
+                    if (!groupedMap[cat]) groupedMap[cat] = [];
+                    groupedMap[cat].push(p);
+                  });
+                  
+                  return Object.entries(groupedMap).map(([category, items], ci) => (
+                    <motion.div
+                      key={category}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: ci * 0.1 }}
+                      className="space-y-4"
+                    >
+                      <div className="flex items-center gap-4 px-1">
+                        {CATEGORY_METADATA[category] && (
+                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center bg-gradient-to-br ${CATEGORY_METADATA[category].gradient} text-white shadow-md`}>
+                            {(() => {
+                              const Icon = CATEGORY_METADATA[category].icon;
+                              return <Icon className="w-6 h-6" />;
+                            })()}
+                          </div>
+                        )}
+                        <h2 className="text-2xl font-black text-foreground tracking-tight">{t(`categories.${category}`, { defaultValue: category })}</h2>
+                        <div className="h-px flex-1 bg-border/50" />
+                        <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">{items.length} {t('common.units')}</span>
+                      </div>
 
-                    <div className="relative group/slider">
-                      {/* Left Scroll Button (Desktop Only) */}
-                      <button
-                        onClick={() => scrollContainer(category, 'left')}
-                        className="absolute -left-4 top-1/2 -translate-y-1/2 z-20 hidden md:group-hover/slider:flex w-10 h-10 bg-white dark:bg-slate-800 shadow-xl rounded-full items-center justify-center border border-border/50 text-foreground hover:bg-secondary transition-all opacity-0 group-hover/slider:opacity-100"
-                      >
-                        <ChevronLeft className="w-6 h-6" />
-                      </button>
+                      <div className="relative group/slider">
+                        <button
+                          onClick={() => scrollContainer(category, 'left')}
+                          className="absolute -left-4 top-1/2 -translate-y-1/2 z-20 hidden md:group-hover/slider:flex w-10 h-10 bg-white dark:bg-slate-800 shadow-xl rounded-full items-center justify-center border border-border/50 text-foreground hover:bg-secondary transition-all opacity-0 group-hover/slider:opacity-100"
+                        >
+                          <ChevronLeft className="w-6 h-6" />
+                        </button>
 
-                      {/* Right Scroll Button (Desktop Only) */}
-                      <button
-                        onClick={() => scrollContainer(category, 'right')}
-                        className="absolute -right-4 top-1/2 -translate-y-1/2 z-20 hidden md:group-hover/slider:flex w-10 h-10 bg-white dark:bg-slate-800 shadow-xl rounded-full items-center justify-center border border-border/50 text-foreground hover:bg-secondary transition-all opacity-0 group-hover/slider:opacity-100"
-                      >
-                        <ChevronRight className="w-6 h-6" />
-                      </button>
+                        <button
+                          onClick={() => scrollContainer(category, 'right')}
+                          className="absolute -right-4 top-1/2 -translate-y-1/2 z-20 hidden md:group-hover/slider:flex w-10 h-10 bg-white dark:bg-slate-800 shadow-xl rounded-full items-center justify-center border border-border/50 text-foreground hover:bg-secondary transition-all opacity-0 group-hover/slider:opacity-100"
+                        >
+                          <ChevronRight className="w-6 h-6" />
+                        </button>
 
-                      <div
-                        id={`scroll-${category}`}
-                        className="flex overflow-x-auto snap-x snap-mandatory gap-3 md:gap-4 pb-4 pt-2 -mx-4 px-4 md:px-2 md:-mx-2 scroll-smooth scrollbar-hide"
-                      >
-                        {items.map((product, pi) => {
-                          const variantInCart = cart.find(c => c.product.id === product.id && c.selectedVariant)?.selectedVariant;
-                          const qty = getCartQty(product.id, variantInCart?.id);
-                          
-                          const baseHasDiscount = !!product.discountedPrice && Number(product.discountedPrice) > 0 && Number(product.discountedPrice) < product.price;
-                          const variantHasDiscount = variantInCart ? (!!variantInCart.discountedPrice && variantInCart.discountedPrice < variantInCart.price) : false;
-                          
-                          const hasDiscount = variantInCart ? variantHasDiscount : baseHasDiscount;
-                          const discountedPrice = variantInCart 
-                            ? (variantHasDiscount ? variantInCart.discountedPrice : variantInCart.price)
-                            : (baseHasDiscount ? Number(product.discountedPrice) : product.price);
-                          const discountPercent = hasDiscount 
-                            ? Math.round((( (variantInCart ? variantInCart.price : product.price) - discountedPrice) / (variantInCart ? variantInCart.price : product.price)) * 100) 
-                            : 0;
-                          
-                          const displayQty = (variantInCart ? variantInCart.quantity : product.quantity) 
-                            ? ((variantInCart ? variantInCart.quantity : product.quantity).includes(' - ') 
-                                ? (variantInCart ? variantInCart.quantity : product.quantity) 
-                                : (variantInCart ? variantInCart.quantity : product.quantity).replace(/([0-9.]+)([a-zA-Z]+)/, '$1 - $2')) 
-                            : '';
+                        <div
+                          id={`scroll-${category}`}
+                          className="flex overflow-x-auto snap-x snap-mandatory gap-3 md:gap-4 pb-4 pt-2 -mx-4 px-4 md:px-2 md:-mx-2 scroll-smooth scrollbar-hide"
+                        >
+                          {items.map((product, pi) => {
+                            const variantInCart = cart.find(c => c.product.id === product.id && c.selectedVariant)?.selectedVariant;
+                            const qty = getCartQty(product.id, variantInCart?.id);
+                            
+                            const baseHasDiscount = !!product.discountedPrice && Number(product.discountedPrice) > 0 && Number(product.discountedPrice) < product.price;
+                            const variantHasDiscount = variantInCart ? (!!variantInCart.discountedPrice && variantInCart.discountedPrice < variantInCart.price) : false;
+                            
+                            const hasDiscount = variantInCart ? variantHasDiscount : baseHasDiscount;
+                            const discountedPrice = variantInCart 
+                              ? (variantHasDiscount ? variantInCart.discountedPrice : variantInCart.price)
+                              : (baseHasDiscount ? Number(product.discountedPrice) : product.price);
+                            const discountPercent = hasDiscount 
+                              ? Math.round((( (variantInCart ? variantInCart.price : product.price) - discountedPrice) / (variantInCart ? variantInCart.price : product.price)) * 100) 
+                              : 0;
+                            
+                            const displayQty = (variantInCart ? variantInCart.quantity : product.quantity) 
+                              ? ((variantInCart ? variantInCart.quantity : product.quantity).includes(' - ') 
+                                  ? (variantInCart ? variantInCart.quantity : product.quantity) 
+                                  : (variantInCart ? variantInCart.quantity : product.quantity).replace(/([0-9.]+)([a-zA-Z]+)/, '$1 - $2')) 
+                              : '';
 
-                          return (
-                            <motion.div
-                              key={product.id}
-                              id={`product-${product.id}`}
-                              initial={{ opacity: 0, y: 16 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              transition={{ delay: pi * 0.04 }}
-                              whileHover={{ y: -4, scale: 1.02 }}
-                              onClick={() => setSelectedProduct(product)}
-                              className={`w-[148px] sm:w-[168px] md:w-[190px] shrink-0 snap-start cursor-pointer bg-white dark:bg-[#202020] rounded-2xl border shadow-sm hover:shadow-xl transition-all duration-300 group flex flex-col overflow-hidden relative ${highlightedProductId === product.id
-                                ? 'border-primary ring-2 ring-primary/30 scale-105 z-10'
-                                : 'border-slate-200/80 dark:border-slate-700/60'
-                                } ${product.isCombo ? 'border-primary/40 bg-primary/[0.02]' : ''}`}
-                            >
-                              {/* Image section */}
-                              <div className="relative h-[130px] sm:h-[148px] overflow-hidden bg-slate-50 dark:bg-slate-800">
-                                {product.isCombo && product.comboItemsData && product.comboItemsData.length > 0 ? (
-                                  <div className="w-full h-full grid grid-cols-2 grid-rows-2 gap-[2px] bg-primary/20 relative">
-                                    {product.comboItemsData.slice(0, 4).map((c) => (
-                                      <img key={c.id} src={c.image} className="w-full h-full object-cover" alt="" />
-                                    ))}
-                                    {product.comboItemsData.length < 4 && Array.from({ length: 4 - product.comboItemsData.length }).map((_, i) => (
-                                      <div key={i} className="w-full h-full bg-zinc-900 flex items-center justify-center">
-                                        <PackageSearch className="w-4 h-4 text-primary/20" />
-                                      </div>
-                                    ))}
-                                    <div className="absolute inset-0 bg-gradient-to-tr from-primary/10 to-transparent pointer-events-none" />
-                                    <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded-md bg-yellow-500 text-[6px] font-black uppercase text-white shadow-lg tracking-wider z-20">Bundle</div>
-                                  </div>
-                                ) : (
-                                  <img
-                                    src={product.image}
-                                    alt={product.name}
-                                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-in-out"
-                                  />
-                                )}
-                                {/* Gradient overlay bottom */}
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent" />
-
-                                {/* Watermark */}
-                                {store?.useWatermark && (
-                                  <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none select-none">
-                                    {(store.logo && store.plan === 'pro') ? (
-                                      <img src={store.logo} alt="" className="w-9 h-9 object-contain opacity-10 -rotate-12 mix-blend-multiply grayscale" />
-                                    ) : (
-                                      <span className="text-[9px] font-black uppercase -rotate-12 opacity-20 text-primary">
-                                        {store.plan === 'pro' ? (store.brandText || store.name) : 'BellBasket'}
+                            return (
+                              <motion.div
+                                key={product.id}
+                                id={`product-${product.id}`}
+                                initial={{ opacity: 0, y: 16 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: pi * 0.04 }}
+                                whileHover={{ y: -4, scale: 1.02 }}
+                                onClick={() => setSelectedProduct(product)}
+                                className={`w-[148px] sm:w-[168px] md:w-[190px] shrink-0 snap-start cursor-pointer bg-white dark:bg-[#202020] rounded-2xl border shadow-sm hover:shadow-xl transition-all duration-300 group flex flex-col overflow-hidden relative ${highlightedProductId === product.id
+                                  ? 'border-primary ring-2 ring-primary/30 scale-105 z-10'
+                                  : 'border-slate-200/80 dark:border-slate-700/60'
+                                  } ${product.isCombo ? 'border-primary/40 bg-primary/[0.02]' : ''}`}
+                              >
+                                <div className="relative h-[130px] sm:h-[148px] overflow-hidden bg-slate-50 dark:bg-slate-800">
+                                  {product.isCombo && product.comboItemsData && product.comboItemsData.length > 0 ? (
+                                    <div className="w-full h-full grid grid-cols-2 grid-rows-2 gap-[2px] bg-primary/20 relative">
+                                      {product.comboItemsData.slice(0, 4).map((c) => (
+                                        <img key={c.id} src={c.image} className="w-full h-full object-cover" alt="" />
+                                      ))}
+                                      {product.comboItemsData.length < 4 && Array.from({ length: 4 - product.comboItemsData.length }).map((_, i) => (
+                                        <div key={i} className="w-full h-full bg-zinc-900 flex items-center justify-center">
+                                          <PackageSearch className="w-4 h-4 text-primary/20" />
+                                        </div>
+                                      ))}
+                                      <div className="absolute inset-0 bg-gradient-to-tr from-primary/10 to-transparent pointer-events-none" />
+                                      <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded-md bg-yellow-500 text-[6px] font-black uppercase text-white shadow-lg tracking-wider z-20">Bundle</div>
+                                    </div>
+                                  ) : (
+                                    <img
+                                      src={product.image}
+                                      alt={product.name}
+                                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-in-out"
+                                    />
+                                  )}
+                                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent" />
+                                  {!product.inStock && (
+                                    <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px] z-20 flex items-center justify-center">
+                                      <span className="text-white text-[9px] font-black uppercase tracking-widest bg-red-500/90 px-2.5 py-1 rounded-full shadow">
+                                        {t('common.out_of_stock', { defaultValue: 'OOS' })}
                                       </span>
-                                    )}
-                                  </div>
-                                )}
-
-                                {/* Out of stock */}
-                                {!product.inStock && (
-                                  <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px] z-20 flex items-center justify-center">
-                                    <span className="text-white text-[9px] font-black uppercase tracking-widest bg-red-500/90 px-2.5 py-1 rounded-full shadow">
-                                      {t('common.out_of_stock', { defaultValue: 'OOS' })}
-                                    </span>
-                                  </div>
-                                )}
-
-                                {/* Discount pill */}
-                                {hasDiscount && (
-                                  <div className="absolute top-2 left-2 z-20 bg-green-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded-md shadow uppercase tracking-tight">
-                                    {discountPercent}% OFF
-                                  </div>
-                                )}
-
+                                    </div>
+                                  )}
+                                  {hasDiscount && (
+                                    <div className="absolute top-2 left-2 z-20 bg-green-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded-md shadow uppercase tracking-tight">
+                                      {discountPercent}% OFF
+                                    </div>
+                                  )}
                                   <div className="absolute bottom-2 right-2 flex flex-col items-end gap-1.5 z-20">
                                     {displayQty && (
                                       <div className="bg-black/70 backdrop-blur-sm text-white text-[8px] font-bold px-1.5 py-0.5 rounded-md">
@@ -1085,128 +1054,85 @@ const StoreDetail = () => {
                                       </div>
                                     )}
                                   </div>
-                              </div>
-
-                              {/* Content */}
-                              <div className="flex flex-col flex-1 p-2.5">
-                                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider line-clamp-1 mb-0.5">
-                                  {product.category || ''}
-                                </p>
-                                <h3 className={`text-[13px] font-bold line-clamp-1 leading-snug mb-0.5 ${product.isCombo ? 'text-primary' : 'text-foreground'}`}>
-                                  {t(`products.${product.name}`, { defaultValue: product.name })}
-                                </h3>
-                                {product.isCombo && product.comboItemsData && (
-                                  <p className="text-[8px] text-zinc-500 font-bold uppercase truncate mt-0.5 tracking-tighter">
-                                    Includes: {product.comboItemsData.map(c => c.name).join(' + ')}
+                                </div>
+                                <div className="flex flex-col flex-1 p-2.5">
+                                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider line-clamp-1 mb-0.5">
+                                    {product.category || ''}
                                   </p>
-                                )}
-                                {(() => {
-                                  const desc = product.description
-                                    ? t(`products_desc.${product.name}`, { defaultValue: product.description })
-                                    : '';
-                                  return (
-                                    <div className="mb-1 relative">
-                                      <p className="text-[10px] text-muted-foreground line-clamp-2 leading-relaxed pr-10">
-                                        {desc}
-                                      </p>
-                                      {desc.length > 40 && (
-                                        <button
-                                          onClick={e => { e.stopPropagation(); setSelectedProduct(product); }}
-                                          className="absolute bottom-0 right-0 text-[10px] text-primary font-black hover:underline bg-white dark:bg-[#202020] px-1"
-                                        >
-                                          +more
-                                        </button>
+                                  <h3 className={`text-[13px] font-bold line-clamp-1 leading-snug mb-0.5 ${product.isCombo ? 'text-primary' : 'text-foreground'}`}>
+                                    {t(`products.${product.name}`, { defaultValue: product.name })}
+                                  </h3>
+                                  <div className="mt-auto pt-2">
+                                    <div className="flex items-baseline gap-1.5 mb-2">
+                                      <span className="text-[15px] font-black text-foreground leading-none">
+                                        ₹{discountedPrice}
+                                      </span>
+                                      {hasDiscount && (
+                                         <span className="text-[10px] text-muted-foreground line-through decoration-2">
+                                           ₹{variantInCart ? variantInCart.price : product.price}
+                                         </span>
                                       )}
                                     </div>
-                                  );
-                                })()}
-
-                                {/* Price */}
-                                <div className="mt-auto pt-2">
-                                  <div className="flex items-baseline gap-1.5 mb-2">
-                                    <span className="text-[15px] font-black text-foreground leading-none">
-                                      ₹{discountedPrice}
-                                    </span>
-                                    {hasDiscount && (
-                                       <span className="text-[10px] text-muted-foreground line-through decoration-2">
-                                         ₹{variantInCart ? variantInCart.price : product.price}
-                                       </span>
+                                    {product.inStock ? (
+                                      <div onClick={e => e.stopPropagation()}>
+                                        {isServiceStore ? (
+                                          <button
+                                            onClick={e => {
+                                              e.stopPropagation();
+                                              setBookingService(product);
+                                            }}
+                                            className="w-full h-8 rounded-xl bg-primary text-primary-foreground text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5"
+                                          >
+                                            Book Now
+                                          </button>
+                                        ) : (qty === 0 || product.hasVariants) ? (
+                                          <button
+                                            onClick={e => {
+                                              e.stopPropagation();
+                                              if (product.hasVariants) {
+                                                  setVariantSelectorProduct(product);
+                                              } else {
+                                                  const productToCart = hasDiscount ? { ...product, price: discountedPrice } : product;
+                                                  addToCart({ product: productToCart, storeId: store.id, storeName: store.name, storePhone: store.phone, quantity: 1 });
+                                              }
+                                            }}
+                                            className="w-full h-8 rounded-xl bg-primary text-primary-foreground text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5"
+                                          >
+                                            <Plus className="w-3.5 h-3.5" /> Add
+                                          </button>
+                                        ) : (
+                                          <div className="w-full flex items-center justify-between bg-primary rounded-xl px-2 py-1.5">
+                                            <button
+                                              onClick={e => { e.stopPropagation(); updateQuantity(product.id, qty - 1); }}
+                                              className="w-6 h-6 rounded-lg flex items-center justify-center text-primary-foreground"
+                                            >
+                                              <Minus className="w-3.5 h-3.5" />
+                                            </button>
+                                            <span className="text-[12px] font-black text-primary-foreground">{qty}</span>
+                                            <button
+                                              onClick={e => { e.stopPropagation(); updateQuantity(product.id, qty + 1); }}
+                                              className="w-6 h-6 rounded-lg flex items-center justify-center text-primary-foreground"
+                                            >
+                                              <Plus className="w-3.5 h-3.5" />
+                                            </button>
+                                          </div>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <div className="w-full h-8 rounded-xl bg-secondary/60 flex items-center justify-center">
+                                        <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">OOS</span>
+                                      </div>
                                     )}
                                   </div>
-                                  {/* Full-width Add / Qty stepper */}
-                                  {product.inStock ? (
-                                    <div onClick={e => e.stopPropagation()}>
-                                      {isServiceStore ? (
-                                        <motion.button
-                                          whileTap={{ scale: 0.95 }}
-                                          onClick={e => {
-                                            e.stopPropagation();
-                                            setBookingService(product);
-                                          }}
-                                          className="w-full h-8 rounded-xl bg-primary text-primary-foreground text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5 shadow-md shadow-primary/20 hover:opacity-90 active:scale-95 transition-all"
-                                        >
-                                          Book Now
-                                        </motion.button>
-                                      ) : (qty === 0 || product.hasVariants) ? (
-                                        <motion.button
-                                          whileTap={{ scale: 0.95 }}
-                                          onClick={e => {
-                                            e.stopPropagation();
-                                            if (product.hasVariants) {
-                                                setVariantSelectorProduct(product);
-                                            } else {
-                                                const productToCart = hasDiscount ? { ...product, price: discountedPrice } : product;
-                                                addToCart({ product: productToCart, storeId: store.id, storeName: store.name, storePhone: store.phone, quantity: 1 });
-                                            }
-                                          }}
-                                          className="w-full h-8 rounded-xl bg-primary text-primary-foreground text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5 shadow-md shadow-primary/20 hover:opacity-90 active:scale-95 transition-all"
-                                        >
-                                          {product.hasVariants && cart.some(c => c.product.id === product.id && c.selectedVariant) ? (
-                                            <>
-                                              <Plus className="w-3.5 h-3.5" />
-                                              Add More
-                                            </>
-                                          ) : (
-                                            <>
-                                              <Plus className="w-3.5 h-3.5" />
-                                              Add
-                                            </>
-                                          )}
-                                        </motion.button>
-                                      ) : (
-                                        <div className="w-full flex items-center justify-between bg-primary rounded-xl px-2 py-1.5">
-                                          <motion.button
-                                            whileTap={{ scale: 0.8 }}
-                                            onClick={e => { e.stopPropagation(); updateQuantity(product.id, qty - 1); }}
-                                            className="w-6 h-6 rounded-lg flex items-center justify-center text-primary-foreground hover:bg-primary-foreground/20 transition-all"
-                                          >
-                                            <Minus className="w-3.5 h-3.5" />
-                                          </motion.button>
-                                          <span className="text-[12px] font-black text-primary-foreground">{qty}</span>
-                                          <motion.button
-                                            whileTap={{ scale: 0.8 }}
-                                            onClick={e => { e.stopPropagation(); updateQuantity(product.id, qty + 1); }}
-                                            className="w-6 h-6 rounded-lg flex items-center justify-center text-primary-foreground hover:bg-primary-foreground/20 transition-all"
-                                          >
-                                            <Plus className="w-3.5 h-3.5" />
-                                          </motion.button>
-                                        </div>
-                                      )}
-                                    </div>
-                                  ) : (
-                                    <div className="w-full h-8 rounded-xl bg-secondary/60 flex items-center justify-center">
-                                      <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">OOS</span>
-                                    </div>
-                                  )}
                                 </div>
-                              </div>
-                             </motion.div>
-                          );
-                        })}
+                              </motion.div>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  </motion.div>
-                ))}
+                    </motion.div>
+                  ));
+                })()}
               </>
             )}
               </div>
@@ -1403,6 +1329,10 @@ const StoreDetail = () => {
                         >
                           Book Service
                         </motion.button>
+                      ) : activeComboItemIndex !== -1 ? (
+                        <div className="h-11 px-6 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center">
+                          <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest text-center leading-tight">Must Buy Full<br/>Bundle</span>
+                        </div>
                       ) : qtyInCart === 0 ? (
                         <motion.button
                           whileTap={{ scale: 0.92 }}
@@ -1414,9 +1344,9 @@ const StoreDetail = () => {
                                 addToCart({ product: productToCart, storeId: store.id, storeName: store.name, storePhone: store.phone, quantity: 1 });
                             }
                           }}
-                          className={`h-11 px-8 rounded-xl text-primary-foreground text-sm font-black uppercase tracking-widest shadow-lg hover:opacity-90 transition-all ${activeComboItemIndex === -1 ? 'gradient-primary' : 'bg-slate-500'}`}
+                          className="h-11 px-8 rounded-xl gradient-primary text-primary-foreground text-sm font-black uppercase tracking-widest shadow-lg hover:opacity-90 transition-all"
                         >
-                          {activeComboItemIndex === -1 ? 'Add Bundle' : 'Add Item'}
+                          Add Bundle
                         </motion.button>
                       ) : (
                         <div className="flex items-center gap-2 bg-primary rounded-xl px-2 py-1.5">
