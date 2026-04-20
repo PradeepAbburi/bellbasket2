@@ -80,20 +80,34 @@ const CustomerDeals = () => {
       const vendorIds = [...new Set(activeDeals.map(d => d.vendorId))];
 
       if (productIds.length > 0) {
-        const productsSnapshot = await getDocs(query(collection(db, 'products'), where('__name__', 'in', productIds)));
+        const fetchableProductIds = productIds.filter(id => !id.startsWith('bundle_'));
         const productsData: Record<string, Product> = {};
         const comboConstituentIds: string[] = [];
 
-        productsSnapshot.forEach(doc => {
-            const p = { id: doc.id, ...doc.data() } as Product;
-            productsData[doc.id] = p;
-            if (p.isCombo && p.comboItems && p.comboItems.length > 0) {
-              p.comboItems.forEach(id => {
-                if (!productIds.includes(id) && !comboConstituentIds.includes(id)) {
-                  comboConstituentIds.push(id);
+        if (fetchableProductIds.length > 0) {
+          // Find existing products for these IDs
+          const productsSnapshot = await getDocs(query(collection(db, 'products'), where('__name__', 'in', fetchableProductIds)));
+
+          productsSnapshot.forEach(doc => {
+              const p = { id: doc.id, ...doc.data() } as Product;
+              productsData[doc.id] = p;
+              if (p.isCombo && p.comboItems && p.comboItems.length > 0) {
+                p.comboItems.forEach(id => {
+                  if (!productIds.includes(id) && !comboConstituentIds.includes(id)) {
+                    comboConstituentIds.push(id);
+                  }
+                });
+              }
+          });
+        }
+
+        // Also add constituent IDs from on-the-fly combo deals
+        activeDeals.filter(d => d.isCombo && d.comboItems).forEach(d => {
+            d.comboItems?.forEach(id => {
+                if (!comboConstituentIds.includes(id) && !productsData[id]) {
+                    comboConstituentIds.push(id);
                 }
-              });
-            }
+            });
         });
 
         // Fetch missing constituent items for combos
@@ -105,12 +119,34 @@ const CustomerDeals = () => {
           }
           
           for (const chunk of chunks) {
-            const extraSnap = await getDocs(query(collection(db, 'products'), where('__name__', 'in', chunk)));
-            extraSnap.forEach(doc => {
-              productsData[doc.id] = { id: doc.id, ...doc.data() } as Product;
-            });
+            if (chunk.length > 0) {
+              const extraSnap = await getDocs(query(collection(db, 'products'), where('__name__', 'in', chunk)));
+              extraSnap.forEach(doc => {
+                productsData[doc.id] = { id: doc.id, ...doc.data() } as Product;
+              });
+            }
           }
         }
+
+        // Now synthesize the shim products for on-the-fly combo deals
+        activeDeals.forEach(deal => {
+            if (deal.isCombo && !productsData[deal.productId]) {
+                const firstItem = deal.comboItems?.map(id => productsData[id]).find(Boolean);
+                productsData[deal.productId] = {
+                    id: deal.productId,
+                    name: `Bundle: ${deal.comboItems?.length || 0} Items`,
+                    price: deal.originalPrice,
+                    discountedPrice: deal.dealPrice,
+                    image: firstItem?.image || '',
+                    category: 'Combo',
+                    description: 'Special bundle deal',
+                    inStock: true,
+                    isCombo: true,
+                    comboItems: deal.comboItems,
+                    vendorId: deal.vendorId
+                } as Product;
+            }
+        });
 
         // Enrich combos with their data
         Object.values(productsData).forEach(p => {

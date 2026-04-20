@@ -441,7 +441,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
               setLoading(false);
             }
           }, (err) => {
-            console.error("User doc sync error:", err);
+            if (err.code !== 'permission-denied' && err.code !== 'unauthenticated') {
+              console.error("User doc sync error:", err);
+            }
             setLoading(false);
           });
         } else if (localStorage.getItem('bellbasket_admin') === 'true') {
@@ -636,7 +638,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         playBellSound(isPriorityEvent);
       }
     }, (err) => {
-      console.error("Notifications listener failed:", err);
+      if (err.code !== 'permission-denied' && err.code !== 'unauthenticated') {
+        console.error("Notifications listener failed:", err);
+      }
     });
 
     return () => {
@@ -790,7 +794,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     );
 
     const unsubscribe = onSnapshot(q, handleSnapshot, (err) => {
-      console.error("Order sync error", err);
+      if (err.code !== 'permission-denied' && err.code !== 'unauthenticated') {
+        console.error("Order sync error", err);
+      }
     });
 
     // --- Service Bookings Real-time Notification Logic ---
@@ -837,7 +843,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         prevBookingsMap.current[change.doc.id] = data.status;
       });
     }, (error) => {
-      console.error("Service Bookings Notifications sync error:", error);
+      if (error.code !== 'permission-denied' && error.code !== 'unauthenticated') {
+        console.error("Service Bookings Notifications sync error:", error);
+      }
     });
 
     setTimeout(() => { isFirstLoad.current = false; }, 2000);
