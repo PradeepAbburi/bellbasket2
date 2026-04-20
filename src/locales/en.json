@@ -99,7 +99,13 @@
             "review_placeholder": "Write your review here...",
             "review_success": "Review submitted successfully",
             "acceptance_note": "Not Accepted Yet?",
-            "acceptance_note_desc": "If the vendor hasn't accepted your order yet, please call them to inform them."
+            "acceptance_note_desc": "If the vendor hasn't accepted your order yet, please call them to inform them.",
+            "cancel_order": "Cancel Order",
+            "cancel_booking": "Cancel Booking",
+            "cancel_order_note": "Call the vendor to cancel this order",
+            "cancel_booking_note": "Call the vendor to cancel this booking",
+            "shopping_journey": "Shopping Journey",
+            "shop_stops_connected": "{{count}} Shop Stops Connected"
         },
         "subscription_expired": "Subscription Expired",
         "subscription_expired_desc": "Your vendor features are currently locked. Please choose a plan or renew your previous one to continue managing your shop.",

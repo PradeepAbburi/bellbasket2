@@ -71,8 +71,12 @@ const MapView = ({ stores, center, onStoreClick, onMapClick, showRoute = false, 
     }
 
     // Clear existing routing
-    if (routingControlRef.current) {
-      mapInstance.current.removeControl(routingControlRef.current);
+    if (routingControlRef.current && mapInstance.current) {
+      try {
+        mapInstance.current.removeControl(routingControlRef.current);
+      } catch (e) {
+        console.warn("Routing control cleanup skipped:", e);
+      }
       routingControlRef.current = null;
     }
 
@@ -82,33 +86,36 @@ const MapView = ({ stores, center, onStoreClick, onMapClick, showRoute = false, 
     }
 
     if (showRoute && stores.length > 0) {
-      const store = stores[0];
+      const waypoints = [
+        L.latLng(center[0], center[1]),
+        ...stores.map(s => L.latLng(s.lat, s.lng))
+      ];
 
       routingControlRef.current = Routing.control({
         router: Routing.osrmv1({
           serviceUrl: 'https://router.project-osrm.org/route/v1'
         }),
-        waypoints: [
-          L.latLng(center[0], center[1]),
-          L.latLng(store.lat, store.lng)
-        ],
+        waypoints: waypoints,
         lineOptions: {
           styles: [{ color: '#1e3a8a', opacity: 0.8, weight: 6 }]
         },
         createMarker: (i: number, waypoint: any) => {
           const isUser = i === 0;
+          const storeIndex = i - 1;
+          const store = stores[storeIndex];
+
           const html = isUser
             ? '<div style="width:16px;height:16px;background:#ef4444;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3)"></div>'
-            : `<div style="width:14px;height:14px;background:#1e3a8a;border-radius:50%;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.2)"></div>`;
+            : `<div style="width:18px;height:18px;background:${i === waypoints.length - 1 ? '#059669' : '#1e3a8a'};border-radius:50%;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.2);display:flex;items-center;justify-center;color:white;font-size:10px;font-weight:900">${i}</div>`;
 
           return L.marker(waypoint.latLng, {
             icon: L.divIcon({
               html,
               className: '',
-              iconSize: [16, 16],
-              iconAnchor: [8, 8],
+              iconSize: [18, 18],
+              iconAnchor: [9, 9],
             })
-          }).bindPopup(isUser ? 'You are here' : `<strong>${store.name}</strong>`);
+          }).bindPopup(isUser ? 'Starting Point' : `<strong>Stop ${i}: ${store?.name || 'Store'}</strong>`);
         },
         addWaypoints: false,
         draggableWaypoints: false,

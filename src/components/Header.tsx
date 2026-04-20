@@ -1,8 +1,10 @@
 import { useApp } from '@/context/AppContext';
 import { NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
 import { ShoppingCart, Bell, User, LogOut, Store, Menu, X, Search, ShoppingBag, Package, TrendingUp, Crown, Shield, BellRing, FileText, Zap } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+
+const MobileMenu = lazy(() => import('./MobileMenu'));
 import { useTranslation } from 'react-i18next';
 import DesktopBackground from './DesktopBackground';
 import { getAudioStatus, onAudioStatusChange, initAudio, playBellSound } from '@/utils/notifications';
@@ -16,6 +18,20 @@ const Header = ({ solid = false }: { solid?: boolean }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showNotifs, setShowNotifs] = useState(false);
   const unreadCount = notifications.filter((n: any) => !n.read && n.id !== 'welcome').length;
+  
+  // High-performance prefetching for navigation
+  const prefetchers = {
+    browse: () => import('@/pages/CustomerHome'),
+    deals: () => import('@/pages/CustomerDeals'),
+    receipts: () => import('@/pages/Receipts'),
+    cart: () => import('@/pages/Basket'),
+    profile: () => import('@/pages/Profile'),
+    notifications: () => import('@/pages/Notifications')
+  };
+
+  const onHoverPrefetch = (key: keyof typeof prefetchers) => {
+    prefetchers[key]().catch(() => {});
+  };
 
   const isVendorView = user?.role === 'vendor';
   const isAdminView = user?.role === 'admin' || user?.role === 'hr';
@@ -99,17 +115,29 @@ const Header = ({ solid = false }: { solid?: boolean }) => {
                 </NavLink>
               ) : !isVendorView ? (
                 <>
-                  <NavLink to="/browse" className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}>
+                  <NavLink 
+                    to="/browse" 
+                    onMouseEnter={() => onHoverPrefetch('browse')}
+                    className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}
+                  >
                     <Search className="w-5 h-5" />
                     <span className="hidden lg:inline">{t('home.welcome')}</span>
                   </NavLink>
 
-                  <NavLink to="/deals" className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}>
+                  <NavLink 
+                    to="/deals" 
+                    onMouseEnter={() => onHoverPrefetch('deals')}
+                    className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}
+                  >
                     <Zap className="w-5 h-5" />
                     <span className="hidden lg:inline">Deals</span>
                   </NavLink>
 
-                  <NavLink to="/receipts" className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}>
+                  <NavLink 
+                    to="/receipts" 
+                    onMouseEnter={() => onHoverPrefetch('receipts')}
+                    className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}
+                  >
                     <div className="relative">
                       <ShoppingBag className="w-5 h-5" />
                       <AnimatePresence>
@@ -128,7 +156,11 @@ const Header = ({ solid = false }: { solid?: boolean }) => {
                     <span className="hidden lg:inline">{t('common.orders')} ({activeReceiptsCount})</span>
                   </NavLink>
 
-                  <NavLink to="/cart" className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}>
+                  <NavLink 
+                    to="/cart" 
+                    onMouseEnter={() => onHoverPrefetch('cart')}
+                    className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}
+                  >
                     <div className="relative">
                       <ShoppingCart className="w-5 h-5" />
                       <AnimatePresence>
@@ -206,6 +238,10 @@ const Header = ({ solid = false }: { solid?: boolean }) => {
                       onClick={() => {
                         setShowNotifs(!showNotifs);
                         if (!showNotifs) markAllNotificationsRead();
+                      }}
+                      onMouseEnter={() => {
+                        onHoverPrefetch('notifications');
+                        onHoverPrefetch('receipts');
                       }}
                       className={`p-2.5 rounded-xl transition-all relative ${showNotifs ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'}`}
                     >
@@ -294,7 +330,11 @@ const Header = ({ solid = false }: { solid?: boolean }) => {
                     </AnimatePresence>
                   </div>
 
-                  <NavLink to="/profile" className={({ isActive }) => `hidden md:flex items-center gap-2.5 px-3 py-1.5 rounded-xl transition-all group ${isActive ? 'bg-primary/5' : 'hover:bg-primary/5'}`}>
+                  <NavLink 
+                    to="/profile" 
+                    onMouseEnter={() => onHoverPrefetch('profile')}
+                    className={({ isActive }) => `hidden md:flex items-center gap-2.5 px-3 py-1.5 rounded-xl transition-all group ${isActive ? 'bg-primary/5' : 'hover:bg-primary/5'}`}
+                  >
                     <div className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${location.pathname === '/profile' ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20 scale-105' : 'bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground'}`}>
                       <User className="w-4 h-4" />
                     </div>
@@ -329,179 +369,31 @@ const Header = ({ solid = false }: { solid?: boolean }) => {
             <button
                 onClick={() => { initAudio(); setMenuOpen(!menuOpen); }}
                 className="md:hidden p-2 rounded-xl hover:bg-secondary transition-colors"
+                aria-label={menuOpen ? "Close Menu" : "Open Menu"}
+                aria-expanded={menuOpen}
             >
-                {menuOpen ? <X className="w-6 h-6 text-foreground" /> : <Menu className="w-6 h-6 text-foreground" />}
+                {menuOpen ? <X className="w-6 h-6 text-foreground" aria-hidden="true" /> : <Menu className="w-6 h-6 text-foreground" aria-hidden="true" />}
             </button>
           </div>
         </div>
 
-        {/* Mobile Menu Drawer */}
-        <AnimatePresence>
-          {menuOpen && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="md:hidden bg-white dark:bg-[#202020] border-b border-border overflow-hidden"
-            >
-              <div className="p-4 space-y-2">
-                {isAdminView ? (
-                  <>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground px-4 py-2">Admin Tools</p>
-                    <Link
-                      to={user?.role === 'hr' ? "/hr" : "/admin"}
-                      onClick={() => { initAudio(); setMenuOpen(false); }}
-                      className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-primary/5 text-foreground transition-colors"
-                    >
-                      <Shield className="w-5 h-5 text-primary" />
-                      <span className="font-bold text-sm">{user?.role === 'hr' ? 'HR Portal' : 'Admin Dashboard'}</span>
-                    </Link>
-                  </>
-                ) : isVendorView ? (
-                  <>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground px-4 py-2">Vendor Tools</p>
-                    {hasValidPlan && (
-                      <>
-                        <Link
-                          to="/vendor"
-                          onClick={() => { initAudio(); setMenuOpen(false); }}
-                          className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-primary/5 text-foreground transition-colors"
-                        >
-                          <Store className="w-5 h-5 text-primary" />
-                          <span className="font-bold text-sm">Dashboard</span>
-                        </Link>
-                        <Link
-                          to="/vendor/notes"
-                          onClick={() => { initAudio(); setMenuOpen(false); }}
-                          className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-primary/5 text-foreground transition-colors"
-                        >
-                          <FileText className="w-5 h-5 text-primary" />
-                          <span className="font-bold text-sm">Bell Notes</span>
-                        </Link>
-                        <Link
-                          to="/vendor/deals"
-                          onClick={() => { initAudio(); setMenuOpen(false); }}
-                          className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-primary/5 text-foreground transition-colors"
-                        >
-                          <Zap className="w-5 h-5 text-primary" />
-                          <span className="font-bold text-sm">Deal Manager</span>
-                        </Link>
-                        <Link
-                          to="/vendor/products"
-                          onClick={() => { initAudio(); setMenuOpen(false); }}
-                          className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-primary/5 text-foreground transition-colors"
-                        >
-                          <Package className="w-5 h-5 text-primary" />
-                          <span className="font-bold text-sm">Products</span>
-                        </Link>
-                        <Link
-                          to={isServiceStore ? "/vendor/bookings" : "/vendor/orders"}
-                          onClick={() => { initAudio(); setMenuOpen(false); }}
-                          className="flex items-center justify-between px-4 py-3 rounded-xl hover:bg-primary/5 text-foreground transition-colors"
-                        >
-                          <div className="flex items-center gap-3">
-                            <ShoppingBag className="w-5 h-5 text-primary" />
-                            <span className="font-bold text-sm">{isServiceStore ? 'Manage Bookings' : 'Manage Orders'}</span>
-                          </div>
-                          {vendorBadgeCount > 0 && (
-                            <span className="bg-destructive text-white text-[10px] font-black px-2 py-0.5 rounded-full">
-                              {vendorBadgeCount}
-                            </span>
-                          )}
-                        </Link>
-                      </>
-                    )}
-                    <Link
-                      to="/vendor/subscription"
-                      onClick={() => { initAudio(); setMenuOpen(false); }}
-                      className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-primary/5 text-foreground transition-colors"
-                    >
-                      <Crown className="w-5 h-5 text-primary" />
-                      <span className="font-bold text-sm">Subscription</span>
-                    </Link>
-                  </>
-                ) : (
-                    <>
-                      <Link
-                        to="/browse"
-                        onClick={() => { initAudio(); setMenuOpen(false); }}
-                        className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-primary/5 text-foreground transition-colors"
-                      >
-                        <Search className="w-5 h-5 text-primary" />
-                        <span className="font-bold text-sm">Browse Marketplace</span>
-                      </Link>
-                      <Link
-                        to="/deals"
-                        onClick={() => { initAudio(); setMenuOpen(false); }}
-                        className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-primary/5 text-foreground transition-colors"
-                      >
-                        <Zap className="w-5 h-5 text-primary" />
-                        <span className="font-bold text-sm">Flash Deals Nearby</span>
-                      </Link>
-                      <Link
-                        to="/receipts"
-                        onClick={() => { initAudio(); setMenuOpen(false); }}
-                        className="flex items-center justify-between px-4 py-3 rounded-xl hover:bg-primary/5 text-foreground transition-colors"
-                      >
-                        <div className="flex items-center gap-3">
-                          <ShoppingBag className="w-5 h-5 text-primary" />
-                          <span className="font-bold text-sm">My Orders</span>
-                        </div>
-                        {activeReceiptsCount > 0 && (
-                          <span className="bg-primary text-white text-[10px] font-black px-2 py-0.5 rounded-full">
-                            {activeReceiptsCount}
-                          </span>
-                        )}
-                      </Link>
-                      <Link
-                        to="/cart"
-                        onClick={() => { initAudio(); setMenuOpen(false); }}
-                        className="flex items-center justify-between px-4 py-3 rounded-xl hover:bg-primary/5 text-foreground transition-colors"
-                      >
-                        <div className="flex items-center gap-3">
-                          <ShoppingCart className="w-5 h-5 text-primary" />
-                          <span className="font-bold text-sm">My Cart</span>
-                        </div>
-                        {cartCount > 0 && (
-                          <span className="bg-primary text-white text-[10px] font-black px-2 py-0.5 rounded-full">
-                            {cartCount}
-                          </span>
-                        )}
-                      </Link>
-                    </>
-                )}
-
-                <div className="h-px bg-border my-2 mx-4" />
-
-                {user ? (
-                  <>
-                    <button
-                      onClick={() => { 
-                      initAudio(); 
-                      logout(); 
-                      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth < 768;
-                      navigate(isMobile ? '/browse' : '/'); 
-                      setMenuOpen(false); 
-                    }}
-                      className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-white text-red-600 border border-red-100 hover:bg-red-50 transition-colors shadow-sm"
-                    >
-                      <LogOut className="w-5 h-5" />
-                      <span className="font-bold text-sm">Sign Out</span>
-                    </button>
-                  </>
-                ) : (
-                  <Link
-                    to="/auth"
-                    onClick={() => { initAudio(); setMenuOpen(false); }}
-                    className="flex items-center gap-3 px-4 py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm justify-center"
-                  >
-                    Get Started
-                  </Link>
-                )}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* Mobile Menu Drawer - Lazy Loaded */}
+        <Suspense fallback={null}>
+          <MobileMenu 
+            isOpen={menuOpen}
+            user={user}
+            isAdminView={isAdminView}
+            isVendorView={isVendorView}
+            isServiceStore={isServiceStore}
+            hasValidPlan={hasValidPlan}
+            vendorBadgeCount={vendorBadgeCount}
+            activeReceiptsCount={activeReceiptsCount}
+            cartCount={cartCount}
+            onClose={() => setMenuOpen(false)}
+            logout={logout}
+            initAudio={initAudio}
+          />
+        </Suspense>
       </header>
     </>
   );

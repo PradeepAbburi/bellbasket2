@@ -1,29 +1,35 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
-
 import en from './locales/en.json';
-import hi from './locales/hi.json';
-import bn from './locales/bn.json';
-import ta from './locales/ta.json';
-import te from './locales/te.json';
-import mr from './locales/mr.json';
-import gu from './locales/gu.json';
-import kn from './locales/kn.json';
-import ml from './locales/ml.json';
-import pa from './locales/pa.json';
 
-const resources = {
+const resources: any = {
     English: { translation: en },
-    Hindi: { translation: hi },
-    Bengali: { translation: bn },
-    Tamil: { translation: ta },
-    Telugu: { translation: te },
-    Marathi: { translation: mr },
-    Gujarati: { translation: gu },
-    Kannada: { translation: kn },
-    Malayalam: { translation: ml },
-    Punjabi: { translation: pa },
+};
+
+const loaders: Record<string, () => Promise<any>> = {
+    Hindi: () => import('./locales/hi.json'),
+    Bengali: () => import('./locales/bn.json'),
+    Tamil: () => import('./locales/ta.json'),
+    Telugu: () => import('./locales/te.json'),
+    Marathi: () => import('./locales/mr.json'),
+    Gujarati: () => import('./locales/gu.json'),
+    Kannada: () => import('./locales/kn.json'),
+    Malayalam: () => import('./locales/ml.json'),
+    Punjabi: () => import('./locales/pa.json'),
+};
+
+export const loadLanguage = async (lng: string) => {
+    if (resources[lng]) return;
+    if (loaders[lng]) {
+        try {
+            const mod = await loaders[lng]();
+            i18n.addResourceBundle(lng, 'translation', mod.default);
+            resources[lng] = { translation: mod.default };
+        } catch (e) {
+            console.error(`Failed to load language: ${lng}`, e);
+        }
+    }
 };
 
 i18n

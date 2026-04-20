@@ -72,11 +72,11 @@ service cloud.firestore {
       // Allow SHARED receipts: anyone can view a single order if they have the ID
       allow get: if true; 
       
-      // Only the owner or store can list/query multiple orders
-      allow list: if isAuth() && (
+      // Only the owner or store can list/query multiple orders, unless it's explicitly a thread query
+      allow list: if (isAuth() && (
         resource.data.userId == request.auth.uid || 
         resource.data.storeId == request.auth.uid
-      );
+      )) || (resource.data.threadId != null);
       
       allow create: if isAuth();
       allow update, delete: if isAuth() && (

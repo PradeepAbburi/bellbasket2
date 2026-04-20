@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Loader2, AlertCircle, ShoppingBag, Navigation } from 'lucide-react';
 import { toast } from 'sonner';
 import { sendInAppNotification } from '@/utils/notifications';
+import MapView from '@/components/MapView';
 
 const ReceiptDetailPage = () => {
     const params = useParams<{ id: string }>();
@@ -184,9 +185,9 @@ const ReceiptDetailPage = () => {
     }
 
     return (
-        <div className="min-h-screen gradient-warm pb-20">
+        <div className="min-h-screen gradient-warm pb-20 overflow-x-hidden">
             <Header />
-            <main className="pt-24 px-4 max-w-xl mx-auto">
+            <main className="pt-24 px-3 sm:px-6 max-w-2xl mx-auto w-full">
                 <div className="flex flex-col gap-6">
                     <div className="flex items-center gap-4">
                         <button onClick={() => navigate(-1)} className="p-2.5 rounded-xl bg-white/50 backdrop-blur-sm border border-border/50 hover:bg-white transition-all shadow-sm">
@@ -205,23 +206,39 @@ const ReceiptDetailPage = () => {
                         {type === 'order' ? (
                             threadOrders.length > 1 ? (
                                 <div className="space-y-12">
-                                    <div className="flex items-center gap-3 px-2">
+                                    <div className="flex items-center gap-3 px-2 mb-4">
                                         <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center">
-                                            <Navigation className="w-5 h-5 text-primary animate-pulse" />
+                                            <ShoppingBag className="w-5 h-5 text-primary" />
                                         </div>
                                         <div>
-                                            <h2 className="text-sm font-black text-primary uppercase tracking-[0.2em]">Connected Route</h2>
-                                            <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">{threadOrders.length} Shop Stops Scheduled</p>
+                                            <h2 className="text-sm font-black text-foreground uppercase tracking-[0.2em]">{t('common.receipts.shopping_journey')}</h2>
+                                            <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">{t('common.receipts.shop_stops_connected', { count: threadOrders.length })}</p>
                                         </div>
                                     </div>
 
-                                    <div className="relative space-y-6">
-                                        <div className="absolute left-[38px] top-10 bottom-10 w-1 bg-primary/10 rounded-full" />
+                                    <div className="relative space-y-20 pl-20 pr-2">
+                                        {/* Premium Animated Sidebar Line */}
+                                        <div className="absolute left-[32px] top-6 bottom-10 w-[2.5px] rounded-full bg-gradient-to-b from-primary via-accent to-primary opacity-20" />
                                         
                                         {threadOrders.map((order, idx) => (
-                                            <div key={order.id} className="relative">
-                                                <div className={`absolute -left-2 top-8 w-4 h-4 rounded-full border-4 border-background z-20 ${order.id === id ? 'bg-primary scale-125 shadow-lg shadow-primary/40' : 'bg-primary/20'}`} />
+                                            <div key={order.id} className="relative group/timeline">
+                                                {/* Sophisticated Stop Marker */}
+                                                <div className="absolute -left-[64px] top-6 z-20 flex flex-col items-center gap-2">
+                                                    <div className={`w-9 h-9 rounded-[1rem] border-[1.5px] flex items-center justify-center transition-all duration-500 group-hover/timeline:rotate-[10deg] shadow-2xl backdrop-blur-xl ${order.id === id ? 'bg-primary border-primary text-white shadow-primary/40 ring-4 ring-primary/10 scale-110' : 'bg-background border-border/60 text-muted-foreground'}`}>
+                                                        <span className="text-[12px] font-black tracking-tighter">{idx + 1}</span>
+                                                    </div>
+                                                    
+                                                    {/* Animated Active Indicator */}
+                                                    {order.id === id && (
+                                                        <div className="absolute inset-0 -z-10 bg-primary/20 rounded-[1rem] animate-ping duration-[2500ms]" />
+                                                    )}
+                                                </div>
                                                 
+                                                {/* Clean Connector Labels */}
+                                                <div className="absolute -left-14 top-24 pointer-events-none opacity-10">
+                                                    <div className="w-[1px] h-12 bg-border mx-auto" />
+                                                </div>
+
                                                 <RenderOrderCard
                                                     order={order}
                                                     i={idx}
@@ -236,10 +253,6 @@ const ReceiptDetailPage = () => {
                                                     standalone={true}
                                                     hasReviewedStore={Array.isArray(getStoreForOrder(order.storeId)?.reviews) && getStoreForOrder(order.storeId)!.reviews!.some((r: any) => r.userId === user?.id)}
                                                 />
-
-                                                {idx < threadOrders.length - 1 && (
-                                                    <div className="absolute -bottom-4 left-[38px] w-1 h-4 bg-primary/20" />
-                                                )}
                                             </div>
                                         ))}
                                     </div>

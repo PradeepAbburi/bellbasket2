@@ -3,26 +3,30 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { useLocation, BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+
+const ScrollToTop = () => {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+  return null;
+};
 import { AppProvider, useApp } from "@/context/AppContext";
-import { motion, AnimatePresence } from "framer-motion";
+
 import { registerPush, addListeners } from "@/utils/push";
 import { AlertCircle, MapPin as PinIcon, Bell as BellIcon, ChevronRight as RightIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { initAudio } from "@/utils/notifications";
 
 const PageLoading = () => (
-    <div className="fixed inset-0 flex items-center justify-center bg-[#202020] z-[9999]">
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.95 }} 
-        animate={{ opacity: 1, scale: 1 }} 
-        transition={{ duration: 0.8, ease: "easeOut" }}
-      >
-        <span className="text-2xl md:text-3xl font-black tracking-tighter text-foreground">
-          BellBasket
-        </span>
-      </motion.div>
+  <div className="fixed inset-0 flex items-center justify-center bg-[#202020] z-[9999]">
+    <div className="animate-pulse">
+      <span className="text-2xl md:text-3xl font-black tracking-tighter text-foreground">
+        BellBasket
+      </span>
     </div>
+  </div>
 );
 
 class ErrorBoundary extends React.Component<{ children: React.ReactNode, name: string }, { hasError: boolean }> {
@@ -107,6 +111,7 @@ const VendorDeals = lazy(() => import("./pages/VendorDeals"));
 const CustomerDeals = lazy(() => import("./pages/CustomerDeals"));
 const BellNotes = lazy(() => import("./pages/BellNotes"));
 const VendorEditProduct = lazy(() => import("./pages/VendorEditProduct"));
+const FAQ = lazy(() => import("./pages/FAQ"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -188,6 +193,7 @@ const AppContent = () => {
 
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <div className="flex flex-col min-h-screen">
         <Suspense fallback={<PageLoading />}>
           <Routes>
@@ -253,6 +259,7 @@ const AppContent = () => {
             </Route>
 
             <Route path="/sitemap.xml" element={<Sitemap />} />
+            <Route path="/faq" element={<FAQ />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           <BottomNav />

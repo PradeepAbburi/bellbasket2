@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingCart, Zap, Clock, MapPin, Star, ChevronRight, ShoppingBag, ArrowRight, TrendingUp, Sparkles, Filter, Percent, Package2, Plus, Minus, Search, X, Loader2, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
+import VariantSelector from '@/components/VariantSelector';
 import SortOptions from '@/components/SortOptions';
 import { useApp } from '@/context/AppContext';
 import { Deal, Product, Store } from '@/types';
@@ -57,6 +58,7 @@ const CustomerDeals = () => {
   const [activeSearch, setActiveSearch] = useState('');
   const [priceSort, setPriceSort] = useState<'none' | 'low-high' | 'high-low'>('none');
   const [ratingSort, setRatingSort] = useState<'none' | 'top-rated' | 'low-rated'>('none');
+  const [variantSelectorProduct, setVariantSelectorProduct] = useState<Product | null>(null);
   const [maxDistance, setMaxDistance] = useState<number>(() => Number(localStorage.getItem('user_deals_distance')) || 20);
   const [isSearching, setIsSearching] = useState(false);
 
@@ -80,9 +82,43 @@ const CustomerDeals = () => {
       if (productIds.length > 0) {
         const productsSnapshot = await getDocs(query(collection(db, 'products'), where('__name__', 'in', productIds)));
         const productsData: Record<string, Product> = {};
+        const comboConstituentIds: string[] = [];
+
         productsSnapshot.forEach(doc => {
-            productsData[doc.id] = { id: doc.id, ...doc.data() } as Product;
+            const p = { id: doc.id, ...doc.data() } as Product;
+            productsData[doc.id] = p;
+            if (p.isCombo && p.comboItems && p.comboItems.length > 0) {
+              p.comboItems.forEach(id => {
+                if (!productIds.includes(id) && !comboConstituentIds.includes(id)) {
+                  comboConstituentIds.push(id);
+                }
+              });
+            }
         });
+
+        // Fetch missing constituent items for combos
+        if (comboConstituentIds.length > 0) {
+          // Firestore 'in' limitation (30)
+          const chunks = [];
+          for (let i = 0; i < comboConstituentIds.length; i += 30) {
+            chunks.push(comboConstituentIds.slice(i, i + 30));
+          }
+          
+          for (const chunk of chunks) {
+            const extraSnap = await getDocs(query(collection(db, 'products'), where('__name__', 'in', chunk)));
+            extraSnap.forEach(doc => {
+              productsData[doc.id] = { id: doc.id, ...doc.data() } as Product;
+            });
+          }
+        }
+
+        // Enrich combos with their data
+        Object.values(productsData).forEach(p => {
+          if (p.isCombo && p.comboItems && p.comboItems.length > 0) {
+            p.comboItemsData = p.comboItems.map(cid => productsData[cid]).filter(Boolean);
+          }
+        });
+
         setProducts(prev => ({ ...prev, ...productsData }));
       }
 
@@ -335,11 +371,25 @@ const CustomerDeals = () => {
                             >
                                 {/* Media Section */}
                                 <div className="relative aspect-square overflow-hidden bg-secondary/5 shrink-0 rounded-2xl">
-                                    <img 
-                                        src={product.image} 
-                                        alt={product.name} 
-                                        className="w-full h-full object-cover transition-transform duration-700 group-hover/product:scale-110" 
-                                    />
+                                    {product.isCombo && product.comboItemsData && product.comboItemsData.length > 0 ? (
+                                        <div className="w-full h-full grid grid-cols-2 grid-rows-2 gap-[2px] bg-primary/20 relative">
+                                            {product.comboItemsData.slice(0, 4).map((c) => (
+                                                <img key={c.id} src={c.image} className="w-full h-full object-cover" alt="" />
+                                            ))}
+                                            {product.comboItemsData.length < 4 && Array.from({ length: 4 - product.comboItemsData.length }).map((_, i) => (
+                                                <div key={i} className="w-full h-full bg-zinc-900 flex items-center justify-center">
+                                                    <Package2 className="w-4 h-4 text-primary/20" />
+                                                </div>
+                                            ))}
+                                            <div className="absolute inset-0 bg-gradient-to-tr from-primary/10 to-transparent pointer-events-none" />
+                                        </div>
+                                    ) : (
+                                        <img 
+                                            src={product.image} 
+                                            alt={product.name} 
+                                            className="w-full h-full object-cover transition-transform duration-700 group-hover/product:scale-110" 
+                                        />
+                                    )}
                                     
                                     {/* Discount Overlay */}
                                     <div className="absolute top-3 left-3 bg-primary text-primary-foreground text-[8px] font-black px-1.5 py-0.5 rounded-lg shadow-lg uppercase tracking-tight z-10">
@@ -368,24 +418,51 @@ const CustomerDeals = () => {
                                         </div>
                                     </div>
                                     
-                                    <div className="flex items-baseline gap-1.5 mb-2">
-                                        <span className="text-[13px] font-black text-foreground">₹{deal.dealPrice}</span>
-                                        <span className="text-[9px] text-muted-foreground line-through opacity-50 font-medium tracking-tighter">₹{deal.originalPrice}</span>
-                                    </div>
+                                    {(() => {
+                                        const variantItem = cart.find(c => c.product.id === product.id && c.selectedVariant);
+                                        const displayPrice = variantItem?.selectedVariant 
+                                            ? (variantItem.selectedVariant.discountedPrice || variantItem.selectedVariant.price) 
+                                            : deal.dealPrice;
+                                        const originalPrice = variantItem?.selectedVariant 
+                                            ? (variantItem.selectedVariant.discountedPrice ? variantItem.selectedVariant.price : null)
+                                            : deal.originalPrice;
+
+                                        return (
+                                            <div className="flex items-baseline gap-1.5 mb-2">
+                                                <span className="text-[13px] font-black text-foreground">₹{displayPrice}</span>
+                                                {originalPrice && (
+                                                    <span className="text-[9px] text-muted-foreground line-through opacity-50 font-medium tracking-tighter">₹{originalPrice}</span>
+                                                )}
+                                            </div>
+                                        );
+                                    })()}
 
                                     {/* Interaction Bar */}
                                     <div className="mb-2.5" onClick={e => e.stopPropagation()}>
-                                        {count === 0 ? (
+                                        {count === 0 || product.hasVariants ? (
                                             <button
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    const dealProduct = { ...product, price: deal.dealPrice, discountedPrice: deal.dealPrice };
-                                                    addToCart({ product: dealProduct, storeId: store.id, storeName: store.name, storePhone: store.phone || '', quantity: 1 });
+                                                    if (product.hasVariants) {
+                                                        setVariantSelectorProduct(product);
+                                                    } else {
+                                                        const dealProduct = { ...product, price: deal.dealPrice, discountedPrice: deal.dealPrice };
+                                                        addToCart({ product: dealProduct, storeId: store.id, storeName: store.name, storePhone: store.phone || '', quantity: 1 });
+                                                    }
                                                 }}
                                                 className="w-full h-8 rounded-xl bg-primary text-white text-[10px] font-black flex items-center justify-center gap-1.5 hover:bg-primary/90 active:scale-[0.98] transition-all shadow-lg shadow-primary/20"
                                             >
-                                                <Plus className="w-3 h-3" strokeWidth={4} />
-                                                ADD TO CART
+                                                {product.hasVariants && cart.some(c => c.product.id === product.id && c.selectedVariant) ? (
+                                                    <>
+                                                        <Plus className="w-3 h-3" strokeWidth={4} />
+                                                        ADD MORE
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Plus className="w-3 h-3" strokeWidth={4} />
+                                                        ADD TO CART
+                                                    </>
+                                                )}
                                             </button>
                                         ) : (
                                             <div className="w-full h-8 rounded-xl bg-primary text-white flex items-center justify-between px-1.5 shadow-lg shadow-primary/20">
@@ -428,6 +505,29 @@ const CustomerDeals = () => {
             </section>
         </div>
       </div>
+
+      <AnimatePresence>
+        {variantSelectorProduct && (
+          <VariantSelector 
+            product={variantSelectorProduct}
+            cart={cart}
+            updateQuantity={updateQuantity}
+            onClose={() => setVariantSelectorProduct(null)}
+            onSelect={(variant) => {
+                if (variantSelectorProduct) {
+                    addToCart({ 
+                        product: variantSelectorProduct, 
+                        selectedVariant: variant,
+                        storeId: variantSelectorProduct.vendorId || '', 
+                        storeName: variantSelectorProduct.storeName || '', 
+                        quantity: 1 
+                    });
+                }
+                setVariantSelectorProduct(null);
+            }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };

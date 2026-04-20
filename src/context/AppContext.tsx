@@ -6,7 +6,7 @@ import { doc, getDoc, getDocs, setDoc, updateDoc, collection, onSnapshot, query,
 import { sendInAppNotification, playBellSound } from '@/utils/notifications';
 import { orderBy, limit } from 'firebase/firestore';
 import { toast } from 'sonner';
-import i18n from 'i18next';
+import i18n, { loadLanguage } from '@/i18n';
 
 
 import { cleanObject } from '@/utils/firebase';
@@ -24,11 +24,11 @@ interface AppState {
   logout: () => void;
   refreshUser: () => Promise<void>;
   addToCart: (item: CartItem) => boolean;
-  removeFromCart: (productId: string) => void;
-  updateQuantity: (productId: string, quantity: number) => void;
+  removeFromCart: (productId: string, variantId?: string) => void;
+  updateQuantity: (productId: string, quantity: number, variantId?: string) => void;
   clearCart: () => void;
   placeOrder: (paymentMethod: 'online' | 'pickup' | 'delivery', options?: { deliveryMethod: 'pickup' | 'delivery', deliveryFee: number, customerName?: string, customerPhone?: string, customerAddress?: string }) => Promise<string | null>;
-  updatePlan: (plan: PlanTier, months?: number, autoPay?: boolean) => Promise<void>;
+  updatePlan: (plan: PlanTier, months?: number, autoPay?: boolean, planId?: string) => Promise<void>;
   notifications: any[];
   installPrompt: any;
   installPWA: () => Promise<void>;
@@ -44,6 +44,7 @@ interface AppState {
   requestProduct: (data: any) => Promise<void>;
   theme: 'light' | 'dark';
   toggleTheme: () => void;
+  cartSubtotal: number;
 }
 
 const AppContext = createContext<AppState | undefined>(undefined);
@@ -707,12 +708,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const refreshProducts = async () => {
-    try {
-      const snapshot = await getDocs(collection(db, 'products'));
-      setAllProducts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Product[]);
-    } catch (e) {
-      console.error("Product sync error", e);
-    }
+    // Optimization: Stop fetching ALL products globally. 
+    // Products should be fetched per-store or via specifically targeted search queries.
+    console.log("🚀 [AppContext] Global product fetch skipped for performance.");
   };
 
   const refreshData = async () => {
@@ -862,9 +860,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     return () => unsubscribe();
   }, []);
 
-  // Sync All Products (Manual fetch to reduce reads)
+  // Products are now fetched on-demand in specific pages to reduce 14MB+ payload
   useEffect(() => {
-    refreshProducts();
+    // refreshProducts(); // Removed global fetch
   }, []);
 
   const login = React.useCallback((userData: User) => {
@@ -895,28 +893,34 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
 
     setCart(prev => {
-      const existing = prev.find(c => c.product.id === item.product.id);
+      const existing = prev.find(c => 
+        c.product.id === item.product.id && 
+        c.selectedVariant?.id === item.selectedVariant?.id
+      );
       if (existing) {
-        // Ensure we update the product info (like deal prices) even if it's already in the cart
-        return prev.map(c => c.product.id === item.product.id ? { ...c, quantity: c.quantity + 1, product: item.product } : c);
+        return prev.map(c => 
+          (c.product.id === item.product.id && c.selectedVariant?.id === item.selectedVariant?.id)
+            ? { ...c, quantity: c.quantity + (item.quantity || 1), product: item.product } 
+            : c
+        );
       }
       return [...prev, item];
     });
     return true;
   }, [user, cart]);
 
-  const removeFromCart = React.useCallback((productId: string) => {
-    setCart(prev => prev.filter(c => c.product.id !== productId));
+  const removeFromCart = React.useCallback((productId: string, variantId?: string) => {
+    setCart(prev => prev.filter(c => !(c.product.id === productId && c.selectedVariant?.id === variantId)));
   }, []);
 
-  const updateQuantity = React.useCallback((productId: string, quantity: number) => {
+  const updateQuantity = React.useCallback((productId: string, quantity: number, variantId?: string) => {
     if (!user) {
       toast.info("Please login first");
       window.location.href = '/auth';
       return;
     }
-    if (quantity <= 0) return removeFromCart(productId);
-    setCart(prev => prev.map(c => c.product.id === productId ? { ...c, quantity } : c));
+    if (quantity <= 0) return removeFromCart(productId, variantId);
+    setCart(prev => prev.map(c => (c.product.id === productId && c.selectedVariant?.id === variantId) ? { ...c, quantity } : c));
   }, [user, removeFromCart]);
 
   const clearCart = React.useCallback(() => {
@@ -948,9 +952,16 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       const storeItems = cart.filter(c => c.storeId === storeId);
 
       const finalItems = storeItems.map(c => {
-        const effectivePrice = (c.product.discountedPrice && Number(c.product.discountedPrice) > 0 && Number(c.product.discountedPrice) < c.product.price) 
+        let effectivePrice = (c.product.discountedPrice && Number(c.product.discountedPrice) > 0 && Number(c.product.discountedPrice) < c.product.price) 
           ? Number(c.product.discountedPrice) 
           : c.product.price;
+
+        if (c.selectedVariant) {
+          effectivePrice = (c.selectedVariant.discountedPrice && Number(c.selectedVariant.discountedPrice) > 0 && Number(c.selectedVariant.discountedPrice) < c.selectedVariant.price)
+            ? Number(c.selectedVariant.discountedPrice)
+            : c.selectedVariant.price;
+        }
+
         return {
           ...c,
           product: { ...c.product, price: effectivePrice }
@@ -1026,11 +1037,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [user]);
 
-  const updatePlan = React.useCallback(async (plan: PlanTier, months: number = 1, autoPay: boolean = false) => {
+  const updatePlan = React.useCallback(async (plan: PlanTier, months: number = 1, autoPay: boolean = false, planId?: string) => {
     if (!user) return;
     try {
       const userRef = doc(db, 'users', user.id);
-      const updateData: any = { plan };
+      const updateData: any = { plan, planDuration: months };
+      if (planId) updateData.planId = planId;
       if (plan !== 'none') {
         const expiryDate = new Date();
         expiryDate.setMonth(expiryDate.getMonth() + months);
@@ -1050,6 +1062,17 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     } catch (e) { console.error(e); throw e; }
   }, [user, refreshUser]);
 
+  const cartSubtotal = React.useMemo(() => {
+    return cart.reduce((s, c) => {
+      const itemPrice = c.selectedVariant 
+        ? (c.selectedVariant.discountedPrice || c.selectedVariant.price)
+        : ((c.product.discountedPrice && Number(c.product.discountedPrice) > 0 && Number(c.product.discountedPrice) < c.product.price) 
+          ? Number(c.product.discountedPrice) 
+          : c.product.price);
+      return s + (itemPrice * c.quantity);
+    }, 0);
+  }, [cart]);
+
   const value = React.useMemo(() => ({
     user, cart, orders, serviceBookings, stores, allProducts, loading,
     login, logout, refreshUser, addToCart, removeFromCart, updateQuantity,
@@ -1057,7 +1080,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     installPWA, updateUser, refreshOrders, refreshStores, refreshProducts, refreshData,
     markAllNotificationsRead, markNotificationAsRead, requestPushNotifications: async () => {},
     productRequests, requestProduct,
-    theme, toggleTheme
+    theme, toggleTheme,
+    cartSubtotal
   }), [
     user, cart, orders, serviceBookings, stores, allProducts, loading,
     login, logout, refreshUser, addToCart, removeFromCart, updateQuantity,
@@ -1065,7 +1089,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     installPWA, updateUser, refreshOrders, refreshStores, refreshProducts, refreshData,
     markAllNotificationsRead, markNotificationAsRead, 
     productRequests, requestProduct,
-    theme, toggleTheme
+    theme, toggleTheme,
+    cartSubtotal
   ]);
 
   return (

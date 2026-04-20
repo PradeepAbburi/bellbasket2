@@ -19,6 +19,8 @@ interface ProductCardProps {
     storeId: string;
     storeName: string;
     storePhone: string;
+    onVariantTrigger?: (product: Product) => void;
+    selectedVariant?: any; // Using any to avoid strict type issues with nested variant objects
 }
 
 const ProductCard: React.FC<ProductCardProps> = ({
@@ -30,10 +32,16 @@ const ProductCard: React.FC<ProductCardProps> = ({
     storeId,
     storeName,
     storePhone,
+    onVariantTrigger,
+    selectedVariant
 }) => {
     const { t } = useTranslation();
-    const hasDiscount = !!product.discountedPrice && product.discountedPrice < product.price;
-    const discountedPrice = hasDiscount ? product.discountedPrice : product.price;
+    const hasDiscount = selectedVariant 
+        ? (!!selectedVariant.discountedPrice && selectedVariant.discountedPrice < selectedVariant.price)
+        : (!!product.discountedPrice && product.discountedPrice < product.price);
+    const discountedPrice = selectedVariant
+        ? (hasDiscount ? selectedVariant.discountedPrice : selectedVariant.price)
+        : (hasDiscount ? product.discountedPrice : product.price);
 
     return (
         <motion.div
@@ -42,17 +50,38 @@ const ProductCard: React.FC<ProductCardProps> = ({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             whileHover={{ y: -8, scale: 1.02 }}
-            className={`w-[155px] sm:w-[185px] md:w-[220px] h-[335px] shrink-0 snap-start bg-white/30 dark:bg-[#202020]/60 backdrop-blur-xl rounded-[2rem] border border-white/20 shadow-lg hover:shadow-2xl transition-all duration-300 group flex flex-col overflow-hidden relative ${highlighted ? 'border-primary ring-4 ring-primary/20 scale-105 z-10' : 'border-white/40'
-                }`}
+            className={`w-[155px] sm:w-[185px] md:w-[220px] h-[335px] shrink-0 snap-start bg-white/30 dark:bg-[#202020]/60 backdrop-blur-xl rounded-[2rem] border shadow-lg hover:shadow-2xl transition-all duration-300 group flex flex-col overflow-hidden relative ${
+                highlighted ? 'border-primary ring-4 ring-primary/20 scale-105 z-10' : 
+                product.isCombo ? 'border-primary/40 bg-primary/[0.03]' : 'border-white/40'
+            }`}
         >
             {/* Image Section */}
             <div className="relative h-[150px] shrink-0 overflow-hidden p-2">
                 <div className="w-full h-full rounded-[1.8rem] overflow-hidden bg-gradient-to-br from-secondary/20 to-secondary/5 relative">
-                    <img
-                        src={product.image}
-                        alt={product.name}
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ease-out"
-                    />
+                    {product.isCombo && product.comboItemsData && product.comboItemsData.length > 0 ? (
+                        <div className="w-full h-full grid grid-cols-2 grid-rows-2 gap-[2px] bg-primary/20 relative">
+                            {product.comboItemsData.slice(0, 4).map((item, idx) => (
+                                <img
+                                    key={item.id}
+                                    src={item.image}
+                                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                    alt=""
+                                />
+                            ))}
+                            {product.comboItemsData.length < 4 && Array.from({ length: 4 - product.comboItemsData.length }).map((_, i) => (
+                                <div key={i} className="w-full h-full bg-zinc-900 flex items-center justify-center">
+                                  <Plus className="w-4 h-4 text-primary/20" />
+                                </div>
+                            ))}
+                             <div className="absolute inset-0 bg-gradient-to-tr from-primary/10 to-transparent pointer-events-none" />
+                        </div>
+                    ) : (
+                        <img
+                            src={product.image}
+                            alt={product.name}
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ease-out"
+                        />
+                    )}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                 </div>
                 {/* Stock Overlay */}
@@ -64,9 +93,15 @@ const ProductCard: React.FC<ProductCardProps> = ({
                     </div>
                 )}
                 {/* Discount Badge */}
-                {hasDiscount && (
+                {hasDiscount && !product.isCombo && (
                     <div className="absolute top-3 left-3 z-20 bg-primary/90 backdrop-blur-md text-primary-foreground text-[8px] sm:text-[9px] font-black px-2 py-1 rounded-full flex items-center gap-1 shadow-lg border border-white/20 uppercase tracking-tighter">
                         {Math.round(((product.price - product.discountedPrice!) / product.price) * 100)}% {t('common.off')}
+                    </div>
+                )}
+                {product.isCombo && (
+                    <div className="absolute top-3 left-3 z-20 bg-primary text-white text-[7px] sm:text-[9px] font-black px-3 py-1 rounded-full flex items-center gap-1.5 shadow-xl border border-white/20 uppercase tracking-[0.1em]">
+                        <Sparkles className="w-2.5 h-2.5 fill-current" />
+                        Bundle Deal
                     </div>
                 )}
                 {/* Quantity Tag & Quality Badge */}
@@ -83,11 +118,13 @@ const ProductCard: React.FC<ProductCardProps> = ({
             {/* Content Section */}
             <div className="flex flex-col flex-1 px-4 pb-4 pt-0 min-w-0">
                 <div className="flex flex-col min-h-[38px] sm:min-h-[42px] md:min-h-[48px] justify-center">
-                    <h3 className="font-black text-xs sm:text-[14px] md:text-[15px] text-slate-800 dark:text-slate-100 line-clamp-1 group-hover:text-primary transition-colors duration-300 tracking-tight leading-none mb-1">
+                    <h3 className={`font-black text-xs sm:text-[14px] md:text-[15px] line-clamp-1 group-hover:text-primary transition-colors duration-300 tracking-tight leading-none mb-1 ${product.isCombo ? 'text-primary' : 'text-slate-800 dark:text-slate-100'}`}>
                         {t(`products.${product.name}`, { defaultValue: product.name })}
                     </h3>
                     <p className="text-[8px] sm:text-[9px] text-muted-foreground/50 line-clamp-1 leading-relaxed font-bold uppercase tracking-tighter">
-                        {product.description ? t(`products_desc.${product.name}`, { defaultValue: product.description }) : ''}
+                        {product.isCombo && product.comboItemsData 
+                            ? `Includes: ${product.comboItemsData.map(i => i.name).join(' + ')}` 
+                            : product.description ? t(`products_desc.${product.name}`, { defaultValue: product.description }) : ''}
                     </p>
                 </div>
                 <div className="mt-auto pt-2 border-t border-slate-100/50">
@@ -99,7 +136,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
                                 </span>
                                 {hasDiscount && (
                                     <span className="text-[10px] text-muted-foreground line-through opacity-40 font-bold leading-none mt-0.5">
-                                        ₹{product.price}
+                                        ₹{selectedVariant ? selectedVariant.price : product.price}
                                     </span>
                                 )}
                             </div>
@@ -107,17 +144,23 @@ const ProductCard: React.FC<ProductCardProps> = ({
                         </div>
                         {product.inStock && (
                             <div className="flex items-center gap-1">
-                                {qty === 0 ? (
+                                { (qty === 0 || product.hasVariants) ? (
                                     <motion.button
                                         whileTap={{ scale: 0.92 }}
                                         whileHover={{ scale: 1.05 }}
                                         onClick={() => {
-                                            addToCart({ product, storeId, storeName, storePhone, quantity: 1 });
+                                            if (product.hasVariants && onVariantTrigger) {
+                                                onVariantTrigger(product);
+                                            } else {
+                                                addToCart({ product, storeId, storeName, storePhone, quantity: 1 });
+                                            }
                                         }}
                                         className="gradient-primary text-primary-foreground h-8 px-4 sm:h-9 sm:px-5 rounded-xl flex items-center justify-center gap-1.5 shadow-[0_5px_15px_-5px_rgba(234,179,8,0.4)] hover:shadow-primary/40 transition-all font-black"
                                     >
                                         <Plus className="w-3 h-3" />
-                                        <span className="text-[9px] sm:text-[10px] uppercase tracking-widest pt-0.5">Add</span>
+                                        <span className="text-[9px] sm:text-[10px] uppercase tracking-widest pt-0.5">
+                                            {product.hasVariants && selectedVariant ? 'Edit' : 'Add'}
+                                        </span>
                                     </motion.button>
                                 ) : (
                                     <div className="flex items-center gap-1 bg-primary/5 rounded-xl p-0.5 border border-primary/10 backdrop-blur-sm">

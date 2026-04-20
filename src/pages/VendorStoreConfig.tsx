@@ -200,6 +200,11 @@ const VendorStoreConfig = () => {
       () => {
         setDetecting(false);
         toast.error('Could not detect location');
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0
       }
     );
   };
@@ -483,7 +488,14 @@ const VendorStoreConfig = () => {
                </div>
             </div>
 
-            <div className="bg-[#111111] rounded-[2.5rem] p-8 border border-white/5 space-y-6 shadow-2xl">
+            {/* Delivery Service - Temporarily Disabled */}
+            <div className="bg-[#111111]/40 rounded-[2.5rem] p-8 border border-white/5 space-y-6 shadow-2xl opacity-50 relative overflow-hidden group">
+               <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center text-center p-6">
+                 <Package className="w-10 h-10 text-white/20 mb-2" />
+                 <p className="text-[10px] font-black uppercase tracking-widest text-white/40">Logistics Control</p>
+                 <p className="text-xs font-bold text-white/20 mt-1 italic">Delivery features are temporarily disabled by platform administration.</p>
+               </div>
+               
                <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-400 border border-purple-500/20">
                      <Package className="w-5 h-5" />
@@ -493,47 +505,6 @@ const VendorStoreConfig = () => {
                     <p className="text-[9px] text-white/30 uppercase font-black tracking-widest">Logistics Control</p>
                   </div>
                </div>
-
-               <button 
-                 onClick={() => setTempOffersDelivery(!tempOffersDelivery)}
-                 className={`w-full flex items-center justify-between p-5 rounded-2xl transition-all border ${tempOffersDelivery ? 'bg-purple-500/10 border-purple-500/20' : 'bg-white/[0.02] border-white/5 hover:bg-white/[0.04]'}`}
-               >
-                  <div className="flex items-center gap-4">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${tempOffersDelivery ? 'bg-purple-500 text-white' : 'bg-white/5 text-white/40'}`}>
-                       <Package className="w-5 h-5" />
-                    </div>
-                    <div className="text-left">
-                       <p className="text-xs font-black text-white uppercase tracking-tight">Home Delivery</p>
-                       <p className="text-[9px] text-white/30 uppercase tracking-widest">{tempOffersDelivery ? 'Activated' : 'Disabled'}</p>
-                    </div>
-                  </div>
-                  <div className={`w-12 h-6 rounded-full relative transition-all duration-300 ${tempOffersDelivery ? 'bg-purple-500' : 'bg-white/10'}`}>
-                    <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all duration-300 ${tempOffersDelivery ? 'left-7' : 'left-1'}`} />
-                  </div>
-               </button>
-
-               <AnimatePresence>
-                 {tempOffersDelivery && (
-                   <motion.div
-                     initial={{ height: 0, opacity: 0 }}
-                     animate={{ height: 'auto', opacity: 1 }}
-                     exit={{ height: 0, opacity: 0 }}
-                     className="overflow-hidden space-y-3"
-                   >
-                     <label className="text-[10px] font-black uppercase tracking-widest text-white/40 px-1">Flat Delivery Fee (₹)</label>
-                     <div className="relative">
-                       <input
-                         type="number"
-                         value={tempDeliveryFee}
-                         onChange={e => setTempDeliveryFee(Number(e.target.value))}
-                         className="w-full bg-white/[0.03] border border-white/10 focus:border-purple-500/50 rounded-2xl px-6 py-4 text-sm font-bold text-white outline-none transition-all"
-                         placeholder="50"
-                       />
-                       <span className="absolute right-6 top-1/2 -translate-y-1/2 text-xs font-black text-white/20 uppercase tracking-widest">Rupees</span>
-                     </div>
-                   </motion.div>
-                 )}
-               </AnimatePresence>
             </div>
           </div>
 
@@ -725,7 +696,7 @@ const StoreCameraModal = ({ onCapture }: { onCapture: (base64: string) => void }
     const videoRef = useRef<HTMLVideoElement>(null);
     const streamRef = useRef<MediaStream | null>(null);
 
-    const startCamera = async (mode: 'user' | 'environment' = facingMode) => {
+    const startCamera = async (mode: 'user' | 'environment' = 'environment') => {
         if (streamRef.current) {
             streamRef.current.getTracks().forEach(track => track.stop());
         }
@@ -795,7 +766,14 @@ const StoreCameraModal = ({ onCapture }: { onCapture: (base64: string) => void }
     };
 
     useEffect(() => {
-        (window as any).startStoreCamera = () => startCamera();
+        if (show && videoRef.current && streamRef.current) {
+            videoRef.current.srcObject = streamRef.current;
+            videoRef.current.play().catch(console.error);
+        }
+    }, [show]);
+
+    useEffect(() => {
+        (window as any).startStoreCamera = () => startCamera('environment');
         return () => { delete (window as any).startStoreCamera; };
     }, [facingMode]);
 

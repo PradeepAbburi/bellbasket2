@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const BottomNav = () => {
-    const { user, cart, orders, serviceBookings, stores } = useApp();
+    const { user, cart, orders, serviceBookings, stores, cartSubtotal } = useApp();
     const { t } = useTranslation();
     const location = useLocation();
     
@@ -25,8 +25,15 @@ const BottomNav = () => {
     // Hide if not logged in, not verified, or on auth/setup pages, or for HR/Admin roles
     if (!user || !user.isVerified || user.role === 'hr' || user.role === 'admin' || location.pathname === '/auth' || location.pathname === '/vendor/setup') return null;
 
-    // Hide BottomNav on subscription, notes, and deals page
-    if (location.pathname === '/vendor/subscription' || location.pathname === '/vendor/notes' || location.pathname === '/vendor/deals' || location.pathname === '/vendor/config') return null;
+    // Hide BottomNav on add/edit product, subscription, notes, and deals page
+    if (
+        location.pathname === '/vendor/subscription' || 
+        location.pathname === '/vendor/notes' || 
+        location.pathname === '/vendor/deals' || 
+        location.pathname === '/vendor/config' ||
+        location.pathname === '/vendor/products/new' ||
+        location.pathname.startsWith('/vendor/products/edit/')
+    ) return null;
 
     const isVendor = user.role === 'vendor';
     const isServiceStore = isVendor && stores?.find(s => s.vendorId === user.id)?.storeType === 'service';
@@ -52,7 +59,10 @@ const BottomNav = () => {
                             <div className="p-2 bg-white/20 rounded-xl">
                                 <ShoppingCart className="w-5 h-5" />
                             </div>
-                            <span className="font-bold text-sm">{cartCount} {cartCount === 1 ? 'Item' : 'Items'}</span>
+                            <div className="flex flex-col -gap-0.5">
+                                <span className="font-black text-sm leading-none">₹{cartSubtotal}</span>
+                                <span className="text-[10px] font-bold opacity-80">{cartCount} {cartCount === 1 ? 'Item' : 'Items'}</span>
+                            </div>
                         </div>
                         <div className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-xs">
                             {t('common.cart')} <ChevronRight className="w-4 h-4" />

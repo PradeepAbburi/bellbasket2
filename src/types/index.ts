@@ -1,3 +1,10 @@
+export interface ProductVariant {
+  id: string;
+  quantity: string;
+  price: number;
+  discountedPrice?: number;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -16,6 +23,19 @@ export interface Product {
     endTime: string;
     days: number[];
   };
+  isCombo?: boolean;
+  comboItems?: string[];
+  comboItemsData?: Product[];
+  variants?: ProductVariant[];
+  hasVariants?: boolean;
+  lat?: number;
+  lng?: number;
+  mandal?: string;
+  district?: string;
+  state?: string;
+  country?: string;
+  storeName?: string;
+  storeType?: 'product' | 'service';
 }
 
 export interface StoreReview {
@@ -70,6 +90,7 @@ export interface Store {
 
 export interface CartItem {
   product: Product;
+  selectedVariant?: ProductVariant;
   storeId: string;
   storeName: string;
   storePhone?: string;
@@ -159,6 +180,8 @@ export interface User {
   lat?: number;
   lng?: number;
   plan?: PlanTier;
+  planId?: string;
+  planDuration?: number;
   subscriptionExpiry?: string;
   isBlocked?: boolean;
   fcmToken?: string;
@@ -258,6 +281,8 @@ export interface Deal {
   stockLimit?: number;
   status: 'active' | 'expired';
   dealTag?: string;
+  isCombo?: boolean;
+  comboItems?: string[];
   createdAt: string;
 }
 

@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { Bell, MapPin, ShoppingCart, Store, ArrowRight, Sparkles, Smartphone, ChevronRight, Menu, X, Sun, Moon } from 'lucide-react';
-import heroBg from '@/assets/hero-bg.jpg';
+import { Bell, MapPin, ShoppingCart, Store, ArrowRight, Sparkles, Smartphone, ChevronRight, Menu, X, Sun, Moon, Star, Zap } from 'lucide-react';
+const heroBg = '/assets/hero-bg.jpg';
 import { useApp } from '@/context/AppContext';
 import QRCodeWithLogo from '@/components/ui/qr-code-with-logo';
 import { useState, useEffect } from 'react';
@@ -22,46 +22,49 @@ const Index = () => {
   return (
     <div className="min-h-screen gradient-warm">
       <Helmet>
-        <title>BellBasket - Pick It. Grab It.</title>
-        <meta name="description" content="Discover BellBasket: Pick It. Grab It. Connect with neighborhood stores. Set your location, fill your basket with local groceries, and enjoy fast delivery or pickup." />
-        <meta name="keywords" content="BellBasket, local shopping, hyper-local marketplace, support local vendors, grocery delivery" />
-        <meta property="og:title" content="BellBasket - Pick It. Grab It." />
-        <meta property="og:description" content="Pick It. Grab It. Find local vendors, grab fresh groceries, and get quick delivery." />
+        <title>BellBasket - Neighborhood Shopping & Hyper-local Marketplace</title>
+        <meta name="description" content="BellBasket is your neighborhood's favorite local marketplace. Connect with neighborhood stores, support local vendors, and enjoy fast delivery or pickup for fresh groceries and essentials." />
+        <meta name="keywords" content="BellBasket, local shopping app, hyper-local grocery, neighborhood stores, support local vendors, pick it grab it, grocery delivery India" />
+        <meta property="og:title" content="BellBasket - Neighborhood Shopping & hyper-local Marketplace" />
+        <meta property="og:description" content="Pick It. Grab It. Find local vendors, grab fresh groceries, and get quick delivery from your neighborhood stores." />
+        <meta property="og:type" content="website" />
         <meta property="og:url" content="https://bellbasket.com/" />
+        <meta property="og:image" content="https://bellbasket.com/og-image.jpg" />
         <link rel="canonical" href="https://bellbasket.com/" />
+        
+        {/* Structured Data for SEO */}
         <script type="application/ld+json">
           {JSON.stringify({
             "@context": "https://schema.org",
-            "@type": "FAQPage",
-            "mainEntity": [
-              {
-                "@type": "Question",
-                "name": "How do I order from local stores?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "Simply authorize your location or select your area. BellBasket will show you all the nearby grocery stores, bakeries, and essential shops. Add items to your cart and choose between home delivery or store pickup."
-                }
-              },
-              {
-                "@type": "Question",
-                "name": "Is BellBasket available in my city?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "We are rapidly expanding across India! Currently, we are live in major neighborhoods in Delhi NCR and Andhra Pradesh. You can check availability by simply visiting the browse page."
-                }
-              }
+            "@type": "WebSite",
+            "name": "BellBasket",
+            "url": "https://bellbasket.com/",
+            "potentialAction": {
+              "@type": "SearchAction",
+              "target": "https://bellbasket.com/browse?q={search_term_string}",
+              "query-input": "required name=search_term_string"
+            }
+          })}
+        </script>
+        <script type="application/ld+json">
+          {JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Organization",
+            "name": "BellBasket",
+            "url": "https://bellbasket.com/",
+            "logo": "https://bellbasket.com/logo.png",
+            "sameAs": [
+              "https://twitter.com/bellbasket",
+              "https://instagram.com/bellbasket"
             ]
           })}
         </script>
       </Helmet>
-      <header className="absolute top-24 left-0 right-0 z-0 text-center opacity-0 pointer-events-none">
-        <h1>BellBasket - Hyper-local Marketplace for Neighborhood Stores | Grocery Delivery & Pick-up</h1>
-      </header>
 
       {/* Hero */}
       <section className="relative min-h-screen flex items-center overflow-hidden">
         <div className="absolute inset-0">
-          <img src={heroBg} alt="" className="w-full h-full object-cover opacity-60 object-center" />
+          <img src={heroBg} alt="Bustling Indian neighborhood market storefront with fresh groceries" fetchPriority="high" loading="eager" className="w-full h-full object-cover opacity-60 object-center" />
           <div className="absolute inset-0 bg-gradient-to-b from-background/20 via-background/40 to-background/95" />
         </div>
 
@@ -76,11 +79,11 @@ const Index = () => {
 
               {/* Desktop Menu */}
               <div className="hidden md:flex items-center gap-3">
-                <Link to="/careers" className="text-sm font-bold text-primary hover:text-primary/80 transition-colors glass px-4 py-2 rounded-full border border-primary/20">
-                  Careers
-                </Link>
                 <Link to="/about" className="text-sm font-bold text-foreground/80 hover:text-foreground transition-colors glass px-4 py-2 rounded-full border border-white/20">
                   About
+                </Link>
+                <Link to="/careers" className="text-sm font-bold text-primary hover:text-primary/80 transition-colors glass px-4 py-2 rounded-full border border-primary/20">
+                  Careers
                 </Link>
                 <Link to="/auth" className="text-sm font-bold text-foreground/80 hover:text-foreground transition-colors glass px-4 py-2 rounded-full border border-white/20">
                   Sign In
@@ -107,8 +110,8 @@ const Index = () => {
                 className="md:hidden mt-2 glass rounded-2xl overflow-hidden border border-white/20 max-w-[200px] ml-auto"
               >
                 <div className="p-2 flex flex-col">
+                  <Link to="/about" className="px-4 py-2.5 rounded-xl hover:bg-white/5 font-bold text-sm text-foreground transition-colors">About</Link>
                   <Link to="/careers" className="px-4 py-2.5 rounded-xl hover:bg-primary/5 font-bold text-sm text-foreground transition-colors">Careers</Link>
-                  <Link to="/about" className="px-4 py-2.5 rounded-xl hover:bg-white/05 font-bold text-sm text-foreground transition-colors">About</Link>
                   <Link to="/auth" className="mt-1 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground font-black text-xs text-center uppercase tracking-widest">Sign In</Link>
                 </div>
               </motion.div>
@@ -141,12 +144,14 @@ const Index = () => {
             <div className="flex flex-col sm:flex-row gap-3">
               <button
                 onClick={() => navigate('/auth')}
+                onMouseEnter={() => import('@/pages/Auth')}
                 className="gradient-primary text-primary-foreground px-8 py-3.5 rounded-xl font-semibold text-base flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
               >
                 Get Started <ArrowRight className="w-4 h-4" />
               </button>
               <button
                 onClick={() => navigate('/auth?role=vendor')}
+                onMouseEnter={() => import('@/pages/Auth')}
                 className="glass text-foreground px-8 py-3.5 rounded-xl font-semibold text-base flex items-center justify-center gap-2 hover:bg-secondary/80 transition-colors"
               >
                 <Store className="w-4 h-4" /> Become a Vendor
@@ -232,6 +237,90 @@ const Index = () => {
               <div className="flex items-center gap-2 px-6 py-2 bg-white/10 text-foreground rounded-full text-[10px] font-black uppercase tracking-widest border border-white/20 backdrop-blur-md">
                 <Sparkles className="w-3.5 h-3.5 text-primary" />
                 Scan to Go to Download Page
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Trust & Differentiation Section */}
+      <section className="py-24 px-4 bg-white dark:bg-[#1a1a1a]">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl md:text-5xl font-black text-foreground mb-4">Why shop on BellBasket?</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">We're digitizing your favorite local stores to bring the neighborhood market directly to your doorstep with guaranteed trust and speed.</p>
+          </div>
+          
+          <div className="grid md:grid-cols-3 gap-8">
+            {[
+              { 
+                title: "Trusted Local Stores", 
+                desc: "Every vendor on our platform is verified. Shop from the same trusted Kirana stores you've known for generations, now with digital convenience.",
+                icon: Store
+              },
+              { 
+                title: "Hyper-Local Delivery", 
+                desc: "Since products are sourced from stores in your immediate neighborhood, enjoy lightning-fast delivery or quick pickup within minutes.",
+                icon: Zap
+              },
+              { 
+                title: "Empower Communities", 
+                desc: "Every purchase you make directly supports local entrepreneurs. We help neighborhood stores compete effectively in the digital age.",
+                icon: Sparkles
+              }
+            ].map((item, idx) => (
+              <div key={idx} className="glass p-8 rounded-[2.5rem] border border-primary/10 hover:border-primary/30 transition-all group">
+                <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                  <item.icon className="w-8 h-8 text-primary" />
+                </div>
+                <h3 className="text-xl font-bold mb-4">{item.title}</h3>
+                <p className="text-muted-foreground text-sm leading-relaxed">{item.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Testimonials Block */}
+      <section className="py-24 px-4 relative overflow-hidden bg-primary/5">
+        <div className="max-w-6xl mx-auto relative z-10">
+          <div className="flex flex-col md:flex-row items-end justify-between mb-16 gap-6">
+            <div className="max-w-xl">
+              <h2 className="text-4xl md:text-5xl font-black text-foreground mb-4 font-outfit uppercase tracking-tighter">Voices from the neighborhood</h2>
+              <p className="text-muted-foreground">Hear from the store owners and customers who make the BellBasket community special.</p>
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-8">
+            <div className="glass p-10 rounded-[3rem] border border-primary/20 relative">
+              <div className="flex items-center gap-4 mb-8">
+                <div className="w-16 h-16 rounded-2xl bg-secondary flex items-center justify-center font-black text-2xl text-primary shadow-lg ring-4 ring-primary/10">S</div>
+                <div>
+                  <h4 className="font-bold text-lg">Srinivas Rao</h4>
+                  <p className="text-xs text-primary font-black uppercase tracking-widest">SVR Supermarket Manager</p>
+                </div>
+              </div>
+              <p className="text-lg italic text-foreground/80 leading-relaxed mb-6">
+                "BellBasket has completely changed how I manage my inventory. I used to rely only on walk-in customers, but now I serve my entire neighborhood digitally. My sales have grown by 30% without any additional marketing!"
+              </p>
+              <div className="flex items-center gap-1 text-yellow-500">
+                {[...Array(5)].map((_, i) => <Star key={i} className="w-4 h-4 fill-current" />)}
+              </div>
+            </div>
+
+            <div className="glass p-10 rounded-[3rem] border border-primary/20 relative">
+              <div className="flex items-center gap-4 mb-8">
+                <div className="w-16 h-16 rounded-2xl bg-secondary flex items-center justify-center font-black text-2xl text-primary shadow-lg ring-4 ring-primary/10">A</div>
+                <div>
+                  <h4 className="font-bold text-lg">Ananya Sharma</h4>
+                  <p className="text-xs text-primary font-black uppercase tracking-widest">Neighborhood Customer</p>
+                </div>
+              </div>
+              <p className="text-lg italic text-foreground/80 leading-relaxed mb-6">
+                "I love being able to support my local Kirana store while having the convenience of an app. The pickup feature is a lifesaver—I order on my way home from work and my groceries are ready when I arrive!"
+              </p>
+              <div className="flex items-center gap-1 text-yellow-500">
+                {[...Array(5)].map((_, i) => <Star key={i} className="w-4 h-4 fill-current" />)}
               </div>
             </div>
           </div>
@@ -334,49 +423,79 @@ const Index = () => {
       </section>
 
       {/* FAQ Section */}
-      <section className="py-20 px-4 bg-white/5 border-t border-white/5">
+      <section className="py-20 px-4 bg-primary/5">
         <div className="max-w-4xl mx-auto">
-          <h2 className="text-3xl font-bold text-foreground text-center mb-12">Frequently Asked Questions</h2>
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-5xl font-black text-foreground mb-4">Frequently Asked Questions</h2>
+            <p className="text-muted-foreground">Everything you need to know about BellBasket and how we support neighbor shopping.</p>
+          </div>
+          
           <div className="space-y-4">
-            <details className="glass p-6 rounded-2xl group cursor-pointer">
-              <summary className="font-bold text-lg list-none flex justify-between items-center text-foreground">
-                How do I order from local stores?
-                <span className="transition-transform group-open:rotate-180">▼</span>
-              </summary>
-              <p className="mt-4 text-muted-foreground leading-relaxed">
-                Simply authorize your location or select your area. BellBasket will show you all the nearby grocery stores, bakeries, and essential shops. Add items to your cart and choose between home delivery or store pickup.
-              </p>
-            </details>
-            <details className="glass p-6 rounded-2xl group cursor-pointer">
-              <summary className="font-bold text-lg list-none flex justify-between items-center text-foreground">
-                Is BellBasket available in my city?
-                <span className="transition-transform group-open:rotate-180">▼</span>
-              </summary>
-              <p className="mt-4 text-muted-foreground leading-relaxed">
-                We are rapidly expanding across India! Currently, we are live in major neighborhoods across South India (AP, TS, TN, KA, KL) and India's top metros. You can check availability by simply visiting the browse page and setting your location.
-              </p>
-            </details>
-            <details className="glass p-6 rounded-2xl group cursor-pointer">
-              <summary className="font-bold text-lg list-none flex justify-between items-center text-foreground">
-                How can I list my shop on BellBasket?
-                <span className="transition-transform group-open:rotate-180">▼</span>
-              </summary>
-              <p className="mt-4 text-muted-foreground leading-relaxed">
-                It's easy! Click on "Become a Vendor", create your account, and set up your store profile. You can start listing products immediately. We offer Basic (Free), Growth, and Pro plans to suit your business needs.
-              </p>
-            </details>
-            <details className="glass p-6 rounded-2xl group cursor-pointer">
-              <summary className="font-bold text-lg list-none flex justify-between items-center text-foreground">
-                What are the benefits of the Pro Plan for vendors?
-                <span className="transition-transform group-open:rotate-180">▼</span>
-              </summary>
-              <p className="mt-4 text-muted-foreground leading-relaxed">
-                The Pro Plan offers top-tier visibility with "Sponsored" tags, featured placement at the top of search results, advanced sales analytics, and the ability to add custom discount tags to products.
-              </p>
-            </details>
+            {[
+              { 
+                q: "What is BellBasket?", 
+                a: "BellBasket is a hyper-local marketplace that connects you with trusted stores in your neighborhood. We empower local vendors by giving them a digital storefront while providing customers with a convenient way to shop from nearby shops." 
+              },
+              { 
+                q: "How do I order from a local store?", 
+                a: "Simply set your location to discover stores near you. Browse their catalog, add items to your basket, and place your order. You can then pick up your items directly from the store at your convenience." 
+              },
+              { 
+                q: "Can I become a vendor on BellBasket?", 
+                a: "Yes! Any local store owner, home-based business, or vendor can join BellBasket. Click on 'Become a Vendor', set up your shop profile, and start listing your products to reach customers in your neighborhood." 
+              },
+              { 
+                q: "Is there a mobile app available?", 
+                a: "We are currently in the final stages of launching our mobile app for both Android and iOS. You can shop using our progressive web app now, and scan the QR code in our 'Download' section to get notified when the native app goes live." 
+              },
+              { 
+                q: "What payment methods do you support?", 
+                a: "Currently, we only support Cash on Pickup. You can pay directly at the store when you collect your order. This ensures you only pay after verifying your items." 
+              },
+              {
+                q: "Can I book services like plumbers or salons?",
+                a: "Yes! BellBasket supports both products and services. You can find local service providers, check their availability, and book time slots directly through the platform."
+              },
+              {
+                q: "How does BellBasket ensure shop quality?",
+                a: "Every vendor undergoes a strict verification process. Combined with our community-driven review system, we ensure that you only shop from the most trusted and reliable local partners."
+              }
+            ].map((faq, idx) => (
+              <motion.div 
+                key={idx}
+                initial={{ opacity: 0, y: 10 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: idx * 0.1 }}
+                className="glass rounded-2xl overflow-hidden border border-primary/10"
+              >
+                <details className="group">
+                  <summary className="flex items-center justify-between p-6 cursor-pointer list-none">
+                    <span className="text-lg font-bold text-foreground">{faq.q}</span>
+                    <span className="transition-transform duration-300 group-open:rotate-180">
+                      <ChevronRight className="w-5 h-5 text-primary" />
+                    </span>
+                  </summary>
+                  <div className="px-6 pb-6 text-muted-foreground text-sm leading-relaxed">
+                    {faq.a}
+                  </div>
+                </details>
+              </motion.div>
+            ))}
+          </div>
+
+          <div className="flex justify-center mt-12">
+            <button 
+              onClick={() => navigate('/faq')}
+              className="group glass px-8 py-4 rounded-2xl border border-primary/20 font-black text-sm uppercase tracking-widest text-primary flex items-center gap-3 hover:bg-primary/5 transition-all"
+            >
+              View All FAQs <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" aria-hidden="true" />
+            </button>
           </div>
         </div>
       </section>
+
+
 
       <footer className="py-12 md:py-20 px-4 border-t border-border bg-transparent">
         <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-12 mb-12">
@@ -387,7 +506,7 @@ const Index = () => {
             </p>
           </div>
           <div>
-            <h4 className="font-bold text-foreground mb-4">Top Stores & Areas</h4>
+            <h3 className="font-bold text-foreground mb-4">Top Stores & Areas</h3>
             <ul className="space-y-2">
               {[
                 { name: "SVR Supermarket, VSP", path: "/browse?q=SVR" },
@@ -405,7 +524,7 @@ const Index = () => {
             </ul>
           </div>
           <div>
-            <h4 className="font-bold text-foreground mb-4">Support</h4>
+            <h3 className="font-bold text-foreground mb-4">Support</h3>
             <ul className="space-y-2">
               <li><Link to="/about" className="text-sm text-muted-foreground hover:text-primary transition-colors">About Us</Link></li>
               <li><Link to="/leadership" className="text-sm text-muted-foreground hover:text-primary transition-colors">Leadership</Link></li>
@@ -418,11 +537,11 @@ const Index = () => {
             </ul>
           </div>
           <div>
-            <h4 className="font-bold text-foreground mb-4">Newsletter</h4>
+            <h3 className="font-bold text-foreground mb-4">Newsletter</h3>
             <p className="text-xs text-muted-foreground mb-4">Get updates on new local stores in your area.</p>
             <div className="flex gap-2">
-              <input type="email" placeholder="Email" className="bg-secondary/50 border border-border/50 rounded-lg px-3 py-2 text-xs w-full focus:outline-none focus:ring-1 focus:ring-primary" />
-              <button className="bg-primary text-white p-2 rounded-lg"><ArrowRight className="w-4 h-4" /></button>
+              <input type="email" placeholder="Email" aria-label="Newsletter email" className="bg-secondary/50 border border-border/50 rounded-lg px-3 py-2 text-xs w-full focus:outline-none focus:ring-1 focus:ring-primary" />
+              <button className="bg-primary text-white p-2 rounded-lg" aria-label="Subscribe to Newsletter"><ArrowRight className="w-4 h-4" aria-hidden="true" /></button>
             </div>
           </div>
         </div>

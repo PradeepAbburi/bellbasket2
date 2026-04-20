@@ -1,4 +1,4 @@
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Star, MapPin, Clock, Plus, Minus, Loader2, MessageSquare, Search, X, Tag, Phone, ChevronRight, ChevronLeft, Share2, Sparkles, Calendar, AlertCircle, ArrowUpDown, ChevronDown, XCircle, ImageIcon, PackageSearch } from 'lucide-react';
 import { 
@@ -27,7 +27,8 @@ import { Product } from '@/types';
 import { CATEGORY_METADATA } from '@/constants/categories';
 import { cleanObject } from '@/utils/firebase';
 import { smartSearchProducts } from '../utils/search';
-
+import PullToRefresh from '@/components/ui/PullToRefresh';
+import VariantSelector from '@/components/VariantSelector';
 import { Helmet } from 'react-helmet';
 import { StoreDetailSkeleton } from '@/components/SkeletonLoader';
 
@@ -39,21 +40,27 @@ const StoreDetail = () => {
   const searchQueryFromUrl = searchParams.get('search');
   const { t } = useTranslation();
   const { cart, addToCart, updateQuantity, stores, allProducts, user, clearCart } = useApp();
-  const [store, setStore] = useState<any>(stores.find(s => s.id === id));
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
+  const location = useLocation();
+  const [store, setStore] = useState<any>(() => location.state?.store || stores.find(s => s.id === id || (slug && s.slug === slug)));
+  const [products, setProducts] = useState<Product[]>(() => {
+    const targetId = (location.state?.store?.id) || stores.find(s => s.id === id || (slug && s.slug === slug))?.id || id;
+    return allProducts.filter(p => p.vendorId === targetId);
+  });
+  const [loading, setLoading] = useState(!store); // Instant render if we have store metadata
   const [showReviews, setShowReviews] = useState(false);
   const [searchTerm, setSearchTerm] = useState(searchQueryFromUrl || '');
   const [isSearching, setIsSearching] = useState(false);
   const [activeSearch, setActiveSearch] = useState(searchQueryFromUrl || '');
   const [highlightedProductId, setHighlightedProductId] = useState<string | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [variantSelectorProduct, setVariantSelectorProduct] = useState<Product | null>(null);
   const [bookingService, setBookingService] = useState<Product | null>(null);
   const [bookingData, setBookingData] = useState({ name: '', phone: '', location: '', description: '', date: '', timeSlot: '' });
   const [isBooking, setIsBooking] = useState(false);
   const [priceSort, setPriceSort] = useState<'none' | 'low-high' | 'high-low'>('none');
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [requestData, setRequestData] = useState({ productName: '', description: '', image: '' });
+  const [activeComboItemIndex, setActiveComboItemIndex] = useState(-1); // -1: main combo, 0+: sub-items
   const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
   const [showCallModal, setShowCallModal] = useState(false);
   const { requestProduct } = useApp();
@@ -103,11 +110,17 @@ const StoreDetail = () => {
 
         // Brief timeout to ensure DOM is ready
         setTimeout(() => {
+          setActiveComboItemIndex(-1);
           const element = document.getElementById(`product-${productIdFromUrl}`);
           if (element) {
             // 1. Scroll the window to the category section first if needed
             // Actually scrollIntoView on the element might be enough
             element.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+
+            // Auto-open booking modal for service stores
+            if (store?.storeType === 'service') {
+              setBookingService(product);
+            }
 
             // 2. Clear highlighting after a few seconds
             setTimeout(() => setHighlightedProductId(null), 3000);
@@ -124,10 +137,12 @@ const StoreDetail = () => {
     const suggestions = new Set<string>();
 
     products.forEach(p => {
-      if (p.name.toLowerCase().includes(query)) suggestions.add(p.name);
+      if (p.name.toLowerCase().includes(query)) {
+        suggestions.add(JSON.stringify({ type: 'product', name: p.name }));
+      }
     });
 
-    return Array.from(suggestions).slice(0, 6);
+    return Array.from(suggestions).map(s => JSON.parse(s)).slice(0, 10);
   }, [searchTerm, products, isSearching, activeSearch]);
 
   // 1. Setup Real-time Store Listener & Fetch Products
@@ -192,8 +207,8 @@ const StoreDetail = () => {
       if (targetId) {
         unsubscribeStore = setupListener(targetId);
 
-        // Fetch products
-        setLoading(true);
+        // Fetch products in background
+        // Removing artificial loading state to ensure instant feel
         try {
           const q = query(collection(db, 'products'), where('vendorId', '==', targetId));
           const querySnapshot = await getDocs(q);
@@ -203,13 +218,41 @@ const StoreDetail = () => {
           })) as Product[];
 
           if (productData.length > 0) {
-            setProducts(productData);
+            const enriched = productData.map(p => {
+              if (p.isCombo && p.comboItems && p.comboItems.length > 0) {
+                return {
+                  ...p,
+                  comboItemsData: productData.filter(item => p.comboItems?.includes(item.id))
+                };
+              }
+              return p;
+            });
+            setProducts(enriched);
           } else {
+            console.log("No DB products found, trying context for", targetId);
             const contextProducts = allProducts.filter(p => p.vendorId === targetId);
-            setProducts(contextProducts);
+            const enrichedContext = contextProducts.map(p => {
+              if (p.isCombo && p.comboItems && p.comboItems.length > 0) {
+                return {
+                  ...p,
+                  comboItemsData: contextProducts.filter(item => p.comboItems?.includes(item.id))
+                };
+              }
+              return p;
+            });
+            setProducts(enrichedContext);
+          }
+
+          // If store is still missing from state (e.g. context was empty on mount), try syncing from context
+          if (!store) {
+            const contextStore = stores.find(s => s.id === targetId || s.slug === slug);
+            if (contextStore) setStore(contextStore);
           }
         } catch (error) {
           console.warn("Product fetch failed:", error);
+          // Fallback to context products on error
+          const contextProducts = allProducts.filter(p => p.vendorId === targetId);
+          setProducts(contextProducts);
         } finally {
           setLoading(false);
         }
@@ -222,7 +265,7 @@ const StoreDetail = () => {
     return () => {
       if (unsubscribeStore) unsubscribeStore();
     };
-  }, [id, slug]); // Re-run when ID or slug changes
+  }, [id, slug, stores, allProducts]); // Re-run when context loads or ID/slug changes
 
   const filteredProducts = useMemo(() => {
     let result = smartSearchProducts(products, activeSearch) as Product[];
@@ -384,7 +427,7 @@ const StoreDetail = () => {
     }
   };
 
-  if (!store || loading) {
+  if (!store) {
     return <StoreDetailSkeleton />;
   }
 
@@ -392,15 +435,18 @@ const StoreDetail = () => {
     <div className="min-h-screen gradient-warm">
       <Helmet>
         <title>{store.brandText || store.name} in {store.address.split(',')[0]} | BellBasket</title>
-        <meta name="description" content={`Order from ${store.name} in ${store.address || 'your area'}. Shop ${store.category} items, fresh products, and essentials delivered to your doorstep via BellBasket.`} />
-        <meta name="keywords" content={`${store.name}, ${store.category}, order online, ${store.address}, BellBasket, grocery delivery ${store.address.split(',')[0]}`} />
+        <meta name="description" content={`Order from ${store.name} in {store.address || 'your area'}. Shop ${store.category} items, fresh products, and essentials available for pickup via BellBasket.`} />
+        <meta name="keywords" content={`${store.name}, ${store.category}, order online, ${store.address}, BellBasket, store pickup ${store.address.split(',')[0]}, ${store.brandText || ''}, marketplace, local shops`} />
 
-        <meta property="og:title" content={`${store.name} | Order Online on BellBasket`} />
-        <meta property="og:description" content={`Shop fresh products from ${store.name}. Quick delivery or pickup available in ${store.address.split(',')[0]}.`} />
+        <meta property="og:title" content={`${store.brandText || store.name} | Order for Pickup on BellBasket`} />
+        <meta property="og:description" content={`Shop fresh products from ${store.name}. Quick pickup available in ${store.address.split(',')[0]}. Trusted local ${store.category} partner.`} />
         <meta property="og:image" content={store.image} />
         <meta property="og:url" content={window.location.href} />
 
         <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={`${store.name} - Shop Local`} />
+        <meta name="twitter:description" content={`Quality ${store.category} items from ${store.name} available for pickup.`} />
+        
         <link rel="canonical" href={store.slug ? `https://bellbasket.com/stores/${store.slug}` : `https://bellbasket.com/store/${store.id}`} />
 
         {/* Structured Data for Google Search */}
@@ -417,22 +463,21 @@ const StoreDetail = () => {
               "address": {
                 "@type": "PostalAddress",
                 "streetAddress": store.address,
-                "addressLocality": store.address.split(',')[0],
+                "addressLocality": store.address.split(',')[0] || "Local",
                 "addressRegion": "Andhra Pradesh",
                 "addressCountry": "IN"
               },
               "geo": {
                 "@type": "GeoCoordinates",
-                "latitude": store.lat,
-                "longitude": store.lng
+                "latitude": store.lat || 0,
+                "longitude": store.lng || 0
               },
+              "priceRange": "₹",
               "openingHoursSpecification": {
                 "@type": "OpeningHoursSpecification",
-                "dayOfWeek": [
-                  "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"
-                ],
-                "opens": store.timings?.open || "09:00",
-                "closes": store.timings?.close || "22:00"
+                "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+                "opens": "00:00",
+                "closes": "23:59"
               }
             },
             {
@@ -610,16 +655,7 @@ const StoreDetail = () => {
                         {(store.brandText && store.plan === 'pro') ? store.brandText : store.name}
                       </h1>
                     </div>
-                    <p 
-                      onClick={() => {
-                        if (store.lat && store.lng) {
-                          window.open(`https://www.google.com/maps/search/?api=1&query=${store.lat},${store.lng}`, '_blank');
-                        } else {
-                          window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(store.address)}`, '_blank');
-                        }
-                      }}
-                      className="text-[10px] md:text-xs font-bold text-white/90 drop-shadow-md flex items-center gap-1.5 opacity-90 cursor-pointer hover:text-white transition-colors line-clamp-1"
-                    >
+                    <p className="text-[10px] md:text-xs font-bold text-white/90 drop-shadow-md flex items-center gap-1.5 opacity-90 line-clamp-1">
                       <MapPin className="w-3 h-3 text-primary" />
                       {store.address || 'Address not registered'}
                     </p>
@@ -791,17 +827,17 @@ const StoreDetail = () => {
                         <li key={idx}>
                           <button
                             onClick={() => {
-                              setSearchTerm(suggestion);
+                              setSearchTerm(suggestion.name);
                               setIsSearching(true);
                               setTimeout(() => {
-                                setActiveSearch(suggestion);
+                                setActiveSearch(suggestion.name);
                                 setIsSearching(false);
                               }, 600);
                             }}
                             className="w-full text-left px-4 py-3 hover:bg-secondary/50 flex items-center gap-3 transition-colors border-b border-border/10 last:border-0"
                           >
                             <Search className="w-4 h-4 text-muted-foreground shrink-0" />
-                            <span className="text-sm font-medium text-foreground truncate">{suggestion}</span>
+                            <span className="text-sm font-medium text-foreground truncate">{suggestion.name}</span>
                           </button>
                         </li>
                       ))}
@@ -881,7 +917,23 @@ const StoreDetail = () => {
               </div>
             ) : (
               <div className="space-y-10 pb-20">
-                {activeSearch && (
+                {loading && filteredProducts.length === 0 ? (
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="space-y-6">
+                      <div className="flex items-center gap-4 px-1">
+                        <div className="w-12 h-12 rounded-2xl bg-muted shrink-0 animate-pulse" />
+                        <div className="h-8 bg-muted rounded-full w-48 animate-pulse" />
+                      </div>
+                      <div className="flex gap-4 overflow-hidden -mx-4 px-4">
+                        {Array.from({ length: 4 }).map((_, j) => (
+                          <div key={j} className="w-[148px] sm:w-[168px] md:w-[190px] h-[260px] bg-muted rounded-2xl shrink-0 animate-pulse" />
+                        ))}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <>
+                    {activeSearch && (
                   <div className="flex items-center justify-between px-1 mb-6">
                     <h2 className="text-xl font-bold text-foreground">{t('common.showing_results')} "{activeSearch}"</h2>
                     <span className="text-sm text-muted-foreground font-bold">{filteredProducts.length} {t('common.items')} found</span>
@@ -938,11 +990,25 @@ const StoreDetail = () => {
                         className="flex overflow-x-auto snap-x snap-mandatory gap-3 md:gap-4 pb-4 pt-2 -mx-4 px-4 md:px-2 md:-mx-2 scroll-smooth scrollbar-hide"
                       >
                         {items.map((product, pi) => {
-                          const qty = getCartQty(product.id);
-                          const hasDiscount = !!product.discountedPrice && Number(product.discountedPrice) > 0 && Number(product.discountedPrice) < product.price;
-                          const discountedPrice = hasDiscount ? Number(product.discountedPrice) : product.price;
-                          const discountPercent = hasDiscount ? Math.round(((product.price - discountedPrice) / product.price) * 100) : 0;
-                          const displayQty = product.quantity ? (product.quantity.includes(' - ') ? product.quantity : product.quantity.replace(/([0-9.]+)([a-zA-Z]+)/, '$1 - $2')) : '';
+                          const variantInCart = cart.find(c => c.product.id === product.id && c.selectedVariant)?.selectedVariant;
+                          const qty = getCartQty(product.id, variantInCart?.id);
+                          
+                          const baseHasDiscount = !!product.discountedPrice && Number(product.discountedPrice) > 0 && Number(product.discountedPrice) < product.price;
+                          const variantHasDiscount = variantInCart ? (!!variantInCart.discountedPrice && variantInCart.discountedPrice < variantInCart.price) : false;
+                          
+                          const hasDiscount = variantInCart ? variantHasDiscount : baseHasDiscount;
+                          const discountedPrice = variantInCart 
+                            ? (variantHasDiscount ? variantInCart.discountedPrice : variantInCart.price)
+                            : (baseHasDiscount ? Number(product.discountedPrice) : product.price);
+                          const discountPercent = hasDiscount 
+                            ? Math.round((( (variantInCart ? variantInCart.price : product.price) - discountedPrice) / (variantInCart ? variantInCart.price : product.price)) * 100) 
+                            : 0;
+                          
+                          const displayQty = (variantInCart ? variantInCart.quantity : product.quantity) 
+                            ? ((variantInCart ? variantInCart.quantity : product.quantity).includes(' - ') 
+                                ? (variantInCart ? variantInCart.quantity : product.quantity) 
+                                : (variantInCart ? variantInCart.quantity : product.quantity).replace(/([0-9.]+)([a-zA-Z]+)/, '$1 - $2')) 
+                            : '';
 
                           return (
                             <motion.div
@@ -956,15 +1022,30 @@ const StoreDetail = () => {
                               className={`w-[148px] sm:w-[168px] md:w-[190px] shrink-0 snap-start cursor-pointer bg-white dark:bg-[#202020] rounded-2xl border shadow-sm hover:shadow-xl transition-all duration-300 group flex flex-col overflow-hidden relative ${highlightedProductId === product.id
                                 ? 'border-primary ring-2 ring-primary/30 scale-105 z-10'
                                 : 'border-slate-200/80 dark:border-slate-700/60'
-                                }`}
+                                } ${product.isCombo ? 'border-primary/40 bg-primary/[0.02]' : ''}`}
                             >
-                              {/* Image */}
+                              {/* Image section */}
                               <div className="relative h-[130px] sm:h-[148px] overflow-hidden bg-slate-50 dark:bg-slate-800">
-                                <img
-                                  src={product.image}
-                                  alt={product.name}
-                                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-in-out"
-                                />
+                                {product.isCombo && product.comboItemsData && product.comboItemsData.length > 0 ? (
+                                  <div className="w-full h-full grid grid-cols-2 grid-rows-2 gap-[2px] bg-primary/20 relative">
+                                    {product.comboItemsData.slice(0, 4).map((c) => (
+                                      <img key={c.id} src={c.image} className="w-full h-full object-cover" alt="" />
+                                    ))}
+                                    {product.comboItemsData.length < 4 && Array.from({ length: 4 - product.comboItemsData.length }).map((_, i) => (
+                                      <div key={i} className="w-full h-full bg-zinc-900 flex items-center justify-center">
+                                        <PackageSearch className="w-4 h-4 text-primary/20" />
+                                      </div>
+                                    ))}
+                                    <div className="absolute inset-0 bg-gradient-to-tr from-primary/10 to-transparent pointer-events-none" />
+                                    <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded-md bg-yellow-500 text-[6px] font-black uppercase text-white shadow-lg tracking-wider z-20">Bundle</div>
+                                  </div>
+                                ) : (
+                                  <img
+                                    src={product.image}
+                                    alt={product.name}
+                                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-in-out"
+                                  />
+                                )}
                                 {/* Gradient overlay bottom */}
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent" />
 
@@ -1011,9 +1092,14 @@ const StoreDetail = () => {
                                 <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider line-clamp-1 mb-0.5">
                                   {product.category || ''}
                                 </p>
-                                <h3 className="text-[13px] font-bold text-foreground line-clamp-1 leading-snug mb-0.5">
+                                <h3 className={`text-[13px] font-bold line-clamp-1 leading-snug mb-0.5 ${product.isCombo ? 'text-primary' : 'text-foreground'}`}>
                                   {t(`products.${product.name}`, { defaultValue: product.name })}
                                 </h3>
+                                {product.isCombo && product.comboItemsData && (
+                                  <p className="text-[8px] text-zinc-500 font-bold uppercase truncate mt-0.5 tracking-tighter">
+                                    Includes: {product.comboItemsData.map(c => c.name).join(' + ')}
+                                  </p>
+                                )}
                                 {(() => {
                                   const desc = product.description
                                     ? t(`products_desc.${product.name}`, { defaultValue: product.description })
@@ -1038,9 +1124,13 @@ const StoreDetail = () => {
                                 {/* Price */}
                                 <div className="mt-auto pt-2">
                                   <div className="flex items-baseline gap-1.5 mb-2">
-                                    <span className="text-[15px] font-black text-foreground leading-none">₹{discountedPrice}</span>
+                                    <span className="text-[15px] font-black text-foreground leading-none">
+                                      ₹{discountedPrice}
+                                    </span>
                                     {hasDiscount && (
-                                      <span className="text-[10px] text-muted-foreground line-through">₹{product.price}</span>
+                                       <span className="text-[10px] text-muted-foreground line-through decoration-2">
+                                         ₹{variantInCart ? variantInCart.price : product.price}
+                                       </span>
                                     )}
                                   </div>
                                   {/* Full-width Add / Qty stepper */}
@@ -1057,18 +1147,31 @@ const StoreDetail = () => {
                                         >
                                           Book Now
                                         </motion.button>
-                                      ) : qty === 0 ? (
+                                      ) : (qty === 0 || product.hasVariants) ? (
                                         <motion.button
                                           whileTap={{ scale: 0.95 }}
                                           onClick={e => {
                                             e.stopPropagation();
-                                            const productToCart = hasDiscount ? { ...product, price: discountedPrice } : product;
-                                            addToCart({ product: productToCart, storeId: store.id, storeName: store.name, storePhone: store.phone, quantity: 1 });
+                                            if (product.hasVariants) {
+                                                setVariantSelectorProduct(product);
+                                            } else {
+                                                const productToCart = hasDiscount ? { ...product, price: discountedPrice } : product;
+                                                addToCart({ product: productToCart, storeId: store.id, storeName: store.name, storePhone: store.phone, quantity: 1 });
+                                            }
                                           }}
                                           className="w-full h-8 rounded-xl bg-primary text-primary-foreground text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5 shadow-md shadow-primary/20 hover:opacity-90 active:scale-95 transition-all"
                                         >
-                                          <Plus className="w-3.5 h-3.5" />
-                                          Add
+                                          {product.hasVariants && cart.some(c => c.product.id === product.id && c.selectedVariant) ? (
+                                            <>
+                                              <Plus className="w-3.5 h-3.5" />
+                                              Add More
+                                            </>
+                                          ) : (
+                                            <>
+                                              <Plus className="w-3.5 h-3.5" />
+                                              Add
+                                            </>
+                                          )}
                                         </motion.button>
                                       ) : (
                                         <div className="w-full flex items-center justify-between bg-primary rounded-xl px-2 py-1.5">
@@ -1097,13 +1200,15 @@ const StoreDetail = () => {
                                   )}
                                 </div>
                               </div>
-                            </motion.div>
+                             </motion.div>
                           );
                         })}
                       </div>
                     </div>
                   </motion.div>
                 ))}
+              </>
+            )}
               </div>
             )}
           </div>
@@ -1144,11 +1249,14 @@ const StoreDetail = () => {
       <AnimatePresence>
         {selectedProduct && (() => {
           const p = selectedProduct;
-          const hasDisc = !!p.discountedPrice && Number(p.discountedPrice) > 0 && Number(p.discountedPrice) < p.price;
-          const finalPrice = hasDisc ? Number(p.discountedPrice) : p.price;
-          const discountPercent = hasDisc ? Math.round(((p.price - finalPrice) / p.price) * 100) : 0;
-          const qtyInCart = getCartQty(p.id);
-          const dispQty = p.quantity ? (p.quantity.includes(' - ') ? p.quantity : p.quantity.replace(/([0-9.]+)([a-zA-Z]+)/, '$1 - $2')) : '';
+          const comboItems = p.isCombo ? (p.comboItemsData || []) : [];
+          const currentDisplayProduct = (activeComboItemIndex === -1 || !comboItems[activeComboItemIndex]) ? p : comboItems[activeComboItemIndex];
+          
+          const hasDisc = !!currentDisplayProduct.discountedPrice && Number(currentDisplayProduct.discountedPrice) > 0 && Number(currentDisplayProduct.discountedPrice) < currentDisplayProduct.price;
+          const finalPrice = hasDisc ? Number(currentDisplayProduct.discountedPrice) : currentDisplayProduct.price;
+          const discountPercent = hasDisc ? Math.round(((currentDisplayProduct.price - finalPrice) / currentDisplayProduct.price) * 100) : 0;
+          const qtyInCart = getCartQty(currentDisplayProduct.id);
+          const dispQty = currentDisplayProduct.quantity ? (currentDisplayProduct.quantity.includes(' - ') ? currentDisplayProduct.quantity : currentDisplayProduct.quantity.replace(/([0-9.]+)([a-zA-Z]+)/, '$1 - $2')) : '';
 
           return (
             <motion.div
@@ -1156,7 +1264,7 @@ const StoreDetail = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setSelectedProduct(null)}
+              onClick={() => { setSelectedProduct(null); setActiveComboItemIndex(-1); }}
               className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4"
             >
               <motion.div
@@ -1170,26 +1278,64 @@ const StoreDetail = () => {
               >
                 {/* Close */}
                 <button
-                  onClick={() => setSelectedProduct(null)}
-                  className="absolute top-4 right-4 z-20 w-8 h-8 rounded-full bg-black/10 dark:bg-white/10 flex items-center justify-center hover:bg-black/20 transition-all"
+                  onClick={() => { setSelectedProduct(null); setActiveComboItemIndex(-1); }}
+                  className="absolute top-4 right-4 z-[60] w-8 h-8 rounded-full bg-black/10 dark:bg-white/10 flex items-center justify-center hover:bg-black/20 transition-all"
                 >
                   <X className="w-4 h-4 text-foreground" />
                 </button>
 
+                {/* Navigation Buttons for Combo */}
+                {p.isCombo && comboItems.length > 0 && (
+                  <>
+                    <button 
+                      onClick={() => setActiveComboItemIndex(prev => prev > -1 ? prev - 1 : comboItems.length - 1)}
+                      className="absolute left-2 top-[35%] -translate-y-1/2 z-[60] w-10 h-10 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white hover:bg-black/60 active:scale-90 transition-all border border-white/10"
+                    >
+                      <ChevronLeft className="w-6 h-6" />
+                    </button>
+                    <button 
+                      onClick={() => setActiveComboItemIndex(prev => prev < comboItems.length - 1 ? prev + 1 : -1)}
+                      className="absolute right-2 top-[35%] -translate-y-1/2 z-[60] w-10 h-10 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white hover:bg-black/60 active:scale-90 transition-all border border-white/10"
+                    >
+                      <ChevronRight className="w-6 h-6" />
+                    </button>
+                    
+                    {/* Position Indicator */}
+                    <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[60] bg-black/50 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 text-white text-[10px] font-black uppercase tracking-widest">
+                       {activeComboItemIndex === -1 ? 'Main Combo' : `Item ${activeComboItemIndex + 1} of ${comboItems.length}`}
+                    </div>
+                  </>
+                )}
+
                 {/* Image Gallery */}
                 <div className="relative h-56 sm:h-64 w-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                  <div className="flex w-full h-full overflow-x-auto snap-x snap-mandatory scrollbar-hide">
-                    <div className="min-w-full h-full snap-center shrink-0">
-                      <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
-                    </div>
-                    {p.image2 && (
-                      <div className="min-w-full h-full snap-center shrink-0">
-                        <img src={p.image2} alt={`${p.name} 2`} className="w-full h-full object-cover" />
-                      </div>
-                    )}
-                  </div>
+                  <AnimatePresence mode="wait">
+                    <motion.div 
+                       key={currentDisplayProduct.id}
+                       initial={{ opacity: 0, x: 20 }}
+                       animate={{ opacity: 1, x: 0 }}
+                       exit={{ opacity: 0, x: -20 }}
+                       className="w-full h-full"
+                    >
+                      {activeComboItemIndex === -1 && p.isCombo && p.comboItemsData && p.comboItemsData.length > 0 ? (
+                        <div className="w-full h-full grid grid-cols-2 grid-rows-2 gap-[2px] bg-primary/20 relative">
+                          {p.comboItemsData.slice(0, 4).map((item) => (
+                            <img key={item.id} src={item.image} className="w-full h-full object-cover" alt="" />
+                          ))}
+                          {p.comboItemsData.length < 4 && Array.from({ length: 4 - p.comboItemsData.length }).map((_, i) => (
+                            <div key={i} className="w-full h-full bg-zinc-900 flex items-center justify-center">
+                              <PackageSearch className="w-6 h-6 text-primary/20" />
+                            </div>
+                          ))}
+                          <div className="absolute inset-0 bg-gradient-to-tr from-primary/10 to-transparent pointer-events-none" />
+                        </div>
+                      ) : (
+                        <img src={currentDisplayProduct.image} alt={currentDisplayProduct.name} className="w-full h-full object-cover" />
+                      )}
+                    </motion.div>
+                  </AnimatePresence>
                   
-                  {p.image2 && (
+                  {currentDisplayProduct.image2 && (
                     <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-30">
                       <div className="w-2 h-2 rounded-full bg-white shadow-md"></div>
                       <div className="w-1.5 h-1.5 rounded-full bg-white/40 shadow-md"></div>
@@ -1197,8 +1343,6 @@ const StoreDetail = () => {
                   )}
 
                   <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
-
-
 
                   {hasDisc && (
                     <div className="absolute top-4 left-4 z-20 bg-green-500 text-white text-[10px] font-black px-2 py-1 rounded-lg uppercase shadow">
@@ -1210,27 +1354,27 @@ const StoreDetail = () => {
                       {dispQty}
                     </div>
                   )}
-                  {!p.inStock && (
+                  {!currentDisplayProduct.inStock && (
                     <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-40">
                       <span className="bg-rose-500 text-white text-[9px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest shadow-xl">OOS</span>
-                    </div>
-                  )}
-                  {p.image2 && (
-                    <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/50 backdrop-blur-md text-white text-[8px] font-black px-3 py-1 rounded-full uppercase tracking-widest z-20">
-                      Swipe for gallery
                     </div>
                   )}
                 </div>
 
                 {/* Details */}
                 <div className="p-5">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-primary mb-1">{p.category}</p>
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-primary">{currentDisplayProduct.category}</p>
+                    {activeComboItemIndex !== -1 && (
+                      <span className="text-[9px] font-black text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full uppercase tracking-widest">Part of Bundle</span>
+                    )}
+                  </div>
                   <h2 className="text-xl font-black text-foreground leading-snug mb-1">
-                    {t(`products.${p.name}`, { defaultValue: p.name })}
+                    {t(`products.${currentDisplayProduct.name}`, { defaultValue: currentDisplayProduct.name })}
                   </h2>
-                  {p.description && (
-                    <p className="text-sm text-muted-foreground leading-relaxed mb-4">
-                      {t(`products_desc.${p.name}`, { defaultValue: p.description })}
+                  {currentDisplayProduct.description && (
+                    <p className="text-sm text-muted-foreground leading-relaxed mb-4 line-clamp-3">
+                      {t(`products_desc.${currentDisplayProduct.name}`, { defaultValue: currentDisplayProduct.description })}
                     </p>
                   )}
 
@@ -1239,18 +1383,21 @@ const StoreDetail = () => {
                     <div>
                       <span className="text-2xl font-black text-foreground">₹{finalPrice}</span>
                       {hasDisc && (
-                        <span className="text-sm text-muted-foreground line-through ml-2">₹{p.price}</span>
+                        <span className="text-sm text-muted-foreground line-through ml-2">₹{currentDisplayProduct.price}</span>
                       )}
-                      <p className="text-[10px] text-muted-foreground/60 font-medium mt-0.5">Inclusive of all taxes</p>
+                      <p className="text-[10px] text-muted-foreground/60 font-medium mt-0.5">
+                        {activeComboItemIndex === -1 ? 'Bundle Price' : 'Individual Item Info'}
+                      </p>
                     </div>
 
-                    {p.inStock && (
+                    {currentDisplayProduct.inStock && (
                       isServiceStore ? (
                         <motion.button
                           whileTap={{ scale: 0.92 }}
                           onClick={() => {
-                            setBookingService(p);
-                            setSelectedProduct(null); // Close this modal
+                            setBookingService(currentDisplayProduct);
+                            setSelectedProduct(null);
+                            setActiveComboItemIndex(-1);
                           }}
                           className="h-11 px-8 rounded-xl gradient-primary text-primary-foreground text-sm font-black uppercase tracking-widest shadow-lg hover:opacity-90 transition-all"
                         >
@@ -1260,18 +1407,22 @@ const StoreDetail = () => {
                         <motion.button
                           whileTap={{ scale: 0.92 }}
                           onClick={() => {
-                            const productToCart = hasDisc ? { ...p, price: finalPrice } : p;
-                            addToCart({ product: productToCart, storeId: store.id, storeName: store.name, storePhone: store.phone, quantity: 1 });
+                            const productToCart = hasDisc ? { ...currentDisplayProduct, price: finalPrice } : currentDisplayProduct;
+                            if (productToCart.hasVariants) {
+                                setVariantSelectorProduct(productToCart);
+                            } else {
+                                addToCart({ product: productToCart, storeId: store.id, storeName: store.name, storePhone: store.phone, quantity: 1 });
+                            }
                           }}
-                          className="h-11 px-8 rounded-xl gradient-primary text-primary-foreground text-sm font-black uppercase tracking-widest shadow-lg hover:opacity-90 transition-all"
+                          className={`h-11 px-8 rounded-xl text-primary-foreground text-sm font-black uppercase tracking-widest shadow-lg hover:opacity-90 transition-all ${activeComboItemIndex === -1 ? 'gradient-primary' : 'bg-slate-500'}`}
                         >
-                          Add to Cart
+                          {activeComboItemIndex === -1 ? 'Add Bundle' : 'Add Item'}
                         </motion.button>
                       ) : (
                         <div className="flex items-center gap-2 bg-primary rounded-xl px-2 py-1.5">
                           <motion.button
                             whileTap={{ scale: 0.8 }}
-                            onClick={() => updateQuantity(p.id, qtyInCart - 1)}
+                            onClick={() => updateQuantity(currentDisplayProduct.id, qtyInCart - 1)}
                             className="w-8 h-8 rounded-lg flex items-center justify-center text-primary-foreground hover:bg-primary-foreground/20 transition-all"
                           >
                             <Minus className="w-4 h-4" />
@@ -1279,7 +1430,7 @@ const StoreDetail = () => {
                           <span className="text-base font-black text-primary-foreground min-w-[1.5rem] text-center">{qtyInCart}</span>
                           <motion.button
                             whileTap={{ scale: 0.8 }}
-                            onClick={() => updateQuantity(p.id, qtyInCart + 1)}
+                            onClick={() => updateQuantity(currentDisplayProduct.id, qtyInCart + 1)}
                             className="w-8 h-8 rounded-lg flex items-center justify-center text-primary-foreground hover:bg-primary-foreground/20 transition-all"
                           >
                             <Plus className="w-4 h-4" />
@@ -1612,6 +1763,30 @@ const StoreDetail = () => {
               </div>
             </motion.div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {variantSelectorProduct && (
+          <VariantSelector 
+            product={variantSelectorProduct}
+            cart={cart}
+            updateQuantity={updateQuantity}
+            onClose={() => setVariantSelectorProduct(null)}
+            onSelect={(variant) => {
+                if (variantSelectorProduct) {
+                    addToCart({ 
+                        product: variantSelectorProduct, 
+                        selectedVariant: variant,
+                        storeId: store.id, 
+                        storeName: store.name, 
+                        storePhone: store.phone, 
+                        quantity: 1 
+                    });
+                }
+                setVariantSelectorProduct(null);
+            }}
+          />
         )}
       </AnimatePresence>
     </div>

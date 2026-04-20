@@ -4,7 +4,7 @@ import { Plus, Pencil, Trash2, X, ArrowLeft, Package, Upload, Camera, Loader2, I
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import Header from '@/components/Header';
 import { useApp } from '@/context/AppContext';
-import { Product } from '@/types';
+import { Product, ProductVariant } from '@/types';
 import { toast } from 'sonner';
 import { db, auth } from '@/lib/firebase';
 import { collection, addDoc, updateDoc, doc, getDoc, query, where, getDocs } from 'firebase/firestore';
@@ -176,7 +176,9 @@ const VendorEditProduct = () => {
     quantityUnit: '',
     startTime: '09:00',
     endTime: '21:00',
-    availableDays: [0, 1, 2, 3, 4, 5, 6]
+    availableDays: [0, 1, 2, 3, 4, 5, 6],
+    hasVariants: false,
+    variants: [] as ProductVariant[]
   });
   
   const [showCamera, setShowCamera] = useState(false);
@@ -188,6 +190,8 @@ const VendorEditProduct = () => {
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [categories, setCategories] = useState<string[]>([]);
   const [newCat, setNewCat] = useState('');
+  const [initialFormState, setInitialFormState] = useState<any>(null);
+  const [showDiscardModal, setShowDiscardModal] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setMinLoadingTimePassed(true), 1500);
@@ -202,7 +206,7 @@ const VendorEditProduct = () => {
              const docSnap = await getDoc(docRef);
              if (docSnap.exists()) {
                 const p = docSnap.data() as Product;
-                setForm({
+                const loadedForm = {
                    name: p.name,
                    price: String(p.price),
                    category: p.category || '',
@@ -214,8 +218,12 @@ const VendorEditProduct = () => {
                    quantityUnit: p.quantity ? p.quantity.replace(/[0-9.]/g, '').replace(/[\s-]/g, '').trim() : '',
                    startTime: p.availability?.startTime || '09:00',
                    endTime: p.availability?.endTime || '21:00',
-                   availableDays: p.availability?.days || [0, 1, 2, 3, 4, 5, 6]
-                });
+                   availableDays: p.availability?.days || [0, 1, 2, 3, 4, 5, 6],
+                   hasVariants: p.hasVariants || false,
+                   variants: p.variants || []
+                };
+                setForm(loadedForm);
+                setInitialFormState(loadedForm);
                 setShowImage2Field(!!p.image2);
              } else {
                 toast.error("Listing not found");
@@ -229,6 +237,7 @@ const VendorEditProduct = () => {
        };
        fetchProduct();
     } else {
+      setInitialFormState({...form});
       setInitialLoading(false);
     }
   }, [id, navigate]);
@@ -265,7 +274,7 @@ const VendorEditProduct = () => {
     };
   };
 
-  const startCamera = async (mode: 'user' | 'environment' = facingMode) => {
+  const startCamera = async (mode: 'user' | 'environment' = 'environment') => {
     if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
     }
@@ -321,6 +330,14 @@ const VendorEditProduct = () => {
     setCropModal({ show: false, src: '', field: null });
   };
 
+  useEffect(() => {
+    if (showCamera && videoRef.current && streamRef.current) {
+        videoRef.current.srcObject = streamRef.current;
+        videoRef.current.play().catch(console.error);
+    }
+  }, [showCamera]);
+
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name || !form.price || !form.category || !form.image) {
@@ -331,6 +348,8 @@ const VendorEditProduct = () => {
     setLoading(true);
     const toastId = toast.loading(`Saving ${entityName.toLowerCase()}...`);
     try {
+      const vendorStore = stores.find(s => s.vendorId === user?.id);
+      
       const productData = cleanObject({
         ...form,
         vendorId: user?.id,
@@ -341,7 +360,18 @@ const VendorEditProduct = () => {
             startTime: form.startTime,
             endTime: form.endTime,
             days: form.availableDays
-        }
+        },
+        // Denormalize store location for better searching
+        lat: vendorStore?.lat,
+        lng: vendorStore?.lng,
+        mandal: vendorStore?.mandal,
+        district: vendorStore?.district,
+        state: vendorStore?.state,
+        country: vendorStore?.country,
+        storeName: vendorStore?.name,
+        storeType: vendorStore?.storeType || 'product',
+        hasVariants: form.hasVariants,
+        variants: form.variants
       });
 
       if (id) {
@@ -386,7 +416,18 @@ const VendorEditProduct = () => {
       
       <main className="max-w-xl mx-auto px-4 pt-24 space-y-8">
         <div className="flex items-center gap-4">
-           <button onClick={() => navigate('/vendor/products')} className="w-12 h-12 rounded-2xl bg-secondary/50 flex items-center justify-center text-foreground hover:bg-secondary transition-all active:scale-90">
+           <button 
+                type="button"
+                onClick={() => {
+                    const isChanged = JSON.stringify(form) !== JSON.stringify(initialFormState);
+                    if (isChanged) {
+                        setShowDiscardModal(true);
+                    } else {
+                        navigate('/vendor/products');
+                    }
+                }} 
+                className="w-12 h-12 rounded-2xl bg-secondary/50 flex items-center justify-center text-foreground hover:bg-secondary transition-all active:scale-90"
+            >
               <ArrowLeft className="w-6 h-6" />
            </button>
            <div>
@@ -598,6 +639,90 @@ const VendorEditProduct = () => {
                 className="w-full px-5 py-4 rounded-2xl bg-secondary/50 border-0 text-sm font-bold text-foreground focus:ring-4 focus:ring-primary/10 transition-all resize-none"
               />
             </div>
+
+            {/* Variants Section */}
+            <div className="space-y-4 pt-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-primary ml-1">Multi-Price Options</label>
+                  <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-tight ml-1">Add multiple quantities & prices</p>
+                </div>
+                <button 
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, hasVariants: !f.hasVariants, variants: !f.hasVariants && f.variants.length === 0 ? [{ id: Date.now().toString(), quantity: `${f.quantityValue} ${f.quantityUnit}`.trim(), price: Number(f.price), discountedPrice: Number(f.discountedPrice) || undefined }] : f.variants }))}
+                  className={`w-12 h-6 rounded-full transition-all relative ${form.hasVariants ? 'bg-primary' : 'bg-slate-700'}`}
+                >
+                  <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${form.hasVariants ? 'left-7' : 'left-1'}`} />
+                </button>
+              </div>
+
+              {form.hasVariants && (
+                <div className="space-y-3 animate-in slide-in-from-top-2 duration-300">
+                  {form.variants.map((v, i) => (
+                    <div key={v.id} className="glass rounded-3xl p-4 space-y-3 border border-white/5 relative">
+                      <div className="flex gap-2">
+                        <div className="flex-1 space-y-1">
+                          <label className="text-[8px] font-black uppercase text-zinc-500 ml-1">Quantity/Size</label>
+                          <input 
+                            type="text" 
+                            value={v.quantity}
+                            onChange={e => {
+                              const newVariants = [...form.variants];
+                              newVariants[i].quantity = e.target.value;
+                              setForm({ ...form, variants: newVariants });
+                            }}
+                            placeholder="e.g. 500g"
+                            className="w-full px-4 py-3 rounded-xl bg-secondary/30 border-0 text-xs font-bold text-foreground"
+                          />
+                        </div>
+                        <div className="w-24 space-y-1">
+                          <label className="text-[8px] font-black uppercase text-zinc-500 ml-1">Price</label>
+                          <input 
+                            type="number" 
+                            value={v.price || ''}
+                            onChange={e => {
+                              const val = e.target.value;
+                              const newVariants = [...form.variants];
+                              newVariants[i].price = val === '' ? 0 : Number(val);
+                              setForm({ ...form, variants: newVariants });
+                            }}
+                            className="w-full px-4 py-3 rounded-xl bg-secondary/30 border-0 text-xs font-black text-foreground"
+                          />
+                        </div>
+                        <div className="w-24 space-y-1">
+                          <label className="text-[8px] font-black uppercase text-zinc-500 ml-1">Sale</label>
+                          <input 
+                            type="number" 
+                            value={v.discountedPrice || ''}
+                            onChange={e => {
+                              const val = e.target.value;
+                              const newVariants = [...form.variants];
+                              newVariants[i].discountedPrice = val === '' ? undefined : Number(val);
+                              setForm({ ...form, variants: newVariants });
+                            }}
+                            className="w-full px-4 py-3 rounded-xl bg-primary/5 border border-primary/20 text-xs font-black text-foreground"
+                          />
+                        </div>
+                        <button 
+                          type="button" 
+                          onClick={() => setForm(f => ({ ...f, variants: f.variants.filter((_, idx) => idx !== i) }))}
+                          className="mt-6 w-10 h-10 rounded-xl bg-rose-500/10 text-rose-500 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  <button 
+                    type="button"
+                    onClick={() => setForm(f => ({ ...f, variants: [...f.variants, { id: Date.now().toString(), quantity: '', price: 0 }] }))}
+                    className="w-full py-4 rounded-2xl bg-secondary/30 border border-dashed border-border/50 text-[10px] font-black uppercase tracking-widest text-primary flex items-center justify-center gap-2 hover:bg-secondary/50 transition-all"
+                  >
+                    <Plus className="w-4 h-4" /> Add Price Variant
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="pt-6">
@@ -713,6 +838,27 @@ const VendorEditProduct = () => {
                       </div>
                   </motion.div>
               </motion.div>
+          )}
+        </AnimatePresence>
+        <AnimatePresence>
+          {showDiscardModal && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[250] bg-black/60 backdrop-blur-xl flex items-center justify-center p-4">
+              <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-[3rem] p-10 space-y-8 text-center border border-border/50">
+                <div className="w-20 h-20 rounded-[2rem] mx-auto flex items-center justify-center bg-amber-500/10 text-amber-500 shadow-inner">
+                  <AlertCircle className="w-10 h-10" />
+                </div>
+                <div className="space-y-3">
+                  <h3 className="text-xl font-black uppercase tracking-tight">Discard Progress?</h3>
+                  <p className="text-[11px] font-black text-muted-foreground uppercase tracking-[0.1em] leading-relaxed">
+                    Unsaved changes in this {entityName.toLowerCase()} will be lost. Proceed to exit?
+                  </p>
+                </div>
+                <div className="flex gap-4">
+                  <button onClick={() => setShowDiscardModal(false)} className="flex-1 py-4 rounded-2xl bg-secondary text-foreground text-[11px] font-black uppercase tracking-widest transition-all">Cancel</button>
+                  <button onClick={() => navigate('/vendor/products')} className="flex-1 py-4 rounded-2xl bg-amber-500 text-white text-[11px] font-black uppercase tracking-widest active:scale-95 transition-all">Confirm</button>
+                </div>
+              </motion.div>
+            </motion.div>
           )}
         </AnimatePresence>
       </main>

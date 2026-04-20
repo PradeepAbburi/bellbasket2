@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowUpDown, Check, Star, Tag, ChevronDown, Filter } from 'lucide-react';
+import { ArrowUpDown, Check, Star, Tag, ChevronDown, Filter, Store } from 'lucide-react';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -62,12 +62,11 @@ const SortOptions: React.FC<SortOptionsProps> = ({
       className
     )}>
       <div className={cn(
-        "flex items-center justify-center w-4 h-4 rounded-md transition-colors",
+        "flex items-center justify-center w-5 h-5 rounded-md transition-colors",
         hasActiveSort ? "bg-white/20" : "bg-primary/10"
       )}>
-        <ArrowUpDown className={cn("w-2.5 h-2.5 transition-transform group-hover:rotate-180 duration-500", hasActiveSort ? "text-primary-foreground" : "text-primary")} />
+        <Filter className={cn("w-3 h-3 transition-transform duration-500", hasActiveSort ? "text-primary-foreground" : "text-primary")} />
       </div>
-      {!compact && <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest whitespace-nowrap">{t('sort.title')}</span>}
       {hasActiveSort && (
         <motion.span 
           layoutId="activeSortDot"

@@ -134,7 +134,7 @@ const VendorPlans = () => {
             tier: 'pro',
             months: 1,
             name: 'Monthly Pro',
-            price: '₹399',
+            price: '₹199',
             period: 'for 1 month',
             description: 'Essential tools for your digital store.',
             icon: Zap,
@@ -154,8 +154,8 @@ const VendorPlans = () => {
             tier: 'pro',
             months: 6,
             name: '6 Months Pro',
-            price: '₹1999',
-            originalPrice: '₹2394',
+            price: '₹999',
+            originalPrice: '₹1194',
             period: 'for 6 months',
             discount: 'Save 16%',
             description: 'Best for growing businesses looking for stability.',
@@ -177,8 +177,8 @@ const VendorPlans = () => {
             tier: 'pro',
             months: 12,
             name: 'Annual Pro',
-            price: '₹3599',
-            originalPrice: '₹4788',
+            price: '₹1799',
+            originalPrice: '₹2388',
             period: 'for 12 months',
             discount: 'Save 25%',
             description: 'Maximum value for serious businesses.',
@@ -245,7 +245,7 @@ const VendorPlans = () => {
             handler: async function (response: any) {
                 try {
                     const isMonthly = selectedPlan.id === 'monthly';
-                    await updatePlan(selectedPlan.tier, selectedPlan.months, isMonthly);
+                    await updatePlan(selectedPlan.tier, selectedPlan.months, isMonthly, selectedPlan.id);
                     setShowPayment(false);
                     toast.success(`Welcome to ${selectedPlan.name}!`, {
                         description: `Your subscription is now active for ${selectedPlan.months} months.`
@@ -362,7 +362,7 @@ const VendorPlans = () => {
 
             // Sync with AppContext - force numbers for months
             try {
-                await updatePlan(couponData.plan, Number(couponData.months || 1));
+                await updatePlan(couponData.plan, Number(couponData.months || 1), false, couponId || `coupon-${couponData.plan}`);
             } catch (planErr: any) {
                 console.error("Plan update failed:", planErr);
                 throw new Error(`PLAN_UPDATE_FAILED: ${planErr.message || "Permissions blocked."}`);
@@ -428,14 +428,33 @@ const VendorPlans = () => {
                 </div>
 
                 <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-                    {plans.map((plan, i) => (
+                    {plans.map((plan, i) => {
+                        const isExpired = user?.subscriptionExpiry ? new Date(user.subscriptionExpiry) < new Date() : false;
+                        const isPlanTierMatch = user?.plan === plan.tier;
+                        
+                        // Strict plan matching logic
+                        const userDuration = Number(user?.planDuration || 0);
+                        const isDurationMatch = userDuration === plan.months;
+                        const isIdMatch = user?.planId === plan.id;
+                        
+                        // A plan is a "specific match" if the unique plan ID matches, 
+                        // OR if the Tier + Duration both match (important for coupon redemptions)
+                        const isSpecificMatch = isIdMatch || (isPlanTierMatch && isDurationMatch);
+                        
+                        // Fallback logic for legacy users or cases where duration info is missing:
+                        // Only highlight the "Monthly" (1 month) plan if we know the tier but not the duration.
+                        const isLegacyMatch = !user?.planId && !userDuration && isPlanTierMatch && plan.months === 1;
+                        
+                        const isActive = (isSpecificMatch || isLegacyMatch) && !isExpired;
+                        
+                        return (
                         <motion.div
                             key={plan.id}
                             initial={{ opacity: 0, y: 30 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: i * 0.1 }}
                             className={`relative flex flex-col glass-strong rounded-[32px] overflow-hidden transition-all duration-500 cursor-pointer ${
-                                (selectedPlan?.id === plan.id || user?.plan === plan.tier) 
+                                (selectedPlan?.id === plan.id || isActive) 
                                 ? 'ring-4 ring-primary ring-offset-4 ring-offset-background scale-[1.05] z-10'
                                 : 'hover:scale-[1.02] opacity-80 hover:opacity-100'
                             } ${plan.popular ? 'shadow-2xl shadow-primary/20' : ''}`}
@@ -449,11 +468,20 @@ const VendorPlans = () => {
                                 </div>
                             )}
 
-                            {user?.plan === plan.tier && (
+                            {isActive && (
                                 <div className="absolute top-0 left-0">
                                     <div className="bg-green-600 text-white text-[10px] font-black uppercase tracking-widest px-6 py-1.5 rounded-br-2xl shadow-lg flex items-center gap-1.5">
                                         <Check className="w-3 h-3" />
                                         Current Plan
+                                    </div>
+                                </div>
+                            )}
+
+                            {(isSpecificMatch || isLegacyMatch) && isExpired && (
+                                <div className="absolute top-0 left-0">
+                                    <div className="bg-destructive text-white text-[10px] font-black uppercase tracking-widest px-6 py-1.5 rounded-br-2xl shadow-lg flex items-center gap-1.5">
+                                        <X className="w-3 h-3" />
+                                        Plan Expired
                                     </div>
                                 </div>
                             )}
@@ -471,10 +499,10 @@ const VendorPlans = () => {
                                     )}
                                 </div>
                                 <p className="text-sm text-muted-foreground leading-relaxed h-10">{plan.description}</p>
-                                {user?.plan === plan.tier && user?.subscriptionExpiry && (
-                                    <div className="mt-4 flex items-center gap-2 text-[10px] font-black text-green-600 uppercase tracking-widest bg-green-50 px-3 py-1.5 rounded-lg border border-green-100">
+                                {(isSpecificMatch || isLegacyMatch) && user?.subscriptionExpiry && (
+                                    <div className={`mt-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg border ${isExpired ? 'bg-destructive/10 text-destructive border-destructive/20' : 'bg-green-50 text-green-600 border-green-100'}`}>
                                         <Calendar className="w-3.5 h-3.5" />
-                                        <span>Expires: {new Date(user.subscriptionExpiry).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                                        <span>{isExpired ? 'Expired' : 'Expires'}: {new Date(user.subscriptionExpiry).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                                     </div>
                                 )}
                             </div>
@@ -508,19 +536,20 @@ const VendorPlans = () => {
                                         setShowPayment(true);
                                     }}
                                     className={`w-full py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all group ${
-                                        user?.plan === plan.tier
+                                        isActive
                                         ? 'bg-green-600 text-white'
-                                        : plan.popular
+                                        : (plan.popular || isExpired)
                                           ? 'bg-primary text-primary-foreground hover:scale-[1.02]'
                                           : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
                                     }`}
                                 >
-                                    {user?.plan === plan.tier ? "Plan Active" : "Choose Plan"} 
+                                    {isActive ? "Plan Active" : (isExpired && isPlanTierMatch ? "Resubscribe" : "Choose Plan")} 
                                     <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                                 </button>
                             </div>
                         </motion.div>
-                    ))}
+                    );
+                })}
                 </div>
 
                 {/* Coupon Claim Section */}

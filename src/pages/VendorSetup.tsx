@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MapPin, Search, Loader2, Navigation, CheckCircle2, ArrowRight, Store, Upload, Camera, X, Ticket, Building, LandPlot, Globe } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
-import MapView from '@/components/MapView';
+import { lazy } from 'react';
+const MapView = lazy(() => import('@/components/MapView'));
 import { toast } from 'sonner';
 import { db } from '@/lib/firebase';
 import { doc, setDoc, updateDoc } from 'firebase/firestore';
@@ -94,7 +95,7 @@ const VendorSetup = () => {
         }
     }, [user, loading, navigate]);
 
-    const startCamera = async (mode: 'user' | 'environment' = facingMode) => {
+    const startCamera = async (mode: 'user' | 'environment' = 'environment') => {
         if (streamRef.current) {
             streamRef.current.getTracks().forEach(track => track.stop());
         }
@@ -325,7 +326,11 @@ const VendorSetup = () => {
                 setDetecting(false);
                 toast.error('Could not detect location');
             },
-            { timeout: 10000, maximumAge: 0 }
+            { 
+                enableHighAccuracy: true,
+                timeout: 15000, 
+                maximumAge: 0 
+            }
         );
     };
 
@@ -699,24 +704,26 @@ const VendorSetup = () => {
 
                             {/* BIGGER MAP WITH SATELLITE SUPPORT */}
                             <div className="relative h-[450px] rounded-3xl overflow-hidden border-4 border-white shadow-xl">
-                                <MapView
-                                    center={[storeLat, storeLng]}
-                                    centerLabel={storeAddress ? storeAddress.split(',')[0] : 'Your Store'}
-                                    stores={[]}
-                                    onMapClick={(lat, lng) => {
-                                        setStoreLat(lat);
-                                        setStoreLng(lng);
-                                        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
-                                            .then(res => res.json())
-                                            .then(data => {
-                                                setStoreAddress(data.display_name);
-                                                setMandal(data.address?.suburb || data.address?.locality || data.address?.city_district || '');
-                                                setDistrict(data.address?.district || data.address?.city || '');
-                                                setState(data.address?.state || '');
-                                                setCountry(data.address?.country || '');
-                                            });
-                                    }}
-                                />
+                                <Suspense fallback={<div className="h-full w-full bg-muted animate-pulse flex items-center justify-center text-xs font-black uppercase tracking-widest text-muted-foreground rotate-12">Calibrating Satellite View...</div>}>
+                                    <MapView
+                                        center={[storeLat, storeLng]}
+                                        centerLabel={storeAddress ? storeAddress.split(',')[0] : 'Your Store'}
+                                        stores={[]}
+                                        onMapClick={(lat, lng) => {
+                                            setStoreLat(lat);
+                                            setStoreLng(lng);
+                                            fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
+                                                .then(res => res.json())
+                                                .then(data => {
+                                                    setStoreAddress(data.display_name);
+                                                    setMandal(data.address?.suburb || data.address?.locality || data.address?.city_district || '');
+                                                    setDistrict(data.address?.district || data.address?.city || '');
+                                                    setState(data.address?.state || '');
+                                                    setCountry(data.address?.country || '');
+                                                });
+                                        }}
+                                    />
+                                </Suspense>
                                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-[400]">
                                     <MapPin className="w-10 h-10 text-primary fill-primary/20 -mt-5 filter drop-shadow-lg" />
                                 </div>

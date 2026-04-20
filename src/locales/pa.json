@@ -94,7 +94,13 @@
             "total_amount": "ਕੁੱਲ ਰਕਮ",
             "submit_review": "ਸਮੀਖਿਆ ਜਮ੍ਹਾਂ ਕਰੋ",
             "review_placeholder": "ਆਪਣੀ ਸਮੀਖਿਆ ਇੱਥੇ ਲਿਖੋ...",
-            "review_success": "ਸਮੀਖਿਆ ਸਫਲਤਾਪੂਰਵਕ ਜਮ੍ਹਾਂ ਹੋ ਗਈ"
+            "review_success": "ਸਮੀਖਿਆ ਸਫਲਤਾਪੂਰਵਕ ਜਮ੍ਹਾਂ ਹੋ ਗਈ",
+            "cancel_order": "ਆਰਡਰ ਰੱਦ ਕਰੋ",
+            "cancel_booking": "ਬੁਕਿੰਗ ਰੱਦ ਕਰੋ",
+            "cancel_order_note": "ਇਸ ਆਰਡਰ ਨੂੰ ਰੱਦ ਕਰਨ ਲਈ ਵਿਕਰੇਤਾ ਨੂੰ ਕਾਲ ਕਰੋ",
+            "cancel_booking_note": "ਇਸ ਬੁਕਿੰਗ ਨੂੰ ਰੱਦ ਕਰਨ ਲਈ ਵਿਕਰੇਤਾ ਨੂੰ ਕਾਲ ਕਰੋ",
+            "shopping_journey": "ਸ਼ਾਪਿੰਗ ਯਾਤરા",
+            "shop_stops_connected": "{{count}} ਸ਼ਾਪਿੰਗ ਸਟਾਪ ਜੁੜੇ ਹੋਏ ਹਨ"
         },
         "subscription_expired": "ਸਬਸਕ੍ਰਿਪਸ਼ਨ ਖਤਮ ਹੋ ਗਈ",
         "subscription_expired_desc": "ਤੁਹਾਡੇ ਵਿਕਰੇਤਾ ਫੀਚਰ ਇਸ ਸਮੇਂ ਲਾਕ ਹਨ। ਦੁਕਾਨ ਦਾ ਪ੍ਰਬੰਧਨ ਜਾਰੀ ਰੱਖਣ ਲਈ ਕਿਰਪਾ ਕਰਕੇ ਕੋਈ ਪਲਾਨ ਚੁਣੋ ਜਾਂ ਆਪਣਾ ਪੁਰਾਣਾ ਪਲਾਨ ਰੀਨਿਊ ਕਰੋ।",

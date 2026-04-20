@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, X, ArrowLeft, Trash2, Package, Trash, Calendar, Clock, Tag, Percent, Zap, ChevronRight, AlertCircle, Package2, Edit2, History, Timer, Loader2, Crown, Search } from 'lucide-react';
+import { Plus, X, ArrowLeft, Trash2, Package, Trash, Calendar, Clock, Tag, Percent, Zap, ChevronRight, AlertCircle, Package2, Edit2, History, Timer, Loader2, Crown, Search, Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import { useApp } from '@/context/AppContext';
@@ -19,6 +19,9 @@ const VendorDeals = () => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [editingDeal, setEditingDeal] = useState<Deal | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  
+  const [isComboMode, setIsComboMode] = useState(false);
+  const [selectedComboItems, setSelectedComboItems] = useState<string[]>([]);
   
   const [form, setForm] = useState({
     discountedPrice: '',
@@ -87,14 +90,18 @@ const VendorDeals = () => {
     const toastId = toast.loading(editingDeal ? "Updating deal..." : "Publishing deal...");
     try {
       const dealData = {
-        productId: selectedProduct.id,
+        productId: isComboMode ? 'combo_bundle' : selectedProduct.id,
         vendorId: user.id,
-        originalPrice: selectedProduct.price,
+        originalPrice: isComboMode 
+          ? products.filter(p => selectedComboItems.includes(p.id)).reduce((sum, p) => sum + p.price, 0)
+          : selectedProduct.price,
         dealPrice: discPrice,
         startTime: new Date(form.startTime).toISOString(),
         endTime: new Date(form.endTime).toISOString(),
         stockLimit: form.stockLimit ? Number(form.stockLimit) : undefined,
         status: 'active',
+        isCombo: isComboMode,
+        comboItems: isComboMode ? selectedComboItems : undefined,
         createdAt: editingDeal ? editingDeal.createdAt : new Date().toISOString()
       };
 
@@ -108,6 +115,8 @@ const VendorDeals = () => {
 
       setShowCreateModal(false);
       setSelectedProduct(null);
+      setSelectedComboItems([]);
+      setIsComboMode(false);
       setEditingDeal(null);
       resetForm();
     } catch (error) {
@@ -134,10 +143,25 @@ const VendorDeals = () => {
   };
 
   const handleEditDeal = (deal: Deal) => {
-    const product = products.find(p => p.id === deal.productId);
-    if (!product) return;
+    if (deal.isCombo) {
+      setIsComboMode(true);
+      setSelectedComboItems(deal.comboItems || []);
+      // Create a shim product for the UI
+      const firstItem = products.find(p => p.id === (deal.comboItems?.[0]));
+      if (firstItem) {
+        setSelectedProduct({
+           ...firstItem,
+           name: `Combo Bundle (${deal.comboItems?.length} items)`,
+           price: deal.originalPrice
+        });
+      }
+    } else {
+      const product = products.find(p => p.id === deal.productId);
+      if (!product) return;
+      setIsComboMode(false);
+      setSelectedProduct(product);
+    }
     setEditingDeal(deal);
-    setSelectedProduct(product);
     setForm({
       discountedPrice: String(deal.dealPrice),
       startTime: deal.startTime.slice(0, 16),
@@ -168,13 +192,22 @@ const VendorDeals = () => {
                 <h1 className="text-4xl font-black tracking-tight text-white uppercase italic">Deal Manager</h1>
                 <p className="text-zinc-500 text-[10px] font-black uppercase tracking-widest mt-2">Maximum Velocity Flash Sales Engine</p>
             </div>
-            <button 
-                onClick={() => { setEditingDeal(null); setSelectedProduct(null); setShowCreateModal(true); }}
-                className="px-8 py-4 rounded-2xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-black uppercase tracking-widest active:scale-95 transition-all flex items-center justify-center gap-3"
-            >
-                <Zap className="w-5 h-5 fill-current" />
-                Launch Flash Deal
-            </button>
+            <div className="flex flex-wrap items-center gap-3">
+                <button 
+                    onClick={() => { setEditingDeal(null); setSelectedProduct(null); setIsComboMode(true); setShowCreateModal(true); }}
+                    className="px-6 py-4 rounded-2xl bg-white/5 hover:bg-white/10 text-white text-xs font-black uppercase tracking-widest active:scale-95 transition-all flex items-center justify-center gap-3 border border-white/5"
+                >
+                    <Package2 className="w-5 h-5 text-purple-500" />
+                    Combo Deal
+                </button>
+                <button 
+                    onClick={() => { setEditingDeal(null); setSelectedProduct(null); setIsComboMode(false); setShowCreateModal(true); }}
+                    className="px-8 py-4 rounded-2xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-black uppercase tracking-widest active:scale-95 transition-all flex items-center justify-center gap-3 shadow-lg shadow-purple-500/20"
+                >
+                    <Zap className="w-5 h-5 fill-current" />
+                    Launch Flash Deal
+                </button>
+            </div>
         </div>
 
         {/* Stats Strip */}
@@ -225,8 +258,13 @@ const VendorDeals = () => {
                                 className={`group relative bg-zinc-900/80 rounded-[2.5rem] overflow-hidden border transition-all ${isLive ? 'border-purple-500/30 shadow-md' : 'border-white/5'}`}
                             >
                                 <div className="p-5 flex gap-5">
-                                    <div className="relative w-28 h-28 rounded-3xl overflow-hidden shrink-0 shadow-2xl">
-                                        <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+                                    <div className="relative w-28 h-28 rounded-3xl overflow-hidden shrink-0 shadow-2xl bg-zinc-950">
+                                        <img src={deal.isCombo ? (products.find(p => p.id === deal.comboItems?.[0])?.image) : product.image} alt={product.name} className="w-full h-full object-cover" />
+                                        {deal.isCombo && (
+                                            <div className="absolute top-2 left-2 px-2 py-1 bg-purple-600 text-[8px] font-black uppercase tracking-tight rounded-lg shadow-xl">
+                                                BUNDLE
+                                            </div>
+                                        )}
                                         {isLive && (
                                             <div className="absolute inset-0 bg-gradient-to-t from-purple-600/40 to-transparent flex items-end p-2">
                                                 <div className="bg-white text-purple-600 text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded-lg flex items-center gap-1.5 shadow-2xl">
@@ -239,7 +277,9 @@ const VendorDeals = () => {
                                     
                                     <div className="flex-1 flex flex-col justify-between py-1">
                                         <div className="space-y-1">
-                                            <h4 className="font-bold text-sm text-zinc-100 truncate pr-16">{product.name}</h4>
+                                            <h4 className="font-bold text-sm text-zinc-100 truncate pr-16">
+                                                {deal.isCombo ? `Bundle: ${deal.comboItems?.length} Items` : product.name}
+                                            </h4>
                                             <div className="flex items-center gap-2">
                                                 <span className="text-xl font-black text-white italic tracking-tighter">₹{deal.dealPrice}</span>
                                                 <span className="text-xs text-zinc-600 line-through font-bold">₹{deal.originalPrice}</span>
@@ -247,6 +287,11 @@ const VendorDeals = () => {
                                             <div className="inline-block px-2 py-0.5 rounded-lg bg-purple-500/10 text-purple-400 text-[10px] font-black uppercase tracking-tighter">
                                                 SAVE {Math.round(((deal.originalPrice - deal.dealPrice) / deal.originalPrice) * 100)}%
                                             </div>
+                                            {deal.isCombo && (
+                                                <p className="text-[9px] text-zinc-500 truncate max-w-[200px]">
+                                                    {deal.comboItems?.map(id => products.find(p => p.id === id)?.name).join(', ')}
+                                                </p>
+                                            )}
                                         </div>
 
                                         <div className="space-y-2 mt-4">
@@ -290,8 +335,12 @@ const VendorDeals = () => {
                         <div className="p-8 pb-4">
                             <div className="flex items-center justify-between mb-8">
                                 <div>
-                                    <h2 className="text-2xl font-black text-white italic uppercase">Select Product</h2>
-                                    <p className="text-[10px] text-zinc-500 font-black uppercase tracking-widest mt-1">Convert inventory into deal</p>
+                                    <h2 className="text-2xl font-black text-white italic uppercase">
+                                        {isComboMode ? 'Build Bundle' : 'Select Product'}
+                                    </h2>
+                                    <p className="text-[10px] text-zinc-500 font-black uppercase tracking-widest mt-1">
+                                        {isComboMode ? 'Choose multiple items for bundle deal' : 'Convert inventory into deal'}
+                                    </p>
                                 </div>
                                 <button onClick={() => setShowCreateModal(false)} className="w-12 h-12 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-zinc-400 transition-all"><X className="w-6 h-6" /></button>
                             </div>
@@ -309,8 +358,15 @@ const VendorDeals = () => {
                             <div className="grid grid-cols-1 gap-2 mt-4">
                                 {filteredProducts.map(p => (
                                     <button 
-                                        key={p.id} onClick={() => setSelectedProduct(p)}
-                                        className="w-full p-4 rounded-3xl transition-all hover:bg-white/5 flex items-center gap-5 border border-transparent hover:border-white/5 group text-left"
+                                        key={p.id} 
+                                        onClick={() => {
+                                            if (isComboMode) {
+                                                setSelectedComboItems(prev => prev.includes(p.id) ? prev.filter(id => id !== p.id) : [...prev, p.id]);
+                                            } else {
+                                                setSelectedProduct(p);
+                                            }
+                                        }}
+                                        className={`w-full p-4 rounded-3xl transition-all flex items-center gap-5 border ${isComboMode && selectedComboItems.includes(p.id) ? 'bg-purple-500/10 border-purple-500' : 'bg-transparent border-transparent hover:bg-white/5'} group text-left`}
                                     >
                                         <div className="w-16 h-16 rounded-2xl bg-zinc-950 overflow-hidden shrink-0 shadow-xl group-hover:scale-105 transition-transform">
                                             <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
@@ -320,12 +376,37 @@ const VendorDeals = () => {
                                             <span className="text-xs font-black text-purple-500 tracking-tighter">Normal: ₹{p.price}</span>
                                         </div>
                                         <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-zinc-600 group-hover:bg-purple-500 group-hover:text-white transition-all">
-                                            <Plus className="w-5 h-5" />
+                                            {isComboMode ? (
+                                                selectedComboItems.includes(p.id) ? <Check className="w-5 h-5 text-purple-500" /> : <Plus className="w-5 h-5" />
+                                            ) : <Plus className="w-5 h-5" />}
                                         </div>
                                     </button>
                                 ))}
                             </div>
                         </div>
+
+                        {isComboMode && selectedComboItems.length >= 2 && (
+                            <div className="p-8 bg-zinc-950 border-t border-white/5">
+                                <button 
+                                    onClick={() => {
+                                        const selectedProds = products.filter(p => selectedComboItems.includes(p.id));
+                                        setSelectedProduct({
+                                            id: 'combo',
+                                            name: `${selectedComboItems.length} Item Bundle`,
+                                            price: selectedProds.reduce((sum, p) => sum + p.price, 0),
+                                            image: selectedProds[0]?.image || '',
+                                            category: 'Bundle',
+                                            description: '',
+                                            inStock: true
+                                        } as Product);
+                                    }}
+                                    className="w-full h-16 bg-purple-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-purple-500/20 active:scale-95 transition-all flex items-center justify-center gap-3"
+                                >
+                                    Review Deal Details ({selectedComboItems.length} Items)
+                                    <ChevronRight className="w-5 h-5" />
+                                </button>
+                            </div>
+                        )}
                     </motion.div>
                 </motion.div>
             )}

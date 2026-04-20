@@ -18,4 +18,26 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    target: "esnext",
+    minify: "esbuild",
+    cssCodeSplit: true,
+    reportCompressedSize: false,
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-ui': ['framer-motion', '@radix-ui/react-accordion', '@radix-ui/react-dialog', 'lucide-react'],
+          'vendor-firebase': ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/storage'],
+          'vendor-charts': ['recharts'],
+          'vendor-maps': ['leaflet', 'leaflet-routing-machine'],
+          'vendor-utils': ['date-fns', 'zod', 'i18next'],
+        },
+      },
+    },
+  },
+  esbuild: {
+    drop: mode === 'production' ? ['console', 'debugger'] : [],
+  },
 }));

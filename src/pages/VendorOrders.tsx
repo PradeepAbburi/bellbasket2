@@ -437,12 +437,7 @@ const VendorOrders = () => {
                     </div>
                     <p className="font-semibold text-foreground text-sm">
                       {order.items.length} {t('common.items')} · ₹{(() => {
-                        const itemsTotal = order.items.reduce((sum, item) => {
-                          const price = (item.product.discountedPrice && Number(item.product.discountedPrice) > 0 && Number(item.product.discountedPrice) < item.product.price) 
-                            ? Number(item.product.discountedPrice) 
-                            : item.product.price;
-                          return sum + (price * item.quantity);
-                        }, 0);
+                        const itemsTotal = order.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
                         return itemsTotal + (order.deliveryFee || 0);
                       })()}
                     </p>
@@ -561,12 +556,7 @@ const VendorOrders = () => {
                       <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-0.5">Total Pay</p>
                       <p className="text-xl font-black text-primary leading-none">
                         ₹{(() => {
-                          const itemsTotal = order.items.reduce((sum, item) => {
-                            const price = (item.product.discountedPrice && Number(item.product.discountedPrice) > 0 && Number(item.product.discountedPrice) < item.product.price) 
-                              ? Number(item.product.discountedPrice) 
-                              : item.product.price;
-                            return sum + (price * item.quantity);
-                          }, 0);
+                          const itemsTotal = order.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
                           return itemsTotal + (order.deliveryFee || 0);
                         })()}
                       </p>
@@ -692,47 +682,46 @@ const VendorOrders = () => {
                             {item.product.quantity && (
                               <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mt-1 opacity-80">{item.product.quantity}</p>
                             )}
-                            <p className="text-[10px] font-black text-primary mt-1.5 opacity-90">
-                              ₹{(item.product.discountedPrice && Number(item.product.discountedPrice) > 0 && Number(item.product.discountedPrice) < item.product.price) 
-                                ? Number(item.product.discountedPrice) 
-                                : item.product.price} / unit
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex flex-col items-end gap-1 shrink-0 ml-4">
-                           <div className="font-mono font-black text-xl text-primary bg-primary/5 px-3 py-1.5 rounded-xl border border-primary/10">
-                            x{item.quantity}
-                          </div>
-                          <p className="text-[10px] font-bold text-muted-foreground">
-                            ₹{((item.product.discountedPrice && Number(item.product.discountedPrice) > 0 && Number(item.product.discountedPrice) < item.product.price) 
-                              ? Number(item.product.discountedPrice) 
-                              : item.product.price) * item.quantity}
-                          </p>
-                        </div>
+                             <p className="text-[10px] font-black text-primary mt-1.5 opacity-90">
+                               ₹{item.product.price} / unit
+                             </p>
+                           </div>
+                         </div>
+                         <div className="flex flex-col items-end gap-1 shrink-0 ml-4">
+                            <div className="font-mono font-black text-xl text-primary bg-primary/5 px-3 py-1.5 rounded-xl border border-primary/10">
+                             x{item.quantity}
+                           </div>
+                           <p className="text-[10px] font-bold text-muted-foreground">
+                             ₹{item.product.price * item.quantity}
+                           </p>
+                         </div>
                       </div>
                     ))}
-                  </div>
-                </div>
-
-                {/* Summary Info */}
+                   {/* Summary Info */}
                 <div className="p-4 rounded-2xl bg-primary/5 border border-primary/10 space-y-2">
-                   <div className="flex justify-between items-center text-xs font-bold">
-                    <span className="text-muted-foreground uppercase tracking-widest">Subtotal</span>
-                    <span className="text-foreground">₹{selectedOrder.total}</span>
-                   </div>
-                   <div className="flex justify-between items-center text-sm font-black pt-2 border-t border-primary/20">
-                    <span className="text-primary uppercase tracking-widest">Order Total</span>
-                    <span className="text-primary text-lg">
-                      ₹{(() => {
-                        const itemsTotal = selectedOrder.items.reduce((sum, item) => {
-                          const price = (item.product.discountedPrice && Number(item.product.discountedPrice) > 0 && Number(item.product.discountedPrice) < item.product.price) 
-                            ? Number(item.product.discountedPrice) 
-                            : item.product.price;
-                          return sum + (price * item.quantity);
-                        }, 0);
-                        return itemsTotal + (selectedOrder.deliveryFee || 0);
-                      })()}
-                    </span>
+                   {(() => {
+                     const itemsTotal = selectedOrder.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+                     const deliveryFee = selectedOrder.deliveryFee || 0;
+                     return (
+                       <>
+                         <div className="flex justify-between items-center text-xs font-bold">
+                           <span className="text-muted-foreground uppercase tracking-widest">Subtotal</span>
+                           <span className="text-foreground">₹{itemsTotal}</span>
+                         </div>
+                         {deliveryFee > 0 && (
+                           <div className="flex justify-between items-center text-xs font-bold">
+                             <span className="text-muted-foreground uppercase tracking-widest">Delivery Fee</span>
+                             <span className="text-foreground">+ ₹{deliveryFee}</span>
+                           </div>
+                         )}
+                         <div className="flex justify-between items-center text-sm font-black pt-2 border-t border-primary/20">
+                           <span className="text-primary uppercase tracking-widest">Order Total</span>
+                           <span className="text-primary text-lg">₹{itemsTotal + deliveryFee}</span>
+                         </div>
+                       </>
+                     );
+                   })()}
+                </div>
                    </div>
                 </div>
               </div>

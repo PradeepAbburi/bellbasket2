@@ -1,6 +1,6 @@
-import { useState, startTransition } from 'react';
+import { useState, useEffect, startTransition } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Minus, Plus, Trash2, CreditCard, Wallet, ArrowLeft, CheckCircle, AlertCircle, Clock, Phone, ShoppingBag, User as UserIcon, XCircle, Store } from 'lucide-react';
+import { Minus, Plus, Trash2, CreditCard, Wallet, ArrowLeft, CheckCircle, AlertCircle, Clock, Phone, ShoppingBag, User as UserIcon, XCircle, Store, MapPin } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import { useApp } from '@/context/AppContext';
@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 
 const Cart = () => {
-  const { user, loading, cart, updateQuantity, removeFromCart, placeOrder, stores } = useApp();
+  const { user, loading, cart, updateQuantity, removeFromCart, placeOrder, stores, cartSubtotal } = useApp();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [showConfirm, setShowConfirm] = useState(false);
@@ -38,12 +38,7 @@ const Cart = () => {
 
   const groupIds = Object.keys(cartGroups);
 
-  const subtotal = cart.reduce((s, c) => {
-    const price = (c.product.discountedPrice && Number(c.product.discountedPrice) > 0 && Number(c.product.discountedPrice) < c.product.price) 
-      ? Number(c.product.discountedPrice) 
-      : c.product.price;
-    return s + price * c.quantity;
-  }, 0);
+  const subtotal = cartSubtotal;
 
   // For multi-shop, we'll take the max delivery fee or a flat fee
   const deliveryFee = Math.max(...groupIds.map(id => cartGroups[id].storeInfo?.deliveryFee || 0));
@@ -55,6 +50,14 @@ const Cart = () => {
     .filter(store => store && (!store.isOpen || store.isBlocked || store.plan === 'none' || !store.plan));
 
   const isCheckoutDisabled = restrictedStores.length > 0;
+  const allStoresOfferDelivery = groupIds.length > 0 && groupIds.every(id => cartGroups[id].storeInfo?.offersDelivery);
+
+  // If not all stores offer delivery, force pickup
+  useEffect(() => {
+    if (!allStoresOfferDelivery && selectedDelivery === 'delivery') {
+      setSelectedDelivery('pickup');
+    }
+  }, [allStoresOfferDelivery, selectedDelivery]);
 
   const startOrder = (method: 'online' | 'pickup' | 'delivery') => {
     if (!user) {
@@ -88,7 +91,7 @@ const Cart = () => {
     setIsPlacing(true);
     const orderId = await placeOrder(pendingMethod, { 
       deliveryMethod: selectedDelivery, 
-      deliveryFee,
+      deliveryFee: selectedDelivery === 'delivery' ? deliveryFee : 0,
       customerName: deliveryName,
       customerPhone: deliveryPhone,
       customerAddress: deliveryAddress
@@ -192,24 +195,35 @@ const Cart = () => {
                         <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
                           <div>
                             <h3 className="font-extrabold text-foreground text-[15px] tracking-tight line-clamp-1">{t(`products.${item.product.name}`, { defaultValue: item.product.name })}</h3>
-                            {item.product.quantity && (
-                              <span className="text-[9px] font-black text-primary bg-primary/5 px-1.5 py-0.5 rounded-md border border-primary/10 w-fit block mt-0.5">
-                                {item.product.quantity.includes(' - ') ? item.product.quantity : item.product.quantity.replace(/([0-9.]+)([a-zA-Z]+)/, '$1 - $2')}
-                              </span>
-                            )}
+                            <div className="flex flex-col gap-1 items-start mt-0.5">
+                              {item.selectedVariant ? (
+                                <span className="text-[9px] font-black text-amber-500 bg-amber-500/5 px-2 py-0.5 rounded-md border border-amber-500/10">
+                                  Variant: {item.selectedVariant.quantity}
+                                </span>
+                              ) : item.product.quantity && (
+                                <span className="text-[9px] font-black text-primary bg-primary/5 px-1.5 py-0.5 rounded-md border border-primary/10">
+                                  {item.product.quantity.includes(' - ') ? item.product.quantity : item.product.quantity.replace(/([0-9.]+)([a-zA-Z]+)/, '$1 - $2')}
+                                </span>
+                              )}
+                            </div>
                           </div>
                           <div className="flex items-center justify-between mt-auto">
-                            <span className="font-black text-foreground text-base">₹{item.product.price * item.quantity}</span>
+                            <span className="font-black text-foreground text-base">
+                              ₹{(item.selectedVariant ? 
+                                 (item.selectedVariant.discountedPrice || item.selectedVariant.price) : 
+                                 ((item.product.discountedPrice && Number(item.product.discountedPrice) > 0 && Number(item.product.discountedPrice) < item.product.price) ? Number(item.product.discountedPrice) : item.product.price)
+                                ) * item.quantity}
+                            </span>
                             <div className="flex items-center gap-1.5 bg-secondary/30 p-1 rounded-xl border border-border/40">
-                              <button onClick={() => updateQuantity(item.product.id, item.quantity - 1)} className="w-7 h-7 rounded-lg bg-white dark:bg-[#333333] text-primary flex items-center justify-center shadow-sm hover:scale-105 active:scale-95 transition-all">
+                              <button onClick={() => updateQuantity(item.product.id, item.quantity - 1, item.selectedVariant?.id)} className="w-7 h-7 rounded-lg bg-white dark:bg-[#333333] text-primary flex items-center justify-center shadow-sm hover:scale-105 active:scale-95 transition-all">
                                 <Minus className="w-3.5 h-3.5" />
                               </button>
                               <span className="text-xs font-black text-foreground w-5 text-center">{item.quantity}</span>
-                              <button onClick={() => updateQuantity(item.product.id, item.quantity + 1)} className="w-7 h-7 rounded-lg bg-primary text-white flex items-center justify-center shadow-md hover:scale-105 active:scale-95 transition-all">
+                              <button onClick={() => updateQuantity(item.product.id, item.quantity + 1, item.selectedVariant?.id)} className="w-7 h-7 rounded-lg bg-primary text-white flex items-center justify-center shadow-md hover:scale-105 active:scale-95 transition-all">
                                 <Plus className="w-3.5 h-3.5" />
                               </button>
                               <div className="w-px h-4 bg-border/50 mx-0.5" />
-                              <button onClick={() => removeFromCart(item.product.id)} className="w-7 h-7 rounded-lg bg-destructive/10 text-destructive flex items-center justify-center hover:bg-destructive hover:text-white transition-all">
+                              <button onClick={() => removeFromCart(item.product.id, item.selectedVariant?.id)} className="w-7 h-7 rounded-lg bg-destructive/10 text-destructive flex items-center justify-center hover:bg-destructive hover:text-white transition-all">
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
                             </div>
@@ -243,86 +257,72 @@ const Cart = () => {
             )}
 
             {/* Summary */}
-            <div className="glass rounded-2xl p-6 mb-6">
+            <div className="glass rounded-[2rem] p-8 mb-8 border border-border/40 shadow-xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -translate-x-8 -translate-y-8 blur-3xl" />
+              
+              <h3 className="text-sm font-black text-foreground uppercase tracking-widest mb-6 px-1 italic">Order Summary</h3>
 
-              {groupIds.some(id => cartGroups[id].storeInfo?.offersDelivery) && (
-                <div className="mb-6 space-y-3 pb-4 border-b border-border/50">
-                  <h3 className="text-sm font-bold text-foreground">{t('common.delivery_method')}</h3>
-                  <div className="grid grid-cols-2 gap-3">
-                    <label className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all cursor-pointer ${selectedDelivery === 'pickup' ? 'border-primary bg-primary/5' : 'border-border/50 bg-secondary/30'}`}>
-                      <input type="radio" name="delivery" value="pickup" checked={selectedDelivery === 'pickup'} onChange={() => setSelectedDelivery('pickup')} className="hidden" />
-                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${selectedDelivery === 'pickup' ? 'border-primary' : 'border-muted-foreground'}`}>
-                        {selectedDelivery === 'pickup' && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
-                      </div>
-                      <span className="text-sm font-bold text-foreground">{t('common.store_pickup')}</span>
-                    </label>
-                    <label className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all cursor-pointer ${selectedDelivery === 'delivery' ? 'border-primary bg-primary/5' : 'border-border/50 bg-secondary/30'}`}>
-                      <input type="radio" name="delivery" value="delivery" checked={selectedDelivery === 'delivery'} onChange={() => setSelectedDelivery('delivery')} className="hidden" />
-                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${selectedDelivery === 'delivery' ? 'border-primary' : 'border-muted-foreground'}`}>
-                        {selectedDelivery === 'delivery' && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
-                      </div>
-                      <span className="text-sm font-bold text-foreground">{t('common.delivery')}</span>
-                    </label>
+              {allStoresOfferDelivery && (
+                <div className="flex bg-secondary/50 p-1.5 rounded-2xl mb-6 border border-border/20">
+                  <button
+                    onClick={() => setSelectedDelivery('pickup')}
+                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${selectedDelivery === 'pickup' ? 'bg-white dark:bg-primary shadow-lg text-foreground dark:text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                  >
+                    <ShoppingBag className="w-3.5 h-3.5" /> Pickup
+                  </button>
+                  <button
+                    onClick={() => setSelectedDelivery('delivery')}
+                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${selectedDelivery === 'delivery' ? 'bg-white dark:bg-primary shadow-lg text-foreground dark:text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                  >
+                    <MapPin className="w-3.5 h-3.5" /> Delivery
+                  </button>
+                </div>
+              )}
+
+              <div className="space-y-3 mb-6">
+                <div className="flex justify-between items-center px-1">
+                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">{t('common.subtotal')}</span>
+                  <span className="text-sm font-black text-foreground">₹{subtotal}</span>
+                </div>
+                
+                <div className="pt-4 mt-2 border-t border-border/50 flex justify-between items-end px-1">
+                  <div>
+                    <span className="text-[10px] font-black text-primary uppercase tracking-widest block mb-0.5">Total Amount</span>
+                    <span className="text-xs text-muted-foreground font-bold uppercase tracking-widest">{groupIds.length} {groupIds.length === 1 ? 'Store' : 'Stores'}</span>
                   </div>
+                  <span className="text-2xl font-black text-foreground">₹{subtotal}</span>
                 </div>
-              )}
-
-              {/* Removed Inline Delivery Details Form */}
-
-              <div className="flex justify-between text-sm mb-2">
-                <span className="text-muted-foreground">{t('common.subtotal')}</span>
-                <span className="text-foreground font-medium">₹{subtotal}</span>
-              </div>
-              <div className={`flex justify-between text-sm ${selectedDelivery === 'delivery' && deliveryFee > 0 ? 'mb-2' : 'mb-4'}`}>
-                <span className="text-muted-foreground">{t('common.delivery_method')}</span>
-                <span className="text-primary font-bold capitalize">{selectedDelivery === 'pickup' ? t('common.pickup') : t('common.delivery')}</span>
-              </div>
-              {selectedDelivery === 'delivery' && deliveryFee > 0 && (
-                <div className="flex justify-between text-sm mb-4 animate-in slide-in-from-top-1 fade-in duration-200">
-                  <span className="text-muted-foreground font-semibold">{t('common.delivery_charge')}</span>
-                  <span className="text-foreground font-black">+ ₹{deliveryFee}</span>
-                </div>
-              )}
-              <div className="border-t border-border pt-3 flex justify-between mb-6">
-                <span className="font-bold text-foreground">{t('common.total')}</span>
-                <span className="font-bold text-foreground text-lg">₹{total}</span>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-4">
                 <button
                   disabled={isCheckoutDisabled}
                   onClick={() => startOrder(selectedDelivery === 'pickup' ? 'pickup' : 'delivery')}
-                  className={`py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all ${isCheckoutDisabled ? 'bg-secondary text-muted-foreground opacity-50 cursor-not-allowed' : 'gradient-primary text-primary-foreground hover:shadow-lg hover:shadow-primary/20 active:scale-95'}`}
+                  className={`w-full py-4 rounded-2xl font-black text-sm uppercase tracking-[0.15em] flex items-center justify-center gap-3 shadow-xl transition-all ${
+                    isCheckoutDisabled 
+                      ? 'bg-secondary text-muted-foreground opacity-50 cursor-not-allowed' 
+                      : 'gradient-primary text-primary-foreground shadow-primary/20 hover:scale-[1.01] active:scale-95'
+                  }`}
                 >
-                  <Wallet className="w-4 h-4" /> {groupIds.length > 1 ? 'Start Thread Order' : (selectedDelivery === 'pickup' ? t('common.pay_on_pickup') : 'Get Delivery')}
+                  <Wallet className="w-5 h-5" /> 
+                  {selectedDelivery === 'pickup' ? t('common.pay_on_pickup') : t('common.pay_on_delivery')}
                 </button>
-                <button
-                  disabled={isCheckoutDisabled}
-                  onClick={() => startOrder('online')}
-                  className={`py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all ${isCheckoutDisabled ? 'bg-secondary text-muted-foreground opacity-50 cursor-not-allowed' : 'bg-secondary/50 text-muted-foreground hover:bg-secondary active:scale-95 grayscale-[0.5]'}`}
-                >
-                  <CreditCard className="w-4 h-4" /> {t('common.pay_online')}
-                </button>
+
+                {!allStoresOfferDelivery && (
+                   <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/10 flex items-start gap-3">
+                      <Clock className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                      <p className="text-[10px] text-muted-foreground font-medium italic leading-relaxed">
+                        Some shops in your cart do not offer delivery service. This order must be picked up in person.
+                      </p>
+                   </div>
+                )}
               </div>
 
-              <p className="text-[10px] text-center text-muted-foreground mt-4 px-4 leading-relaxed">
-                By placing an order, you agree to BellBasket's {' '}
-                <button
-                  type="button"
-                  onClick={() => navigate('/privacy')}
-                  className="text-primary hover:underline font-bold"
-                >
-                  Privacy Policy
-                </button>
+              <p className="text-[10px] text-center text-muted-foreground mt-8 px-4 leading-relaxed opacity-60">
+                By placing an order, you agree to the BellBasket {' '}
+                <button type="button" onClick={() => navigate('/privacy')} className="text-primary hover:underline font-bold">Privacy</button>
                 {' '}and{' '}
-                <button
-                  type="button"
-                  onClick={() => navigate('/terms')}
-                  className="text-primary hover:underline font-bold"
-                >
-                  Terms & Conditions
-                </button>
-                . Your data helps us process your order smoothly.
+                <button type="button" onClick={() => navigate('/terms')} className="text-primary hover:underline font-bold">Terms</button>
               </p>
             </div>
           </>

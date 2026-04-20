@@ -33,6 +33,7 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
   const [needsVerification, setNeedsVerification] = useState(false);
   const [referralCode, setReferralCode] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
 
   const { login, refreshUser } = useApp(); // theme/toggleTheme removed
   const navigate = useNavigate();
@@ -83,6 +84,15 @@ const Auth = () => {
       }
     });
     return () => unsubscribe();
+  }, []);
+
+  // Load remembered email on mount
+  useEffect(() => {
+    const savedEmail = localStorage.getItem('bb_remembered_email');
+    if (savedEmail) {
+      setEmail(savedEmail);
+      setRememberMe(true);
+    }
   }, []);
 
   const handleResendLink = async () => {
@@ -221,6 +231,14 @@ const Auth = () => {
 
     try {
       const sanitizedEmail = email.trim().toLowerCase();
+
+      if (isLogin) {
+        if (rememberMe) {
+          localStorage.setItem('bb_remembered_email', sanitizedEmail);
+        } else {
+          localStorage.removeItem('bb_remembered_email');
+        }
+      }
 
       // Basic email format validation
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -421,7 +439,9 @@ const Auth = () => {
         <div className="h-screen overflow-hidden gradient-warm relative flex items-center justify-center px-4 w-full">
           {/* Background Image Setup */}
           <div className="fixed inset-0 z-0">
-            <img src={heroBg} alt="" className="w-full h-full object-cover opacity-60 object-center" />
+            <div className="absolute inset-0 bg-slate-900">
+              <img src={heroBg} alt="Traditional Indian neighborhood street market" className="w-full h-full object-cover opacity-60 object-center" />
+            </div>
             <div className="absolute inset-0 bg-gradient-to-b from-background/20 via-background/40 to-background/95" />
           </div>
 
@@ -477,7 +497,7 @@ const Auth = () => {
       </Helmet>
       {/* Background Image Setup */}
       <div className="fixed inset-0 z-0">
-        <img src={heroBg} alt="" className="w-full h-full object-cover opacity-60 object-center" />
+        <img src={heroBg} alt="Neighborhood grocery shopping setting" className="w-full h-full object-cover opacity-60 object-center" />
         <div className="absolute inset-0 bg-gradient-to-b from-background/20 via-background/40 to-background/95" />
       </div>
 
@@ -600,7 +620,19 @@ const Auth = () => {
             )}
 
             {isLogin && !showForgotPassword && (
-              <div className="text-right">
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2 cursor-pointer group">
+                  <div className="relative flex items-center">
+                    <input 
+                      type="checkbox" 
+                      id="rememberMe"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      className="w-4 h-4 rounded-lg bg-secondary/50 border-0 focus:ring-2 focus:ring-primary/20 text-primary transition-all cursor-pointer"
+                    />
+                  </div>
+                  <span className="text-[10px] font-bold text-muted-foreground group-hover:text-foreground transition-colors uppercase tracking-wider select-none pt-0.5">Remember Me</span>
+                </label>
                 <button
                   type="button"
                   onClick={() => setShowForgotPassword(true)}

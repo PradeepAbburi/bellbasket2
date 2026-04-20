@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo, useRef, useCallback, startTransition, memo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback, startTransition, memo, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate, useSearchParams, Link } from 'react-router-dom';
-import { MapPin, Star, Search, Navigation, Loader2, History, X, Store as StoreIcon, Plus, Minus, ChevronLeft, ChevronRight, Clock, Tag, ShoppingBasket, Sparkles, Filter, ChevronDown, ArrowUpDown } from 'lucide-react';
+import { useNavigate, useSearchParams, Link, useLocation } from 'react-router-dom';
+import { MapPin, Star, Search, Navigation, Loader2, History, X, Store as StoreIcon, Plus, Minus, ChevronLeft, ChevronRight, Clock, Tag, ShoppingBasket, Sparkles, Filter, ChevronDown, ArrowUpDown, Package2 } from 'lucide-react';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -12,6 +12,8 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem
 } from '@/components/ui/dropdown-menu';
+import { db } from '@/lib/firebase';
+import { collection, query as firestoreQuery, where, getDocs } from 'firebase/firestore';
 import SortOptions from '@/components/SortOptions';
 import Loader from '@/components/ui/loader-animation';
 import Header from '@/components/Header';
@@ -20,10 +22,11 @@ import { Store, Product } from '@/types';
 import { CATEGORY_METADATA } from '@/constants/categories';
 import { toast } from 'sonner';
 import { useApp } from '@/context/AppContext';
-import MapView from '@/components/MapView';
+const MapView = lazy(() => import('@/components/MapView'));
 import { Helmet } from 'react-helmet';
+import VariantSelector from '@/components/VariantSelector';
 import { useTranslation } from 'react-i18next';
-import { smartSearchProducts } from '../utils/search';
+import { smartSearchProducts, searchProductsOnServer } from '../utils/search';
 
 const LOCATION_PRESETS = [
   { name: 'Connaught Place', lat: 28.6139, lng: 77.2090 },
@@ -140,14 +143,18 @@ const StoreCard = memo(({ store, onClick, t }: { store: Store & { distance?: num
 });
 
 // Memoized Product Card with Prefetching
-const ProductCard = memo(({ p, count, onAdd, onUpdate, onRemove, onClick, t }: { p: Product & { storeName?: string, storeRating?: number, storeReviewCount?: number, distance?: number, storeIsOpen?: boolean }, count: number, onAdd: () => void, onUpdate: (q: number) => void, onRemove: () => void, onClick: () => void, t: any }) => {
+const ProductCard = memo(({ p, count, onAdd, onUpdate, onRemove, onClick, t, mode, selectedVariant, onVariantTrigger }: { p: Product & { storeName?: string, storeRating?: number, storeReviewCount?: number, distance?: number, storeIsOpen?: boolean, storePhone?: string }, count: number, onAdd: () => void, onUpdate: (q: number) => void, onRemove: () => void, onClick: () => void, t: any, mode?: 'product' | 'service', selectedVariant?: any, onVariantTrigger?: (p: Product) => void }) => {
   const prefetch = () => {
     import('./StoreDetail'); // Product detail is inside StoreDetail view
   };
 
-  const hasDiscount = !!p.discountedPrice && Number(p.discountedPrice) > 0 && Number(p.discountedPrice) < p.price;
-  const discountedPrice = hasDiscount ? Number(p.discountedPrice) : p.price;
-  const discountPercent = hasDiscount ? Math.round(((p.price - discountedPrice) / p.price) * 100) : 0;
+  const hasDiscount = selectedVariant 
+    ? (!!selectedVariant.discountedPrice && selectedVariant.discountedPrice < selectedVariant.price)
+    : (!!p.discountedPrice && Number(p.discountedPrice) > 0 && Number(p.discountedPrice) < p.price);
+  const discountedPrice = selectedVariant
+    ? (hasDiscount ? selectedVariant.discountedPrice : selectedVariant.price)
+    : (hasDiscount ? Number(p.discountedPrice) : p.price);
+  const discountPercent = hasDiscount ? Math.round((( (selectedVariant ? selectedVariant.price : p.price) - discountedPrice) / (selectedVariant ? selectedVariant.price : p.price)) * 100) : 0;
 
   return (
     <motion.div
@@ -160,7 +167,21 @@ const ProductCard = memo(({ p, count, onAdd, onUpdate, onRemove, onClick, t }: {
       className="bg-[#f8f9fa] dark:bg-[#161616] p-3 rounded-[2.5rem] flex flex-col gap-3 hover:shadow-2xl hover:shadow-primary/10 transition-all border border-slate-200 dark:border-white/5 group/product cursor-pointer relative will-change-transform"
     >
       <div className="aspect-square rounded-2xl overflow-hidden bg-secondary/10 relative">
-        <img loading="lazy" src={p.image} alt={p.name} className="w-full h-full object-cover group-hover/product:scale-110 transition-transform duration-700 ease-out" />
+        {p.isCombo && p.comboItemsData && p.comboItemsData.length > 0 ? (
+            <div className="w-full h-full grid grid-cols-2 grid-rows-2 gap-[2px] bg-primary/20 relative">
+                {p.comboItemsData.slice(0, 4).map((c) => (
+                    <img key={c.id} src={c.image} className="w-full h-full object-cover" alt="" />
+                ))}
+                {p.comboItemsData.length < 4 && Array.from({ length: 4 - p.comboItemsData.length }).map((_, i) => (
+                    <div key={i} className="w-full h-full bg-zinc-900 flex items-center justify-center">
+                        <Package2 className="w-4 h-4 text-primary/20" />
+                    </div>
+                ))}
+                <div className="absolute inset-0 bg-gradient-to-tr from-primary/10 to-transparent pointer-events-none" />
+            </div>
+        ) : (
+            <img loading="lazy" src={p.image} alt={p.name} className="w-full h-full object-cover group-hover/product:scale-110 transition-transform duration-700 ease-out" />
+        )}
         {hasDiscount && (
           <div className="absolute top-2 left-2 bg-primary text-primary-foreground text-[8px] font-black px-1.5 py-0.5 rounded-lg shadow-lg uppercase tracking-tight">
             {discountPercent}% OFF
@@ -178,7 +199,7 @@ const ProductCard = memo(({ p, count, onAdd, onUpdate, onRemove, onClick, t }: {
         <div className="flex items-center justify-between">
           <div className="flex items-baseline gap-1.5">
             <span className="text-sm font-black text-foreground">₹{discountedPrice}</span>
-            {hasDiscount && <span className="text-[9px] text-muted-foreground line-through opacity-50 font-medium">₹{p.price}</span>}
+            {hasDiscount && <span className="text-[9px] text-muted-foreground line-through opacity-50 font-medium">₹{selectedVariant ? selectedVariant.price : p.price}</span>}
           </div>
         </div>
         
@@ -187,9 +208,26 @@ const ProductCard = memo(({ p, count, onAdd, onUpdate, onRemove, onClick, t }: {
             <button disabled className="w-full h-8 rounded-xl bg-muted text-muted-foreground text-[9px] font-black flex items-center justify-center uppercase tracking-widest cursor-not-allowed">
               OOS
             </button>
-          ) : count === 0 ? (
-            <button onClick={onAdd} className="w-full h-8 rounded-xl bg-primary text-white text-[10px] font-black flex items-center justify-center gap-1.5 hover:bg-primary/90 active:scale-[0.98] transition-all shadow-lg shadow-primary/20">
-              <Plus className="w-3 h-3" /> ADD TO CART
+          ) : (count === 0 || p.hasVariants) ? (
+            <button 
+              onClick={(e) => { 
+                e.stopPropagation(); 
+                if (p.hasVariants && onVariantTrigger) {
+                  onVariantTrigger(p);
+                } else {
+                  onAdd(); 
+                }
+              }} 
+              className="w-full h-8 rounded-xl bg-primary text-white text-[10px] font-black flex items-center justify-center gap-1.5 hover:bg-primary/90 active:scale-[0.98] transition-all shadow-lg shadow-primary/20"
+            >
+              {mode === 'service' ? (
+                <span className="uppercase tracking-widest">Book Now</span>
+              ) : (
+                <>
+                  <Plus className="w-3 h-3" /> 
+                  {p.hasVariants && selectedVariant ? 'ADD MORE' : 'ADD TO CART'}
+                </>
+              )}
             </button>
           ) : (
             <div className="w-full h-8 rounded-xl bg-primary text-white flex items-center justify-between px-1.5 shadow-lg shadow-primary/20">
@@ -228,7 +266,7 @@ const CustomerHome = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-
+  const location = useLocation();
 
   const [search, setSearch] = useState('');
   const [isSearchingLocation, setIsSearchingLocation] = useState(false);
@@ -239,7 +277,7 @@ const CustomerHome = () => {
   const [userDistrict, setUserDistrict] = useState(() => localStorage.getItem('user_district') || '');
   const [userState, setUserState] = useState(() => localStorage.getItem('user_state') || '');
   const [userCountry, setUserCountry] = useState(() => localStorage.getItem('user_country') || '');
-  const [selectedLocationType, setSelectedLocationType] = useState(''); // Never persisted - always starts as distance filter
+  const [selectedLocationType, setSelectedLocationType] = useState('');
   const [detecting, setDetecting] = useState(false);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [locationSearch, setLocationSearch] = useState('');
@@ -258,33 +296,128 @@ const CustomerHome = () => {
   const [ratingSort, setRatingSort] = useState<'none' | 'top-rated' | 'low-rated'>('none');
   const [distanceSort, setDistanceSort] = useState<'none' | 'nearest' | 'farthest'>('none');
   const [maxDistance, setMaxDistance] = useState<number>(20);
+  const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
+  const [localProducts, setLocalProducts] = useState<Product[]>([]);
+  const [isSearchingProducts, setIsSearchingProducts] = useState(false);
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [searchResultType, setSearchResultType] = useState<'all' | 'stores' | 'products'>('all');
+  const [variantSelectorProduct, setVariantSelectorProduct] = useState<Product | null>(null);
+
+  // 1. Debounce search input for real-time suggestions
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 200); // Faster debounce for better feel
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  // Helper functions used by multiple hooks
+  const checkMatchesArea = useCallback((storeLat: number, storeLng: number, store: any) => {
+    const distance = getDistanceKm(userLat, userLng, storeLat, storeLng);
+
+    if (selectedLocationType === 'country') return true; 
+    if (selectedLocationType === 'state' && userState) return true;
+
+    if (selectedLocationType === 'district' && userDistrict) {
+      const ud = userDistrict.toLowerCase();
+      return (store.district && store.district.toLowerCase() === ud)
+        || (store.mandal && store.mandal.toLowerCase() === ud)
+        || (store.address && store.address.toLowerCase().includes(ud))
+        || distance <= maxDistance;
+    }
+
+    return distance <= maxDistance;
+  }, [userLat, userLng, selectedLocationType, userState, userDistrict, maxDistance]);
+
+  // Derived state memos
+  const areaStoreIds = useMemo(() => {
+    return allStores
+      .filter(s => {
+        const matchesMode = s.storeType ? s.storeType === activeMode : activeMode === 'product';
+        return matchesMode && checkMatchesArea(s.lat, s.lng, s);
+      })
+      .map(s => s.id);
+  }, [allStores, checkMatchesArea, activeMode]);
+
+  // On-demand search fetch to prevent 14MB payload
+  useEffect(() => {
+    // Fetch if we have a debounced search OR a fixed active search
+    const query = activeSearch.trim() || debouncedSearch.trim();
+    if (!query && !selectedCategory) {
+      setLocalProducts([]);
+      return;
+    }
+
+    const fetchResults = async () => {
+      setIsSearchingProducts(true);
+      const results = await searchProductsOnServer(query, selectedCategory, areaStoreIds);
+      
+      // Enrich combo products with their items for collage
+      const comboIdsToFetch: string[] = [];
+      results.forEach(p => {
+        if (p.isCombo && p.comboItems && p.comboItems.length > 0) {
+          p.comboItems.forEach(cid => {
+            if (!results.some(r => r.id === cid) && !comboIdsToFetch.includes(cid)) {
+              comboIdsToFetch.push(cid);
+            }
+          });
+        }
+      });
+
+      if (comboIdsToFetch.length > 0) {
+        try {
+          const extraDocs = await getDocs(firestoreQuery(collection(db, 'products'), where('__name__', 'in', comboIdsToFetch.slice(0, 30))));
+          const extraProducts = extraDocs.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+          
+          results.forEach(p => {
+            if (p.isCombo && p.comboItems) {
+              p.comboItemsData = p.comboItems.map(cid => {
+                return results.find(r => r.id === cid) || extraProducts.find(r => r.id === cid);
+              }).filter(Boolean) as Product[];
+            }
+          });
+        } catch (e) { console.error("Combo enrichment failed", e); }
+      } else {
+        // Even if no extra fetch needed, link data if items are already in results
+        results.forEach(p => {
+          if (p.isCombo && p.comboItems) {
+            p.comboItemsData = results.filter(r => p.comboItems?.includes(r.id));
+          }
+        });
+      }
+
+      setLocalProducts(results);
+      setIsSearchingProducts(false);
+    };
+
+    fetchResults();
+  }, [debouncedSearch, activeSearch, selectedCategory, areaStoreIds]);
+
 
   const searchSuggestions = useMemo(() => {
     if (!search.trim() || isSearching || activeSearch === search) return [];
 
-    const query = search.toLowerCase();
+    const q = search.toLowerCase();
     const suggestions = new Set<string>();
 
     allStores
-      .filter(s => !s.isBlocked && s.plan && s.plan !== 'none')
+      .filter(s => !s.isBlocked && s.plan && s.plan !== 'none' && checkMatchesArea(s.lat, s.lng, s) && (s.storeType ? s.storeType === activeMode : activeMode === 'product'))
       .forEach(s => {
-        if (s.name.toLowerCase().includes(query)) suggestions.add(JSON.stringify({ type: 'store', name: s.name, id: s.id, lat: s.lat, lng: s.lng }));
-        if (s.mandal && s.mandal.toLowerCase().includes(query)) suggestions.add(JSON.stringify({ type: 'location', name: s.mandal, adminType: 'mandal', lat: s.lat, lng: s.lng }));
-        if (s.district && s.district.toLowerCase().includes(query)) suggestions.add(JSON.stringify({ type: 'location', name: s.district, adminType: 'district', lat: s.lat, lng: s.lng }));
-        if (s.state && s.state.toLowerCase().includes(query)) suggestions.add(JSON.stringify({ type: 'location', name: s.state, adminType: 'state', lat: s.lat, lng: s.lng }));
-        if (s.country && s.country.toLowerCase().includes(query)) suggestions.add(JSON.stringify({ type: 'location', name: s.country, adminType: 'country', lat: s.lat, lng: s.lng }));
+        if (s.name.toLowerCase().includes(q)) {
+          suggestions.add(JSON.stringify({ type: 'store', name: s.name, id: s.id, lat: s.lat, lng: s.lng }));
+        }
       });
 
-    allProducts.forEach(p => {
-      // Find the store for this product to check if it's blocked
+    [...allProducts, ...localProducts].forEach(p => {
+      // Find the store for this product to check if it's blocked AND in area AND matches mode
       const store = allStores.find(s => s.id === p.vendorId);
-      if (store && !store.isBlocked && store.plan && store.plan !== 'none') {
-        if (p.name.toLowerCase().includes(query)) suggestions.add(JSON.stringify({ type: 'product', name: p.name }));
+      if (store && !store.isBlocked && store.plan && store.plan !== 'none' && checkMatchesArea(store.lat, store.lng, store) && (store.storeType ? store.storeType === activeMode : activeMode === 'product')) {
+        if (p.name.toLowerCase().includes(q)) suggestions.add(JSON.stringify({ type: 'product', name: p.name }));
       }
     });
 
     return Array.from(suggestions).map(s => JSON.parse(s)).slice(0, 10);
-  }, [search, allStores, allProducts, isSearching, activeSearch]);
+  }, [search, allStores, allProducts, localProducts, isSearching, activeSearch, checkMatchesArea, activeMode]);
 
   const categoryRef = useRef<HTMLDivElement>(null);
   const productRef = useRef<HTMLDivElement>(null);
@@ -331,9 +464,10 @@ const CustomerHome = () => {
 
 
   useEffect(() => {
-    const q = searchParams.get('q');
-    if (q) {
-      setSearch(q);
+    const searchQuery = searchParams.get('q');
+    if (searchQuery) {
+      setSearch(searchQuery);
+      setActiveSearch(searchQuery);
     }
     
     // Auto-detect location - Handled by browser API or user selection
@@ -561,17 +695,15 @@ const CustomerHome = () => {
   };
 
   const handleStoreClick = (storeId: string) => {
-    // Determine the slug if possible or use ID
     const store = allStores.find(s => s.id === storeId);
     const basePath = store?.slug ? `/stores/${store.slug}` : `/store/${storeId}`;
-    const searchParam = activeSearch ? `?search=${encodeURIComponent(activeSearch)}` : '';
-    navigate(`${basePath}${searchParam}`);
+    navigate(basePath, { state: { store } });
   };
 
   const handleProductClick = (productId: string, storeId: string) => {
     const store = allStores.find(s => s.id === storeId);
     const path = store?.slug ? `/stores/${store.slug}` : `/store/${storeId}`;
-    navigate(`${path}?productId=${productId}`);
+    navigate(`${path}?productId=${productId}`, { state: { store } });
   };
 
   // Extract Categories based on activeMode
@@ -599,55 +731,43 @@ const CustomerHome = () => {
   // Pre-calculate minimum price for each store for sorting
   const storeMinPrices = useMemo(() => {
     const prices: Record<string, number> = {};
-    allProducts.forEach(p => {
+    const sourceProducts = [...allProducts, ...localProducts];
+    sourceProducts.forEach(p => {
       const sid = p.vendorId;
       if (sid) {
         const currentMin = prices[sid] ?? Infinity;
         const productPrice = p.discountedPrice && p.discountedPrice < p.price ? p.discountedPrice : p.price;
         if (productPrice < currentMin) {
-          prices[sid] = productPrice;
+          prices[sid] = Number(productPrice);
         }
       }
     });
     return prices;
-  }, [allProducts]);
+  }, [allProducts, localProducts]);
 
   // Unified Search Results
   const { filteredStores, storeMatchingProducts, searchedProducts } = useMemo(() => {
     const query = activeSearch.trim().toLowerCase();
 
     // 1. Area matching helper
-    const checkMatchesArea = (storeLat: number, storeLng: number, store: any) => {
-      const distance = getDistanceKm(userLat, userLng, storeLat, storeLng);
 
-      // Country → all stores in the system
-      if (selectedLocationType === 'country') {
-        return true; 
-      }
 
-      // State → all stores in the system (when state is selected)
-      if (selectedLocationType === 'state' && userState) {
-        return true;
-      }
-
-      // District → all stores in that district (with address fallback)
-      if (selectedLocationType === 'district' && userDistrict) {
-        const ud = userDistrict.toLowerCase();
-        return (store.district && store.district.toLowerCase() === ud)
-          || (store.mandal && store.mandal.toLowerCase() === ud)
-          || (store.address && store.address.toLowerCase().includes(ud))
-          || distance <= maxDistance;
-      }
-
-      // Default/Mandal/City/Town → strict 20km distance radius
-      return distance <= maxDistance;
-    };
+    // Use localProducts for on-demand search + allProducts for any globally filtered items
+    const combinedProducts = Array.from(new Map([...allProducts, ...localProducts].map(p => [p.id, p])).values());
 
     // 2. Group ALL matching products by vendorId using Smart Search
     const matchingGroups: Record<string, Product[]> = {};
-    const baseProducts = selectedCategory 
-      ? allProducts.filter(p => p.category === selectedCategory) 
-      : allProducts;
+    const baseProducts = (selectedCategory 
+      ? combinedProducts.filter(p => p.category === selectedCategory) 
+      : combinedProducts)
+      .filter(p => {
+        const store = allStores.find(s => s.id === p.vendorId);
+        return store && (store.storeType ? store.storeType === activeMode : activeMode === 'product');
+      })
+      .map(p => ({
+        ...p,
+        storeName: allStores.find(s => s.id === p.vendorId)?.name || ''
+      }));
 
     const matched = smartSearchProducts(baseProducts, activeSearch);
     
@@ -665,6 +785,7 @@ const CustomerHome = () => {
           distance: store ? getDistanceKm(userLat, userLng, store.lat, store.lng) : -1,
           isBlocked: store?.isBlocked,
           plan: store?.plan,
+          storePhone: store?.phone,
           storeData: store
         };
       })
@@ -765,13 +886,14 @@ const CustomerHome = () => {
       });
 
     return {
-      filteredStores: sortedStores as (Store & { distance?: number; effectiveRating?: number })[],
+      filteredStores: (selectedStoreId ? sortedStores.filter(s => s.id === selectedStoreId) : sortedStores) as (Store & { distance?: number; effectiveRating?: number })[],
       storeMatchingProducts: matchingGroups,
       searchedProducts: enrichedMatched
     };
-  }, [activeSearch, selectedCategory, userLat, userLng, allStores, allProducts, locationName, activeMode, maxDistance, priceSort, ratingSort, distanceSort, storeMinPrices, selectedLocationType, userState, userCountry]);
+  }, [activeSearch, selectedCategory, userLat, userLng, allStores, allProducts, localProducts, locationName, activeMode, maxDistance, priceSort, ratingSort, distanceSort, storeMinPrices, selectedLocationType, userState, userCountry, selectedStoreId, checkMatchesArea]);
 
   const handleSearchTrigger = (val?: string) => {
+    setSelectedStoreId(null);
     const query = val !== undefined ? val : search;
     // Removed artificial timeout - using direct transition for 'instant' feel
     startTransition(() => {
@@ -780,6 +902,7 @@ const CustomerHome = () => {
   };
 
   const handleModeChange = (mode: 'product' | 'service') => {
+    setSelectedStoreId(null);
     setActiveMode(mode);
     setSelectedCategory(null);
     setMobileCategoryPage(0);
@@ -815,11 +938,11 @@ const CustomerHome = () => {
   return (
     <div className="min-h-screen gradient-warm">
       <Helmet>
-        <title>BellBasket | Browse Stores - Pick It. Grab It.</title>
-        <meta name="description" content="Browse local neighborhood stores on BellBasket. Pick It. Grab It. Discover shops, find daily essentials, add to cart, and get them delivered fast." />
-        <meta name="keywords" content="local shopping, grocery delivery, neighborhood market, buy local, fresh groceries, daily essentials, BellBasket" />
-        <meta property="og:title" content="BellBasket | Browse Local Stores" />
-        <meta property="og:description" content="Shop local from the comfort of your home. Pick It. Grab It. Supporting your neighborhood stores." />
+        <title>BellBasket | Local Grocery & Daily Essentials - Pick It. Grab It.</title>
+        <meta name="description" content="Shop fresh groceries, daily essentials, and local services from neighborhood stores in Kakinada, Vizag, and across India. Pick It. Grab It. supporting your community stores with fast delivery." />
+        <meta name="keywords" content="local shopping India, grocery delivery Kakinada, neighborhood market Vizag, buy local fresh vegetables, Kirana store online delivery, daily essentials home delivery, BellBasket app" />
+        <meta property="og:title" content="BellBasket | Shop Local Grocery & Essentials" />
+        <meta property="og:description" content="Support your neighborhood stores. Pick It. Grab It. Fresh produce and daily needs delivered from local vendors." />
         <meta property="og:url" content="https://bellbasket.com/browse" />
         <meta property="og:type" content="website" />
         <link rel="canonical" href="https://bellbasket.com/browse" />
@@ -960,27 +1083,29 @@ const CustomerHome = () => {
                         </div>
                       </div>
                       <div className="h-48 rounded-2xl overflow-hidden border-2 border-primary/10 shadow-inner relative group">
-                        <MapView
-                          center={[userLat, userLng]}
-                          centerLabel="Your current pin"
-                          stores={[]}
-                          onMapClick={(lat, lng) => {
-                            setUserLat(lat);
-                            setUserLng(lng);
-                            fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
-                              .then(res => res.json())
-                              .then(data => {
-                                const name = data.display_name?.split(',')[0] || 'Selected Point';
-                                setLocationName(name);
-                                setUserMandal(data.address?.suburb || data.address?.locality || data.address?.village || data.address?.town || data.address?.city_district || '');
-                                setUserDistrict(data.address?.district || data.address?.city || data.address?.town || '');
-                                setUserState(data.address?.state || '');
-                                setUserCountry(data.address?.country || '');
-                                setSelectedLocationType('');
-                                toast.success('Location updated manually');
-                              });
-                          }}
-                        />
+                        <Suspense fallback={<div className="h-full w-full bg-muted animate-pulse flex items-center justify-center text-xs font-bold text-muted-foreground uppercase tracking-widest leading-relaxed">Localizing neighborhood Map...</div>}>
+                          <MapView
+                            center={[userLat, userLng]}
+                            centerLabel="Your current pin"
+                            stores={[]}
+                            onMapClick={(lat, lng) => {
+                              setUserLat(lat);
+                              setUserLng(lng);
+                              fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
+                                .then(res => res.json())
+                                .then(data => {
+                                  const name = data.display_name?.split(',')[0] || 'Selected Point';
+                                  setLocationName(name);
+                                  setUserMandal(data.address?.suburb || data.address?.locality || data.address?.village || data.address?.town || data.address?.city_district || '');
+                                  setUserDistrict(data.address?.district || data.address?.city || data.address?.town || '');
+                                  setUserState(data.address?.state || '');
+                                  setUserCountry(data.address?.country || '');
+                                  setSelectedLocationType('');
+                                  toast.success('Location updated manually');
+                                });
+                            }}
+                          />
+                        </Suspense>
                         <div className="absolute bottom-3 left-3 right-3 z-[400] pointer-events-none">
                           <div className="bg-black/60 backdrop-blur-md text-[10px] text-white px-3 py-1.5 rounded-full font-bold text-center">
                             Tap anywhere on map to fix your location
@@ -1013,6 +1138,7 @@ const CustomerHome = () => {
                   onClick={() => {
                     setSearch('');
                     setActiveSearch('');
+                    setSelectedStoreId(null);
                   }}
                   className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-full hover:bg-slate-100 text-muted-foreground transition-colors z-10"
                 >
@@ -1056,6 +1182,15 @@ const CustomerHome = () => {
                                 return;
                               }
 
+                              if (suggestion.type === 'store') {
+                                setSelectedStoreId(suggestion.id);
+                                setSearch(suggestion.name);
+                                setActiveSearch(suggestion.name); // Hides suggestions immediately
+                                setSelectedCategory(null);
+                                return;
+                              }
+
+                              setSelectedStoreId(null);
                               setSearch(suggestion.name);
                               setIsSearching(true);
                               setTimeout(() => {
@@ -1087,10 +1222,26 @@ const CustomerHome = () => {
             <button
               onClick={() => handleSearchTrigger()}
               disabled={isSearching}
-              className="bg-primary text-primary-foreground px-6 py-3 rounded-xl font-bold text-sm shadow-lg hover:shadow-primary/30 active:scale-95 transition-all flex items-center justify-center min-w-[100px]"
+              className="bg-primary text-primary-foreground px-4 md:px-6 py-3 rounded-xl font-bold text-sm shadow-lg hover:shadow-primary/30 active:scale-95 transition-all flex items-center justify-center min-w-[50px] md:min-w-[100px]"
             >
-              {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Search'}
+              {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : (
+                <>
+                  <Search className="w-4 h-4 md:hidden" />
+                  <span className="hidden md:inline">{t('common.search')}</span>
+                </>
+              )}
             </button>
+            <SortOptions 
+              priceSort={priceSort}
+              onPriceSortChange={setPriceSort}
+              ratingSort={ratingSort}
+              onRatingSortChange={setRatingSort}
+              distanceSort={distanceSort}
+              onDistanceSortChange={setDistanceSort}
+              showRating={true}
+              maxDistance={maxDistance}
+              onMaxDistanceChange={setMaxDistance}
+            />
           </div>
         </div>
 
@@ -1340,13 +1491,11 @@ const CustomerHome = () => {
                   </div>
                 </motion.div>
               )}
-            </AnimatePresence>
-
-            {/* Stores grid header */}
+            </AnimatePresence>            {/* Stores grid header */}
             <div className="flex items-center justify-between gap-3 mb-6">
               <div className="space-y-1.5 min-w-0 pr-2">
                 <h1 className="text-base md:text-xl font-black text-foreground truncate tracking-tight">
-                  {activeSearch ? 'Matching Stores' : (locationName.split(',')[0].length > 2 && locationName !== 'Connaught Place' ? `Stores in ${locationName.split(',')[0]}` : 'Hyperlocal Shops')}
+                  {selectedStoreId ? 'Selected Store' : (activeSearch || selectedCategory ? (activeSearch ? `"${activeSearch}"` : t(`categories.${selectedCategory}`, { defaultValue: selectedCategory })) : (locationName.split(',')[0].length > 2 && locationName !== 'Connaught Place' ? `Stores in ${locationName.split(',')[0]}` : 'Hyperlocal Shops'))}
                 </h1>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-[10px] font-bold text-primary bg-primary/5 px-2 py-0.5 rounded-full border border-primary/10">
@@ -1358,47 +1507,114 @@ const CustomerHome = () => {
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <SortOptions 
-                  priceSort={priceSort}
-                  onPriceSortChange={setPriceSort}
-                  showRating={true}
-                  ratingSort={ratingSort}
-                  onRatingSortChange={setRatingSort}
-                  distanceSort={distanceSort}
-                  onDistanceSortChange={setDistanceSort}
-                  maxDistance={maxDistance}
-                  onMaxDistanceChange={setMaxDistance}
-                />
-              </div>
+
+              {(activeSearch || selectedCategory) && (
+                <div className="flex items-center gap-1 bg-secondary/30 p-1 rounded-xl border border-border/40 overflow-hidden">
+                  {[
+                    { id: 'all', label: 'All' },
+                    { id: 'stores', label: 'Stores' },
+                    { id: 'products', label: 'Products' }
+                  ].map(opt => (
+                    <button
+                      key={opt.id}
+                      onClick={() => setSearchResultType(opt.id as any)}
+                      className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                        searchResultType === opt.id 
+                          ? 'bg-primary text-white shadow-lg' 
+                          : 'text-muted-foreground hover:bg-white/10'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
-            <div className={activeSearch ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 pb-20" : "grid sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-20"}>
-              {activeSearch ? (
-                searchedProducts.length === 0 ? (
-                  <div className="col-span-full glass rounded-3xl p-16 text-center space-y-4 border-2 border-dashed border-muted-foreground/20">
-                    <div className="w-20 h-20 rounded-full bg-secondary flex items-center justify-center mx-auto opacity-40">
-                      <Search className="w-10 h-10" />
+            <div className={!selectedStoreId && (activeSearch || selectedCategory) ? "w-full pb-20 space-y-8" : "grid sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-20"}>
+              {!selectedStoreId && (activeSearch || selectedCategory) ? (
+                <>
+                  {/* Matching Stores Section - only when searching for a store name */}
+                  {(activeSearch || selectedCategory) && filteredStores.length > 0 && (searchResultType === 'all' || searchResultType === 'stores') && (
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2">
+                        <div className="w-1 h-4 bg-primary rounded-full" />
+                        <h2 className="text-sm font-black uppercase tracking-widest text-foreground/70">{selectedCategory ? `${selectedCategory} Shops` : 'Matching Stores'}</h2>
+                      </div>
+                      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {filteredStores
+                          .filter(s => activeSearch ? s.name.toLowerCase().includes(activeSearch.toLowerCase()) : true)
+                          .map((store, i) => (
+                            <StoreCard
+                              key={store.id + i}
+                              store={store}
+                              t={t}
+                              onClick={() => handleStoreClick(store.id)}
+                            />
+                          ))}
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-lg font-bold text-foreground">{t('common.no_results')} "{activeSearch}"</p>
-                      <p className="text-sm text-muted-foreground mt-1">{t('home.try_changing_search')}</p>
+                  )}
+
+                  {/* Products Section - Show when searching OR category selected */}
+                  {(activeSearch || selectedCategory) && (searchResultType === 'all' || searchResultType === 'products') && (
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2">
+                        <div className="w-1 h-4 bg-primary rounded-full" />
+                        <h2 className="text-sm font-black uppercase tracking-widest text-foreground/70">
+                          {activeSearch ? (activeMode === 'service' ? 'Matching Services' : 'Matching Products') : (activeMode === 'service' ? `All ${selectedCategory} Services` : `All ${selectedCategory} Products`)}
+                        </h2>
+                      </div>
+                      
+                      {searchedProducts.length === 0 ? (
+                        <div className="glass rounded-3xl p-16 text-center space-y-4 border-2 border-dashed border-muted-foreground/20">
+                          <div className="w-20 h-20 rounded-full bg-secondary flex items-center justify-center mx-auto opacity-40">
+                            <Search className="w-10 h-10" />
+                          </div>
+                          <div>
+                            <p className="text-lg font-bold text-foreground">{t('common.no_results')} {activeSearch ? `"${activeSearch}"` : `in ${selectedCategory}`}</p>
+                            <button 
+                              onClick={() => {
+                                setSearch('');
+                                setActiveSearch('');
+                                setSelectedCategory(null);
+                                setSelectedStoreId(null);
+                                setSearchResultType('all');
+                              }}
+                              className="text-primary font-black uppercase tracking-widest text-xs hover:underline mt-4 block mx-auto"
+                            >
+                              {t('common.clear_search')}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
+                          {searchedProducts.map((p, idx) => (
+                            <ProductCard
+                              key={p.id + idx}
+                              p={p}
+                              t={t}
+                              count={cart.find(item => item.product.id === p.id && !item.selectedVariant)?.quantity || 0}
+                              selectedVariant={cart.find(item => item.product.id === p.id && item.selectedVariant)?.selectedVariant}
+                              onAdd={() => {
+                                if (p.hasVariants) {
+                                  setVariantSelectorProduct(p);
+                                } else {
+                                  activeMode === 'service' ? handleProductClick(p.id, p.vendorId || '') : addToCart({ product: p, storeId: p.vendorId || '', storeName: p.storeName || '', storePhone: p.storePhone || '', quantity: 1 });
+                                }
+                              }}
+                              onUpdate={(q) => updateQuantity(p.id, q)}
+                              onRemove={() => removeFromCart(p.id)}
+                              onClick={() => handleProductClick(p.id, p.vendorId || '')}
+                              onVariantTrigger={(p) => setVariantSelectorProduct(p)}
+                              mode={activeMode}
+                            />
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ) : (
-                  searchedProducts.map((p, idx) => (
-                    <ProductCard
-                      key={p.id + idx}
-                      p={p}
-                      t={t}
-                      count={cart.find(item => item.product.id === p.id)?.quantity || 0}
-                      onAdd={() => addToCart({ product: p, storeId: p.vendorId || '', storeName: p.storeName || '', quantity: 1 })}
-                      onUpdate={(q) => updateQuantity(p.id, q)}
-                      onRemove={() => removeFromCart(p.id)}
-                      onClick={() => handleProductClick(p.id, p.vendorId || '')}
-                    />
-                  ))
-                )
+                  )}
+                </>
               ) : (
                 filteredStores.length === 0 ? (
                   <div className="col-span-full glass rounded-3xl p-12 text-center space-y-4 border-2 border-dashed border-muted-foreground/20">
@@ -1422,10 +1638,10 @@ const CustomerHome = () => {
                 )
               )}
             </div>
-
-
           </div>
         )}
+
+
 
         <footer className="py-8 px-4 border-t border-border mt-12 bg-transparent backdrop-blur-sm">
           <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
@@ -1439,6 +1655,29 @@ const CustomerHome = () => {
           </div>
         </footer>
       </PullToRefresh>
+
+      <AnimatePresence>
+        {variantSelectorProduct && (
+          <VariantSelector 
+            product={variantSelectorProduct}
+            cart={cart}
+            updateQuantity={updateQuantity}
+            onClose={() => setVariantSelectorProduct(null)}
+            onSelect={(variant) => {
+                if (variantSelectorProduct) {
+                    addToCart({ 
+                        product: variantSelectorProduct, 
+                        selectedVariant: variant,
+                        storeId: variantSelectorProduct.vendorId || '', 
+                        storeName: variantSelectorProduct.storeName || '', 
+                        quantity: 1 
+                    });
+                }
+                setVariantSelectorProduct(null);
+            }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };
