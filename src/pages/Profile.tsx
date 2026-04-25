@@ -1,4 +1,5 @@
 import { useApp } from '@/context/AppContext';
+import { getAvatarUrl, CHARACTER_AVATARS } from '@/utils/avatars';
 import { useNavigate } from 'react-router-dom';
 import { User, Mail, Shield, LogOut, ChevronRight, MapPin, Bell, BellRing, Phone, Lock, Edit2, CheckCircle2, X, Loader2, Sparkles, Crown, Zap, Building2, KeyRound, HelpCircle, Languages, Search, Image as ImageIcon, Camera, Upload, Clock, FileText, Eye, EyeOff, XCircle, Moon, Sun } from 'lucide-react';
 import Header from '@/components/Header';
@@ -27,6 +28,7 @@ const Profile = () => {
     const [notificationPermission, setNotificationPermission] = useState<string>(
         typeof Notification !== 'undefined' ? Notification.permission : 'default'
     );
+    const [showAvatarSelector, setShowAvatarSelector] = useState(false);
     const storeFileInputRef = useRef<HTMLInputElement>(null);
 
     const vendorStore = stores.find(s => s.id === user?.id);
@@ -152,6 +154,19 @@ const Profile = () => {
         }
     };
 
+    const handleUpdateAvatar = async (url: string | null) => {
+        setEditing(true);
+        try {
+            await updateUser({ avatarUrl: url });
+            toast.success('Avatar updated successfully!');
+            setShowAvatarSelector(false);
+        } catch (error) {
+            toast.error("Failed to update avatar");
+        } finally {
+            setEditing(false);
+        }
+    };
+
 
     const filteredLanguages = ALL_LANGUAGES.filter(lang =>
         lang.toLowerCase().includes(searchQuery.toLowerCase())
@@ -168,10 +183,20 @@ const Profile = () => {
                 {/* Profile Header */}
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center text-center space-y-4">
                     <div className="relative">
-                        <div className="w-24 h-24 rounded-full gradient-primary flex items-center justify-center p-1 shadow-xl">
-                            <div className="w-full h-full rounded-full bg-background flex items-center justify-center">
-                                <User className="w-12 h-12 text-primary" />
+                        <div className="w-24 h-24 rounded-full gradient-primary flex items-center justify-center p-1 shadow-xl overflow-hidden relative group">
+                            <div className="w-full h-full rounded-full bg-background overflow-hidden flex items-center justify-center">
+                                <img 
+                                    src={getAvatarUrl(user?.avatarUrl || user?.id || 'User')} 
+                                    alt={user?.name || 'User'} 
+                                    className="w-full h-full object-cover"
+                                />
                             </div>
+                            <button 
+                                onClick={() => setShowAvatarSelector(true)}
+                                className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white"
+                            >
+                                <ImageIcon className="w-6 h-6" />
+                            </button>
                         </div>
                         {user.isVerified && (
                             <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-accent flex items-center justify-center text-white border-4 border-background shadow-lg" title="Email Verified">
@@ -516,6 +541,58 @@ const Profile = () => {
                                     ))}
                                 </div>
                             </div>
+                        </motion.div>
+                    </div>
+                )}
+
+                {/* Avatar Selector Modal */}
+                {showAvatarSelector && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 bg-background/80 backdrop-blur-md">
+                        <motion.div 
+                            initial={{ opacity: 0, scale: 0.9, y: 20 }} 
+                            animate={{ opacity: 1, scale: 1, y: 0 }} 
+                            exit={{ opacity: 0, scale: 0.9, y: 20 }} 
+                            className="bg-card w-full max-w-md rounded-3xl p-6 shadow-2xl border border-border/50 space-y-6"
+                        >
+                            <div className="flex items-center justify-between">
+                                <h2 className="text-xl font-bold">Select Avatar</h2>
+                                <button onClick={() => setShowAvatarSelector(false)} className="p-2 hover:bg-secondary rounded-full transition-colors"><X className="w-5 h-5" /></button>
+                            </div>
+                            
+                            <div className="grid grid-cols-4 gap-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                                {/* Default Option */}
+                                <button
+                                    onClick={() => handleUpdateAvatar(null)}
+                                    className={`relative aspect-square rounded-2xl overflow-hidden border-2 transition-all ${!user.avatarUrl ? 'border-primary ring-2 ring-primary/20' : 'border-transparent bg-secondary/30'}`}
+                                >
+                                    <div className="w-full h-full flex items-center justify-center">
+                                        <img src={getAvatarUrl(user.id)} className="w-full h-full object-cover" alt="Default" />
+                                    </div>
+                                    {!user.avatarUrl && <div className="absolute top-1 right-1 bg-primary rounded-full p-0.5"><CheckCircle2 className="w-2.5 h-2.5 text-white" /></div>}
+                                </button>
+
+                                {CHARACTER_AVATARS.map((avatar) => (
+                                    <button
+                                        key={avatar.id}
+                                        onClick={() => handleUpdateAvatar(avatar.url)}
+                                        className={`relative aspect-square rounded-2xl overflow-hidden border-2 transition-all ${user.avatarUrl === avatar.url ? 'border-primary ring-2 ring-primary/20' : 'border-transparent bg-secondary/30 hover:bg-secondary'}`}
+                                    >
+                                        <img src={avatar.url} className="w-full h-full object-cover" alt={avatar.label} />
+                                        {user.avatarUrl === avatar.url && (
+                                            <div className="absolute top-1 right-1 bg-primary rounded-full p-0.5">
+                                                <CheckCircle2 className="w-2.5 h-2.5 text-white" />
+                                            </div>
+                                        )}
+                                    </button>
+                                ))}
+                            </div>
+
+                            <button
+                                onClick={() => setShowAvatarSelector(false)}
+                                className="w-full py-4 rounded-2xl bg-secondary text-foreground font-bold hover:bg-secondary/80 transition-all"
+                            >
+                                Cancel
+                            </button>
                         </motion.div>
                     </div>
                 )}

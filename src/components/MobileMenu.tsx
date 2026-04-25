@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Zap, ShoppingBag, ShoppingCart, LogOut, Shield, Store, FileText, Package, Crown, X } from 'lucide-react';
+import { Search, Zap, ShoppingBag, ShoppingCart, LogOut, Shield, Store, FileText, Package, Crown, X, Settings } from 'lucide-react';
 
 interface MobileMenuProps {
   isOpen: boolean;
@@ -58,8 +58,6 @@ const MobileMenu = ({
             ) : isVendorView ? (
               <>
                 <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground px-4 py-2">Vendor Tools</p>
-                {hasValidPlan && (
-                  <>
                     <Link
                       to="/vendor"
                       onClick={() => { initAudio(); onClose(); }}
@@ -68,14 +66,16 @@ const MobileMenu = ({
                       <Store className="w-5 h-5 text-primary" />
                       <span className="font-bold text-sm">Dashboard</span>
                     </Link>
-                    <Link
-                      to="/vendor/notes"
-                      onClick={() => { initAudio(); onClose(); }}
-                      className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-primary/5 text-foreground transition-colors"
-                    >
-                      <FileText className="w-5 h-5 text-primary" />
-                      <span className="font-bold text-sm">Bell Notes</span>
-                    </Link>
+                    {hasValidPlan && (
+                      <>
+                        <Link
+                          to="/vendor/notes"
+                          onClick={() => { initAudio(); onClose(); }}
+                          className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-primary/5 text-foreground transition-colors"
+                        >
+                          <FileText className="w-5 h-5 text-primary" />
+                          <span className="font-bold text-sm">Bell Notes</span>
+                        </Link>
                     <Link
                       to="/vendor/deals"
                       onClick={() => { initAudio(); onClose(); }}
@@ -107,8 +107,16 @@ const MobileMenu = ({
                         </span>
                       )}
                     </Link>
-                  </>
-                )}
+                      </>
+                    )}
+                    <Link
+                      to="/vendor/config"
+                      onClick={() => { initAudio(); onClose(); }}
+                      className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-primary/5 text-foreground transition-colors"
+                    >
+                      <Settings className="w-5 h-5 text-primary" />
+                      <span className="font-bold text-sm">Store Config</span>
+                    </Link>
                 <Link
                   to="/vendor/subscription"
                   onClick={() => { initAudio(); onClose(); }}

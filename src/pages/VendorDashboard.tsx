@@ -5,6 +5,7 @@ import { Store as StoreIcon, Power, PowerOff, Package, TrendingUp, ShoppingCart,
 import { getStoreVisualStatus } from '@/utils/store-status';
 import Header from '@/components/Header';
 import { useApp } from '@/context/AppContext';
+import { getAvatarUrl } from '@/utils/avatars';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { db } from '@/lib/firebase';
@@ -16,6 +17,13 @@ import { StoreReview } from '@/types';
 
 const VendorDashboard = () => {
   const { user, loading, orders: allOrders, serviceBookings, stores, updateUser, refreshData, productRequests = [] } = useApp();
+  
+  const recentReviews = useMemo(() => {
+    const allStoreReviews = stores?.flatMap(s => s.reviews || []) || [];
+    return allStoreReviews
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 5);
+  }, [stores]);
   const { t } = useTranslation();
   const navigate = useNavigate();
   const ua = navigator.userAgent;
@@ -28,10 +36,18 @@ const VendorDashboard = () => {
   const [productCount, setProductCount] = useState(0);
   const [revenue, setRevenue] = useState(0);
   const [recentNotes, setRecentNotes] = useState<any[]>([]);
+  const [userAvatars, setUserAvatars] = useState<Record<string, string>>({});
   const [vendorStore, setVendorStore] = useState<any>(null);
   const [replyInputs, setReplyInputs] = useState<Record<string, string>>({});
   const [daysToExpiry, setDaysToExpiry] = useState<number | null>(null);
-  const [hideExpiryBanner, setHideExpiryBanner] = useState(false);
+  const [hideExpiryBanner, setHideExpiryBanner] = useState(() => {
+    return sessionStorage.getItem('bellbasket_hide_expiry') === 'true';
+  });
+
+  const dismissExpiryBanner = () => {
+    sessionStorage.setItem('bellbasket_hide_expiry', 'true');
+    setHideExpiryBanner(true);
+  };
   const [contactEmail, setContactEmail] = useState('');
   const [showSupportModal, setShowSupportModal] = useState(false);
   const [supportQuery, setSupportQuery] = useState('');
@@ -58,8 +74,20 @@ const VendorDashboard = () => {
     };
     
     window.addEventListener('focus', checkPermission);
+
+    // Auto-prompt after 3 seconds if default
+    if (Notification.permission === 'default') {
+      const timer = setTimeout(() => {
+        requestPushNotifications();
+      }, 3000);
+      return () => {
+        window.removeEventListener('focus', checkPermission);
+        clearTimeout(timer);
+      };
+    }
+
     return () => window.removeEventListener('focus', checkPermission);
-  }, []);
+  }, [requestPushNotifications]);
 
   // Sync OneSignal Status for Diagnostics
   useEffect(() => {
@@ -527,19 +555,7 @@ const VendorDashboard = () => {
                 <BellRing className="w-4 h-4" /> Blocked! Please allow in browser settings
               </div>
             )}
-            {notificationPermission === 'default' && (
-              <button
-                onClick={async () => {
-                  await requestPushNotifications();
-                  if (typeof Notification !== 'undefined') {
-                    setNotificationPermission(Notification.permission);
-                  }
-                }}
-                className="flex items-center gap-2 px-3 sm:px-4 py-2.5 rounded-xl bg-primary/10 text-primary text-xs font-bold hover:bg-primary hover:text-white transition-all shadow-sm border border-primary/20"
-              >
-                <BellRing className="w-4 h-4" /> <span className="hidden xs:inline">Enable Alerts</span>
-              </button>
-            )}
+
             {vendorStore?.offersDelivery ? (
                <div className="flex items-center gap-2 px-3 sm:px-4 py-2.5 rounded-2xl bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 shadow-sm transition-all animate-in fade-in slide-in-from-right-4 duration-500">
                   <Package className="w-4 h-4 text-emerald-500 " />
@@ -557,7 +573,37 @@ const VendorDashboard = () => {
           </div>
         </div>
 
-        {/* Removed Banner */}
+        {/* Notification Permission Banner */}
+        {notificationPermission === 'default' && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-primary/5 border-2 border-primary/20 rounded-[2rem] p-6 mb-8 flex flex-col md:flex-row items-center justify-between gap-6"
+          >
+            <div className="flex items-center gap-5">
+              <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0 text-primary">
+                <BellRing className="w-8 h-8" />
+              </div>
+              <div className="text-center md:text-left">
+                <h3 className="text-lg font-black text-foreground">Allow On-Screen Notifications?</h3>
+                <p className="text-sm text-muted-foreground mt-1 max-w-xl font-medium">
+                  We recommend enabling notifications to receive updates (like new orders, messages, or alerts) even when you are not actively looking at the website.
+                </p>
+              </div>
+            </div>
+            <button
+                onClick={async () => {
+                  await requestPushNotifications();
+                  if (typeof Notification !== 'undefined') {
+                    setNotificationPermission(Notification.permission);
+                  }
+                }}
+                className="px-8 py-3.5 rounded-2xl bg-primary text-white font-black text-sm uppercase tracking-widest active:scale-95 transition-all w-full md:w-auto shadow-lg hover:shadow-primary/25 hover:-translate-y-0.5"
+            >
+              Allow
+            </button>
+          </motion.div>
+        )}
         
         {/* Blocked Account Alert */}
         {user?.isBlocked && (
@@ -608,7 +654,7 @@ const VendorDashboard = () => {
           </motion.div>
         )}
 
-        {!user?.autoPay && daysToExpiry !== null && daysToExpiry <= 3 && daysToExpiry >= 0 && !hideExpiryBanner && (
+        {!user?.autoPay && daysToExpiry !== null && daysToExpiry >= 0 && !hideExpiryBanner && (
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -631,7 +677,7 @@ const VendorDashboard = () => {
                 Renew Now
               </button>
               <button
-                onClick={() => setHideExpiryBanner(true)}
+                onClick={dismissExpiryBanner}
                 className="p-2.5 text-amber-600/60 hover:text-amber-600 hover:bg-amber-100/50 rounded-xl transition-colors absolute top-2 right-2 sm:relative sm:top-0 sm:right-0"
               >
                 <X className="w-5 h-5" />
@@ -641,7 +687,7 @@ const VendorDashboard = () => {
         )}
 
         {/* Plan Status Section */}
-        {user?.plan === 'none' && !user?.autoPayFailed && (
+        {(user?.plan === 'none' || (daysToExpiry !== null && daysToExpiry < 0)) && !user?.autoPayFailed && (
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1128,8 +1174,12 @@ const VendorDashboard = () => {
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-3">
-                                                <div className="w-10 h-10 rounded-full gradient-primary flex items-center justify-center text-sm font-bold text-primary-foreground flex-shrink-0">
-                                                    {(review.userName || 'C').charAt(0).toUpperCase()}
+                                                <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center bg-primary/10 flex-shrink-0">
+                                                    <img 
+                                                        src={getAvatarUrl(userAvatars[review.userId || ''] || review.avatarUrl || review.userId || review.userName)} 
+                                                        alt={review.userName} 
+                                                        className="w-full h-full object-cover"
+                                                    />
                                                 </div>
                       <div>
                         <p className="font-bold text-foreground">{review.userName}</p>

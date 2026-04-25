@@ -206,6 +206,8 @@ export const sendInAppNotification = async (
                 }
                 const errData = await res.json().catch(() => ({ error: 'Unknown Error' }));
                 console.warn('⚠️ [Push] Backend skipped/failed:', res.status, errData);
+                // 🛠️ Debug Alert: Remove after fixing the 500 error
+                alert(`Push Notification Error (${res.status}): ${JSON.stringify(errData)}`);
             } else {
                 console.log('✅ [Push] Backend notified successfully');
             }

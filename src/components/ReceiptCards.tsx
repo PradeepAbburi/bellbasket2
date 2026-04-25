@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ServiceBooking, Store, Order } from '@/types';
+import { getAvatarUrl } from '@/utils/avatars';
 import { Trash2, CheckCircle2, Circle, Clock, Star, MapPin, Navigation, Phone, User as UserIcon, KeyRound, Package, Share2, Copy, EyeOff, X, AlertCircle } from 'lucide-react';
 import MapView from './MapView';
 import { toast } from 'sonner';
@@ -150,8 +151,12 @@ export const RenderBookingCard = ({
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-4">
             <div className="flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-white/10 backdrop-blur-md border border-white/20">
-                <UserIcon className="w-3 h-3 text-white" />
+              <div className="w-6 h-6 rounded-full overflow-hidden flex items-center justify-center border border-white/20">
+                <img 
+                    src={getAvatarUrl(booking.storeId)} 
+                    alt={booking.storeName} 
+                    className="w-full h-full object-cover"
+                />
               </div>
               <div>
                 <h4 className="text-sm font-black text-white leading-none">{store.name}</h4>
@@ -214,8 +219,12 @@ export const RenderBookingCard = ({
       {(booking.status !== 'pending' || showContact) && (
         <div className="mb-4 p-3 rounded-xl bg-primary/5 border border-primary/10 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">
-              {booking.storeName.charAt(0)}
+            <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center bg-primary/20">
+                <img 
+                    src={getAvatarUrl(booking.storeId)} 
+                    alt={booking.storeName} 
+                    className="w-full h-full object-cover"
+                />
             </div>
             <div>
               <p className="text-xs font-bold text-foreground">Contact Vendor</p>
@@ -451,8 +460,12 @@ export const RenderOrderCard = ({
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-4">
             <div className="flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-white/10 backdrop-blur-md border border-white/20">
-                <UserIcon className="w-3 h-3 text-white" />
+              <div className="w-6 h-6 rounded-full overflow-hidden flex items-center justify-center border border-white/20">
+                <img 
+                    src={getAvatarUrl(order.storeId)} 
+                    alt={order.storeName} 
+                    className="w-full h-full object-cover"
+                />
               </div>
               <div>
                 <h4 className="text-sm font-black text-white leading-none text-left">{store.name}</h4>
@@ -533,8 +546,12 @@ export const RenderOrderCard = ({
       {(order.status !== 'pending' || showContact) && (
         <div className="mb-4 p-3 rounded-xl bg-primary/5 border border-primary/10 flex items-center justify-between text-left">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">
-              {order.storeName.charAt(0)}
+            <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center bg-primary/20">
+                <img 
+                    src={getAvatarUrl(order.storeId)} 
+                    alt={order.storeName} 
+                    className="w-full h-full object-cover"
+                />
             </div>
             <div>
               <p className="text-xs font-bold text-foreground">Contact Vendor</p>

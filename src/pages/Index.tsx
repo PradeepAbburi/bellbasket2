@@ -64,7 +64,8 @@ const Index = () => {
       {/* Hero */}
       <section className="relative min-h-screen flex items-center overflow-hidden">
         <div className="absolute inset-0">
-          <img src={heroBg} alt="Bustling Indian neighborhood market storefront with fresh groceries" fetchPriority="high" loading="eager" className="w-full h-full object-cover opacity-60 object-center" />
+          {/* @ts-expect-error React 18 types don't support fetchpriority lowercase, but DOM requires it */}
+          <img src={heroBg} alt="Bustling Indian neighborhood market storefront with fresh groceries" fetchpriority="high" loading="eager" className="w-full h-full object-cover opacity-60 object-center" />
           <div className="absolute inset-0 bg-gradient-to-b from-background/20 via-background/40 to-background/95" />
         </div>
 

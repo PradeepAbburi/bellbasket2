@@ -23,6 +23,7 @@ import {
   LandPlot,
   Globe
 } from 'lucide-react';
+import { Store } from '@/types';
 import { useApp } from '@/context/AppContext';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
@@ -35,9 +36,11 @@ import { DashboardSkeleton } from '@/components/SkeletonLoader';
 import { Helmet } from 'react-helmet';
 
 const VendorStoreConfig = () => {
-  const { user, loading, stores, updateUser, refreshData } = useApp();
+  const { user, loading, stores, updateUser, refreshData, logout } = useApp();
   const navigate = useNavigate();
   const [vendorStore, setVendorStore] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [fetching, setFetching] = useState(true);
   
   // Settings State
   const [tempTimings, setTempTimings] = useState({ open: '09:00', close: '22:00' });
@@ -77,24 +80,65 @@ const VendorStoreConfig = () => {
   }, [user, loading, navigate]);
 
   useEffect(() => {
-    if (!user || stores.length === 0) return;
+    if (!user) return;
+    
+    // 1. Try to find in global stores list
     const store = stores.find(s => s.vendorId === user.id || s.id === user.id);
     if (store) {
+      console.log("✅ [VendorConfig] Store found in global state");
       setVendorStore(store);
-      if (store.timings) setTempTimings(store.timings);
-      if (store.phone !== undefined) setTempPhone(store.phone);
-      if (store.offersDelivery !== undefined) setTempOffersDelivery(store.offersDelivery);
-      if (store.deliveryFee !== undefined) setTempDeliveryFee(store.deliveryFee);
-      if (store.image) setTempBanner(store.image);
-      if (store.lat) setTempLat(store.lat);
-      if (store.lng) setTempLng(store.lng);
-      if (store.address) setTempAddress(store.address);
-      if (store.storeType) setTempStoreType(store.storeType);
-      if (store.autoClose !== undefined) setTempAutoClose(store.autoClose);
-      if (store.name) setTempName(store.name);
-      if (store.category) setTempCategory(store.category);
+      setFetching(false);
+      return;
     }
+
+    // 2. Fallback: Direct fetch if not in global list yet
+    const fetchDirect = async () => {
+      try {
+        console.log("🔍 [VendorConfig] Store not in global state, fetching direct for:", user.id);
+        const docSnap = await getDoc(doc(db, 'stores', user.id));
+        if (docSnap.exists()) {
+          console.log("✅ [VendorConfig] Direct fetch success");
+          setVendorStore({ id: docSnap.id, ...docSnap.data() } as Store);
+        } else {
+          console.warn("⚠️ [VendorConfig] No store document found for ID:", user.id);
+          setError("Store configuration not found. Please complete setup.");
+        }
+      } catch (e: any) {
+        console.error("❌ [VendorConfig] Direct store fetch failed:", e);
+        setError("Failed to load store data: " + e.message);
+      } finally {
+        setFetching(false);
+      }
+    };
+    fetchDirect();
+
+    // 3. Timeout fallback
+    const timer = setTimeout(() => {
+      if (!vendorStore) {
+        setFetching(false);
+        if (!error) setError("Loading timed out. Please refresh or check your internet connection.");
+      }
+    }, 8000);
+
+    return () => clearTimeout(timer);
   }, [user, stores]);
+
+  useEffect(() => {
+    if (!vendorStore) return;
+    const store = vendorStore;
+    if (store.timings) setTempTimings(store.timings);
+    if (store.phone !== undefined) setTempPhone(store.phone);
+    if (store.offersDelivery !== undefined) setTempOffersDelivery(store.offersDelivery);
+    if (store.deliveryFee !== undefined) setTempDeliveryFee(store.deliveryFee);
+    if (store.image) setTempBanner(store.image);
+    if (store.lat) setTempLat(store.lat);
+    if (store.lng) setTempLng(store.lng);
+    if (store.address) setTempAddress(store.address);
+    if (store.storeType) setTempStoreType(store.storeType);
+    if (store.autoClose !== undefined) setTempAutoClose(store.autoClose);
+    if (store.name) setTempName(store.name);
+    if (store.category) setTempCategory(store.category);
+  }, [vendorStore]);
 
   const handleBannerUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -258,7 +302,8 @@ const VendorStoreConfig = () => {
       await updateDoc(doc(db, 'users', user!.id), { hasSetupStore: false });
       toast.dismiss(loadingToast);
       toast.success('Store deleted');
-      window.location.href = '/vendor/setup';
+      logout();
+      window.location.href = '/auth';
     } catch (e) {
       toast.dismiss(loadingToast);
       toast.error('Delete failed');
@@ -272,7 +317,35 @@ const VendorStoreConfig = () => {
       (window as any).startStoreCamera();
     }
   };
-  if (loading || !vendorStore) return <DashboardSkeleton />;
+  if (loading || fetching) {
+    return <DashboardSkeleton />;
+  }
+
+  if (error || !vendorStore) {
+    return (
+      <div className="min-h-screen gradient-dark flex flex-col items-center justify-center p-4 text-center">
+        <div className="w-20 h-20 rounded-full bg-red-500/10 flex items-center justify-center text-red-500 mb-6">
+          <Settings className="w-10 h-10" />
+        </div>
+        <h1 className="text-2xl font-black text-white mb-2 uppercase tracking-tighter">Configuration Error</h1>
+        <p className="text-white/60 text-sm max-w-xs mb-8">{error || "Your store details could not be found."}</p>
+        <div className="flex flex-col w-full max-w-xs gap-3">
+          <button 
+            onClick={() => window.location.reload()}
+            className="w-full py-4 bg-white text-black font-black text-xs uppercase tracking-widest rounded-2xl"
+          >
+            Retry Loading
+          </button>
+          <button 
+            onClick={() => navigate('/vendor/setup')}
+            className="w-full py-4 bg-white/10 text-white font-black text-xs uppercase tracking-widest rounded-2xl"
+          >
+            Re-run Setup
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-foreground">

@@ -157,7 +157,10 @@ const VendorProducts = () => {
             id: p.id,
             name: p.name,
             image: p.image,
-            price: p.price
+            price: p.price,
+            category: p.category || '',
+            description: p.description || '',
+            inStock: p.inStock ?? true
         })),
         inStock: true,
         lat: vendorStore?.lat,
@@ -262,7 +265,13 @@ const VendorProducts = () => {
                           ) : (
                             <img src={p.image} className="w-full h-full object-cover transition-transform group-hover:scale-110 duration-700" alt="" />
                           )}
-                          {!p.inStock && <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] flex items-center justify-center"><span className="bg-rose-500 text-white text-[8px] font-black px-2 py-1 rounded-full uppercase truncate">OOS</span></div>}
+                          {!p.inStock && (
+                             <div className="absolute inset-0 bg-black/20 backdrop-blur-[1px] flex items-center justify-center pointer-events-none">
+                               <div className="bg-[#cc2d4a] px-2.5 py-1 rounded-full shadow-2xl border border-white/10">
+                                 <span className="text-[9px] font-black text-white lowercase leading-none">oos</span>
+                               </div>
+                             </div>
+                           )}
                           {isCombo && <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded-md bg-primary text-[6px] font-black uppercase text-white shadow-lg tracking-wider">Bundle</div>}
                         </div>
                         <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
@@ -279,14 +288,20 @@ const VendorProducts = () => {
                               {p.quantity && <span className="text-[9px] font-black text-primary bg-primary/10 px-2 py-1 rounded-full uppercase tracking-tighter ml-auto">{p.quantity}</span>}
                             </div>
                           </div>
-                          <div className="flex items-center gap-2 sm:gap-3 mt-2 sm:mt-0">
-                            <button onClick={() => openEdit(p)} className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-secondary/50 flex items-center justify-center text-foreground hover:bg-secondary active:scale-90 transition-all border border-border/50"><Pencil className="w-4 h-4" /></button>
+                          <div className="flex items-center gap-2 mt-4 sm:mt-0">
+                            <button onClick={() => openEdit(p)} className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-foreground hover:bg-white/10 active:scale-90 transition-all border border-white/10"><Pencil className="w-5 h-5 opacity-70" /></button>
                             {p.inStock !== false ? (
-                              <button onClick={() => toggleStock(p, false)} className="flex-1 h-10 sm:h-11 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white rounded-xl sm:rounded-2xl flex items-center justify-center gap-1.5 sm:gap-2 transition-all active:scale-95 border border-rose-500/20"><PackageX className="w-3.5 h-3.5" /><span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest whitespace-nowrap">Mark OOS</span></button>
+                              <button onClick={() => toggleStock(p, false)} className="flex-1 h-12 bg-[#cc2d4a]/5 hover:bg-[#cc2d4a]/10 text-[#cc2d4a] rounded-2xl flex items-center justify-center gap-2 transition-all active:scale-95 border border-[#cc2d4a]/30">
+                                <PackageX className="w-4 h-4" />
+                                <span className="text-[10px] font-black uppercase tracking-widest">Mark OOS</span>
+                              </button>
                             ) : (
-                              <button onClick={() => toggleStock(p, true)} className="flex-1 h-10 sm:h-11 bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white rounded-xl sm:rounded-2xl flex items-center justify-center gap-1.5 sm:gap-2 transition-all active:scale-95 border border-emerald-500/20"><RotateCcw className="w-3.5 h-3.5" /><span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest whitespace-nowrap">Restore</span></button>
+                              <button onClick={() => toggleStock(p, true)} className="flex-1 h-12 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-500 rounded-2xl flex items-center justify-center gap-2 transition-all active:scale-95 border border-emerald-500/30">
+                                <RotateCcw className="w-4 h-4" />
+                                <span className="text-[10px] font-black uppercase tracking-widest">Restore</span>
+                              </button>
                             )}
-                            <button onClick={() => deleteProduct(p)} className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-rose-500/5 hover:bg-rose-500 hover:text-white text-muted-foreground flex items-center justify-center active:scale-90 transition-all border border-rose-500/10"><Trash2 className="w-4 h-4" /></button>
+                            <button onClick={() => deleteProduct(p)} className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-muted-foreground hover:bg-rose-500/10 hover:text-rose-500 active:scale-90 transition-all border border-white/10"><Trash2 className="w-5 h-5 opacity-40" /></button>
                           </div>
                         </div>
                       </motion.div>

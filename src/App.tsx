@@ -82,6 +82,7 @@ const AdminSupport = lazy(() => import("./pages/admin/AdminSupport"));
 const AdminAnalyticsNew = lazy(() => import("./pages/admin/AdminAnalytics"));
 const SupportChat = lazy(() => import("./pages/SupportChat"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const AuthAction = lazy(() => import("./pages/AuthAction"));
 const HelpSupport = lazy(() => import("./pages/HelpSupport"));
 const StoreEditor = lazy(() => import("./pages/StoreEditor"));
 const Download = lazy(() => import("./pages/Download"));
@@ -173,7 +174,8 @@ const VendorProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     } catch (e) {}
   }
 
-  if (!hasValidPlan) {
+  // 5. Hard redirect only if no plan at all (not even none/expired)
+  if (!plan || plan === 'none') {
     return <Navigate to="/vendor/subscription" replace />;
   }
 
@@ -192,7 +194,12 @@ const AppContent = () => {
   const { user } = useApp();
 
   return (
-    <BrowserRouter>
+    <BrowserRouter
+      future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true,
+      }}
+    >
       <ScrollToTop />
       <div className="flex flex-col min-h-screen">
         <Suspense fallback={<PageLoading />}>
@@ -201,6 +208,8 @@ const AppContent = () => {
             <Route path="/about" element={<About />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/__/auth/action" element={<AuthAction />} />
+            <Route path="/auth/action" element={<AuthAction />} />
 
             <Route path="/browse" element={<CustomerHome />} />
             <Route path="/store/:id" element={<StoreDetail />} />

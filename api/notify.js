@@ -1,4 +1,5 @@
-import admin from 'firebase-admin';
+import { initializeApp, cert, getApps } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
 
 // Validate environment variables early
 const projectId = process.env.FIREBASE_PROJECT_ID;
@@ -8,23 +9,19 @@ const privateKey = process.env.FIREBASE_PRIVATE_KEY;
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
 
-  // Robust key formatting to handle Vercel's various escape behaviors
-  let formattedKey = privateKey;
-  if (formattedKey && formattedKey.startsWith('"') && formattedKey.endsWith('"')) {
-    formattedKey = formattedKey.slice(1, -1);
-  }
-  if (formattedKey) {
-    // Both standard newline and literal \n should be handled
-    formattedKey = formattedKey.replace(/\\n/g, '\n');
-  }
+  // Robust key formatting for Vercel
+  const formattedKey = privateKey 
+    ? privateKey.replace(/\\n/g, '\n').replace(/^"(.*)"$/, '$1')
+    : undefined;
 
-  if (!admin.apps.length) {
+  const apps = getApps();
+  if (!apps.length) {
     if (!projectId || !clientEmail || !privateKey) {
       console.error('❌ [API/Notify] Missing Firebase Admin credentials in environment variables.');
     } else {
       try {
-        admin.initializeApp({
-          credential: admin.credential.cert({
+        initializeApp({
+          credential: cert({
             projectId,
             clientEmail,
             privateKey: formattedKey,
@@ -37,12 +34,23 @@ export default async function handler(req, res) {
     }
   }
 
-  if (!admin.apps.length) {
-    console.error('❌ [API/Notify] Critical: Firebase Admin not initialized.');
-    return res.status(500).json({ error: 'Firebase Admin not initialized properly (Missing Config)' });
+  if (!getApps().length) {
+    const missing = [];
+    if (!projectId) missing.push('FIREBASE_PROJECT_ID');
+    if (!clientEmail) missing.push('FIREBASE_CLIENT_EMAIL');
+    if (!privateKey) missing.push('FIREBASE_PRIVATE_KEY');
+    
+    console.error('❌ [API/Notify] Critical: Firebase Admin not initialized. Missing:', missing.join(', '));
+    return res.status(500).json({ 
+      error: 'Firebase Admin not initialized properly',
+      missingConfig: missing,
+      projectId: projectId || 'MISSING',
+      clientEmail: clientEmail || 'MISSING',
+      hasPrivateKey: !!privateKey
+    });
   }
 
-  const db = admin.firestore();
+  const db = getFirestore();
 
   try {
     const { vendorId, title, body, url, orderId, id, type } = req.body;
@@ -83,14 +91,23 @@ export default async function handler(req, res) {
       });
     }
 
-    // 2. Send via OneSignal REST API
-    const appId = (process.env.ONESIGNAL_APP_ID || "").trim();
-    const apiKey = (process.env.ONESIGNAL_REST_API_KEY || "").trim();
+  const appId = (process.env.ONESIGNAL_APP_ID || "").trim();
+  const apiKey = (process.env.ONESIGNAL_REST_API_KEY || "").trim();
 
-    if (!appId || !apiKey) {
-      console.error('❌ [OneSignal] Missing credentials in environment variables.');
-      return res.status(500).json({ error: 'OneSignal credentials missing on server.' });
-    }
+  if (!getApps().length || !appId || !apiKey) {
+    const missing = [];
+    if (!projectId) missing.push('FIREBASE_PROJECT_ID');
+    if (!clientEmail) missing.push('FIREBASE_CLIENT_EMAIL');
+    if (!privateKey) missing.push('FIREBASE_PRIVATE_KEY');
+    if (!appId) missing.push('ONESIGNAL_APP_ID');
+    if (!apiKey) missing.push('ONESIGNAL_REST_API_KEY');
+    
+    return res.status(500).json({ 
+      error: 'Environment Configuration Incomplete',
+      missingFields: missing,
+      advice: 'Please add these variables to your Vercel Project Settings -> Environment Variables.'
+    });
+  }
 
     const dataUrl = url || (userData.role === 'vendor' ? '/vendor/orders' : '/receipts');
     const authHeader = apiKey.startsWith('os_v2_') ? `Key ${apiKey}` : `Basic ${apiKey}`;
@@ -98,7 +115,8 @@ export default async function handler(req, res) {
     const protocol = req.headers['x-forwarded-proto'] || 'https';
     const host = req.headers.host;
     const absoluteBase = process.env.APP_URL || `${protocol}://${host}`;
-    const fullWebUrl = dataUrl.startsWith('http') ? dataUrl : `${absoluteBase}${dataUrl}`;
+    const safeUrl = (typeof dataUrl === 'string' && dataUrl) ? dataUrl : '/';
+    const fullWebUrl = safeUrl.startsWith('http') ? safeUrl : `${absoluteBase}${safeUrl}`;
 
     const notificationPayload = {
       app_id: appId,
@@ -113,7 +131,7 @@ export default async function handler(req, res) {
         en: body || 'You have a new update on BellBasket.' 
       },
       data: {
-        url: dataUrl,
+        url: safeUrl,
         id: notificationId,
         type: notificationType,
         orderId: orderId || id
@@ -171,7 +189,15 @@ export default async function handler(req, res) {
     return res.status(500).json({ 
       error: 'Backend Failure', 
       message: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      code: error.code,
+      configStatus: {
+        hasProjectId: !!projectId,
+        hasClientEmail: !!clientEmail,
+        hasPrivateKey: !!privateKey,
+        privateKeyLength: privateKey ? privateKey.length : 0,
+        appsCount: getApps().length
+      },
+      stack: error.stack
     });
   }
 }

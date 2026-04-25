@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Star, ArrowLeft, Send, MessageSquare, Crown, Store as StoreIcon, Search, Filter, TrendingUp, Users, ThumbsUp } from 'lucide-react';
@@ -7,8 +7,9 @@ import { useApp } from '@/context/AppContext';
 import { DashboardSkeleton } from '@/components/SkeletonLoader';
 import { toast } from 'sonner';
 import { db } from '@/lib/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { StoreReview } from '@/types';
+import { getAvatarUrl } from '@/utils/avatars';
 import { 
     DropdownMenu, 
     DropdownMenuContent, 
@@ -33,6 +34,41 @@ const VendorReviews = () => {
     const [filterRating, setFilterRating] = useState<number | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'highest' | 'lowest'>('newest');
+    const [userAvatars, setUserAvatars] = useState<Record<string, string>>({});
+
+    // Fetch avatars for reviewers
+    useEffect(() => {
+        const fetchAvatars = async () => {
+            const uniqueUserIds = [...new Set(reviews
+                .filter(r => r.userId)
+                .map(r => r.userId!)
+            )];
+
+            const newAvatars: Record<string, string> = {};
+            await Promise.all(uniqueUserIds.map(async (uid) => {
+                if (userAvatars[uid]) return;
+                try {
+                    const userDoc = await getDoc(doc(db, 'users', uid));
+                    if (userDoc.exists()) {
+                        const userData = userDoc.data();
+                        if (userData.avatarUrl) {
+                            newAvatars[uid] = userData.avatarUrl;
+                        }
+                    }
+                } catch (err) {
+                    console.error("Error fetching reviewer avatar:", err);
+                }
+            }));
+
+            if (Object.keys(newAvatars).length > 0) {
+                setUserAvatars(prev => ({ ...prev, ...newAvatars }));
+            }
+        };
+
+        if (reviews.length > 0) {
+            fetchAvatars();
+        }
+    }, [reviews]);
 
     const canReply = user?.plan && user.plan !== 'basic' && user.plan !== 'none';
 
@@ -290,8 +326,12 @@ const VendorReviews = () => {
                                         {/* Review Header */}
                                         <div className="flex items-start justify-between">
                                             <div className="flex items-start gap-3">
-                                                <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-sm font-bold text-primary-foreground flex-shrink-0">
-                                                    {review.userName.charAt(0).toUpperCase()}
+                                                <div className="w-10 h-10 rounded-full overflow-hidden bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                                    <img 
+                                                        src={getAvatarUrl(userAvatars[review.userId || ''] || review.avatarUrl || review.userId || review.userName)} 
+                                                        alt={review.userName} 
+                                                        className="w-full h-full object-cover"
+                                                    />
                                                 </div>
                                                 <div>
                                                     <p className="font-bold text-foreground">{review.userName}</p>

@@ -40,6 +40,8 @@ export interface Product {
 
 export interface StoreReview {
   id: string;
+  userId?: string;
+  avatarUrl?: string;
   userName: string;
   rating: number;
   comment: string;
@@ -198,6 +200,7 @@ export interface User {
   district?: string;
   state?: string;
   country?: string;
+  avatarUrl?: string;
   deviceType?: 'native_app' | 'web_push';
   lastTokenRefresh?: string;
 }

@@ -45,6 +45,8 @@ const CountdownTimer = ({ endTime }: { endTime: string }) => {
   );
 };
 
+import ProductDetailModal from '@/components/ProductDetailModal';
+
 const CustomerDeals = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -59,6 +61,7 @@ const CustomerDeals = () => {
   const [priceSort, setPriceSort] = useState<'none' | 'low-high' | 'high-low'>('none');
   const [ratingSort, setRatingSort] = useState<'none' | 'top-rated' | 'low-rated'>('none');
   const [variantSelectorProduct, setVariantSelectorProduct] = useState<Product | null>(null);
+  const [selectedProductForDetail, setSelectedProductForDetail] = useState<{ product: Product; store: Store; deal: Deal } | null>(null);
   const [maxDistance, setMaxDistance] = useState<number>(() => Number(localStorage.getItem('user_deals_distance')) || 20);
   const [isSearching, setIsSearching] = useState(false);
 
@@ -402,7 +405,7 @@ const CustomerDeals = () => {
                                 key={deal.id}
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                onClick={() => navigate(`/store/${store.id}?productId=${product.id}`)}
+                                onClick={() => setSelectedProductForDetail({ product, store, deal })}
                                 className="bg-[#f8f9fa] dark:bg-[#161616] p-2.5 rounded-[1.8rem] flex flex-col hover:shadow-2xl hover:shadow-primary/10 transition-all border border-slate-200 dark:border-white/5 group/product cursor-pointer relative overflow-hidden group h-full"
                             >
                                 {/* Media Section */}
@@ -543,6 +546,30 @@ const CustomerDeals = () => {
       </div>
 
       <AnimatePresence>
+        {selectedProductForDetail && (
+          <ProductDetailModal
+            product={selectedProductForDetail.product}
+            store={selectedProductForDetail.store}
+            deal={selectedProductForDetail.deal}
+            qty={cart.find(c => c.product.id === selectedProductForDetail.product.id)?.quantity || 0}
+            onAddToCart={() => {
+              const { product, store, deal } = selectedProductForDetail;
+              const dealProduct = { ...product, price: deal.dealPrice, discountedPrice: deal.dealPrice };
+              addToCart({ 
+                product: dealProduct, 
+                storeId: store.id, 
+                storeName: store.name, 
+                storePhone: store.phone || '', 
+                quantity: 1 
+              });
+            }}
+            onUpdateQuantity={(newQty) => updateQuantity(selectedProductForDetail.product.id, newQty)}
+            onClose={() => setSelectedProductForDetail(null)}
+            onViewStore={() => navigate(`/store/${selectedProductForDetail.store.id}`)}
+            onViewProduct={(pid) => navigate(`/store/${selectedProductForDetail.store.id}?productId=${pid}`)}
+          />
+        )}
+
         {variantSelectorProduct && (
           <VariantSelector 
             product={variantSelectorProduct}

@@ -651,6 +651,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
 
 
+  // Load stores on mount
+  useEffect(() => {
+    refreshStores();
+  }, []);
+
   useEffect(() => {
     if (user?.language) {
       i18n.changeLanguage(user.language);
@@ -889,6 +894,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     localStorage.removeItem('bellbasket_hr');
     localStorage.setItem('bellbasket_user_sync', Date.now().toString());
     localStorage.removeItem('bellbasket_cart');
+    sessionStorage.removeItem('bellbasket_hide_expiry');
   }, []);
 
   const addToCart = React.useCallback((item: CartItem): boolean => {
@@ -1070,6 +1076,37 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     } catch (e) { console.error(e); throw e; }
   }, [user, refreshUser]);
 
+  const requestPushNotifications = React.useCallback(async () => {
+    if (typeof window !== 'undefined') {
+      try {
+        const OS = (window as any).OneSignal;
+        if (OS && OS.Slidedown) {
+          await OS.Slidedown.promptPush();
+        } else if ('Notification' in window) {
+          await Notification.requestPermission();
+        }
+      } catch (e) {
+        console.error("Error requesting push notifications:", e);
+      }
+    }
+  }, []);
+
+  React.useEffect(() => {
+    const handleFirstInteraction = () => {
+      if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+        requestPushNotifications();
+      }
+      window.removeEventListener('click', handleFirstInteraction);
+      window.removeEventListener('touchstart', handleFirstInteraction);
+    };
+    window.addEventListener('click', handleFirstInteraction);
+    window.addEventListener('touchstart', handleFirstInteraction);
+    return () => {
+      window.removeEventListener('click', handleFirstInteraction);
+      window.removeEventListener('touchstart', handleFirstInteraction);
+    };
+  }, [requestPushNotifications]);
+
   const cartSubtotal = React.useMemo(() => {
     return cart.reduce((s, c) => {
       const itemPrice = c.selectedVariant 
@@ -1081,12 +1118,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }, 0);
   }, [cart]);
 
+
+
   const value = React.useMemo(() => ({
     user, cart, orders, serviceBookings, stores, allProducts, loading,
     login, logout, refreshUser, addToCart, removeFromCart, updateQuantity,
     clearCart, placeOrder, updatePlan, notifications, installPrompt,
     installPWA, updateUser, refreshOrders, refreshStores, refreshProducts, refreshData,
-    markAllNotificationsRead, markNotificationAsRead, requestPushNotifications: async () => {},
+    markAllNotificationsRead, markNotificationAsRead, requestPushNotifications,
     productRequests, requestProduct,
     theme, toggleTheme,
     cartSubtotal
@@ -1095,7 +1134,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     login, logout, refreshUser, addToCart, removeFromCart, updateQuantity,
     clearCart, placeOrder, updatePlan, notifications, installPrompt,
     installPWA, updateUser, refreshOrders, refreshStores, refreshProducts, refreshData,
-    markAllNotificationsRead, markNotificationAsRead, 
+    markAllNotificationsRead, markNotificationAsRead, requestPushNotifications,
     productRequests, requestProduct,
     theme, toggleTheme,
     cartSubtotal

@@ -1282,7 +1282,9 @@ const StoreDetail = () => {
                   )}
                   {!currentDisplayProduct.inStock && (
                     <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-40">
-                      <span className="bg-rose-500 text-white text-[9px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest shadow-xl">OOS</span>
+                      <div className="bg-[#cc2d4a] px-2.5 py-1 rounded-full shadow-2xl border border-white/10">
+                        <span className="text-[9px] font-black text-white lowercase leading-none">oos</span>
+                      </div>
                     </div>
                   )}
                 </div>

@@ -178,7 +178,8 @@ const VendorEditProduct = () => {
     endTime: '21:00',
     availableDays: [0, 1, 2, 3, 4, 5, 6],
     hasVariants: false,
-    variants: [] as ProductVariant[]
+    variants: [] as ProductVariant[],
+    inStock: true
   });
   
   const [showCamera, setShowCamera] = useState(false);
@@ -220,7 +221,8 @@ const VendorEditProduct = () => {
                    endTime: p.availability?.endTime || '21:00',
                    availableDays: p.availability?.days || [0, 1, 2, 3, 4, 5, 6],
                    hasVariants: p.hasVariants || false,
-                   variants: p.variants || []
+                   variants: p.variants || [],
+                   inStock: p.inStock ?? true
                 };
                 setForm(loadedForm);
                 setInitialFormState(loadedForm);
@@ -459,6 +461,13 @@ const VendorEditProduct = () => {
                       {form.image ? (
                           <>
                               <img src={form.image} alt="Primary" className="w-full h-full object-cover" />
+                              {form.inStock === false && (
+                                <div className="absolute inset-0 bg-black/20 backdrop-blur-[1px] flex items-center justify-center pointer-events-none z-10 transition-all">
+                                  <div className="bg-[#cc2d4a] px-2.5 py-1 rounded-full shadow-2xl border border-white/10">
+                                    <span className="text-[9px] font-black text-white lowercase leading-none">oos</span>
+                                  </div>
+                                </div>
+                              )}
                               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 px-4">
                                       <button type="button" onClick={() => { setImageTarget('image'); fileInputRef.current?.click(); }} className="w-10 h-10 rounded-xl bg-white text-primary flex items-center justify-center"><Upload className="w-4 h-4" /></button>
                                       <button type="button" onClick={() => { setImageTarget('image'); startCamera(); }} className="w-10 h-10 rounded-xl bg-white text-primary flex items-center justify-center"><Camera className="w-4 h-4" /></button>
@@ -482,6 +491,13 @@ const VendorEditProduct = () => {
                           {form.image2 ? (
                               <>
                                   <img src={form.image2} alt="Secondary" className="w-full h-full object-cover" />
+                                  {form.inStock === false && (
+                                    <div className="absolute inset-0 bg-black/20 backdrop-blur-[1px] flex items-center justify-center pointer-events-none z-10 transition-all">
+                                      <div className="bg-[#cc2d4a] px-2.5 py-1 rounded-full shadow-2xl border border-white/10">
+                                        <span className="text-[9px] font-black text-white lowercase leading-none">oos</span>
+                                      </div>
+                                    </div>
+                                  )}
                                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 px-4">
                                       <button type="button" onClick={() => { setImageTarget('image2'); fileInputRef.current?.click(); }} className="w-10 h-10 rounded-xl bg-white text-primary flex items-center justify-center shadow-xl"><Upload className="w-4 h-4" /></button>
                                       <button type="button" onClick={() => { setImageTarget('image2'); startCamera(); }} className="w-10 h-10 rounded-xl bg-white text-primary flex items-center justify-center shadow-xl"><Camera className="w-4 h-4" /></button>
@@ -503,6 +519,25 @@ const VendorEditProduct = () => {
           </div>
 
           <div className="space-y-6">
+            <div className="flex items-center justify-between bg-secondary/20 p-4 rounded-3xl border border-border/40">
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${form.inStock ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
+                  {form.inStock ? <Check className="w-5 h-5" /> : <PackageX className="w-5 h-5" />}
+                </div>
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-foreground">Stock Status</p>
+                  <p className="text-[9px] font-bold text-muted-foreground uppercase">{form.inStock ? 'Available for purchase' : 'Marked as Out of Stock'}</p>
+                </div>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setForm(f => ({ ...f, inStock: !f.inStock }))}
+                className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${form.inStock ? 'bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white' : 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white'}`}
+              >
+                {form.inStock ? 'Mark OOS' : 'Restore Stock'}
+              </button>
+            </div>
+
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 ml-1">Core Information</label>
               <input 

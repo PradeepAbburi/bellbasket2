@@ -20,6 +20,9 @@ const VendorDeals = () => {
   const [editingDeal, setEditingDeal] = useState<Deal | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   
+  const [isComboMode, setIsComboMode] = useState(false);
+  const [selectedComboItems, setSelectedComboItems] = useState<string[]>([]);
+  
   const [form, setForm] = useState({
     discountedPrice: '',
     startTime: new Date().toISOString().slice(0, 16),
@@ -89,19 +92,21 @@ const VendorDeals = () => {
       const dealData: any = {
         productId: editingDeal 
           ? editingDeal.productId 
-          : selectedProduct.id,
+          : (isComboMode ? `bundle_${Date.now()}_${Math.random().toString(36).substr(2, 5)}` : selectedProduct.id),
         vendorId: user.id,
-        originalPrice: selectedProduct.price,
+        originalPrice: isComboMode 
+          ? products.filter(p => selectedComboItems.includes(p.id)).reduce((sum, p) => sum + p.price, 0)
+          : selectedProduct.price,
         dealPrice: discPrice,
         startTime: new Date(form.startTime).toISOString(),
         endTime: new Date(form.endTime).toISOString(),
         status: 'active',
-        isCombo: selectedProduct.isCombo || false,
+        isCombo: isComboMode,
         createdAt: editingDeal ? editingDeal.createdAt : new Date().toISOString()
       };
 
       if (form.stockLimit) dealData.stockLimit = Number(form.stockLimit);
-      if (selectedProduct.isCombo) dealData.comboItems = selectedProduct.comboItems;
+      if (isComboMode) dealData.comboItems = selectedComboItems;
 
       if (editingDeal) {
         await updateDoc(doc(db, 'deals', editingDeal.id), dealData);
@@ -113,6 +118,8 @@ const VendorDeals = () => {
 
       setShowCreateModal(false);
       setSelectedProduct(null);
+      setSelectedComboItems([]);
+      setIsComboMode(false);
       setEditingDeal(null);
       resetForm();
     } catch (error) {
@@ -140,12 +147,21 @@ const VendorDeals = () => {
 
   const handleEditDeal = (deal: Deal) => {
     if (deal.isCombo) {
-      const product = products.find(p => p.id === deal.productId);
-      if (!product) return;
-      setSelectedProduct(product);
+      setIsComboMode(true);
+      setSelectedComboItems(deal.comboItems || []);
+      // Create a shim product for the UI
+      const firstItem = products.find(p => p.id === (deal.comboItems?.[0]));
+      if (firstItem) {
+        setSelectedProduct({
+           ...firstItem,
+           name: `Combo Bundle (${deal.comboItems?.length} items)`,
+           price: deal.originalPrice
+        });
+      }
     } else {
       const product = products.find(p => p.id === deal.productId);
       if (!product) return;
+      setIsComboMode(false);
       setSelectedProduct(product);
     }
     setEditingDeal(deal);
@@ -181,7 +197,14 @@ const VendorDeals = () => {
             </div>
             <div className="flex flex-wrap items-center gap-3">
                 <button 
-                    onClick={() => { setEditingDeal(null); setSelectedProduct(null); setShowCreateModal(true); }}
+                    onClick={() => { setEditingDeal(null); setSelectedProduct(null); setIsComboMode(true); setShowCreateModal(true); }}
+                    className="px-6 py-4 rounded-2xl bg-white/5 hover:bg-white/10 text-white text-xs font-black uppercase tracking-widest active:scale-95 transition-all flex items-center justify-center gap-3 border border-white/5"
+                >
+                    <Package2 className="w-5 h-5 text-purple-500" />
+                    Combo Deal
+                </button>
+                <button 
+                    onClick={() => { setEditingDeal(null); setSelectedProduct(null); setIsComboMode(false); setShowCreateModal(true); }}
                     className="px-8 py-4 rounded-2xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-black uppercase tracking-widest active:scale-95 transition-all flex items-center justify-center gap-3 shadow-lg shadow-purple-500/20"
                 >
                     <Zap className="w-5 h-5 fill-current" />
@@ -343,10 +366,10 @@ const VendorDeals = () => {
                             <div className="flex items-center justify-between mb-8">
                                 <div>
                                     <h2 className="text-2xl font-black text-white italic uppercase">
-                                        Select Product
+                                        {isComboMode ? 'Build Bundle' : 'Select Product'}
                                     </h2>
                                     <p className="text-[10px] text-zinc-500 font-black uppercase tracking-widest mt-1">
-                                        Convert inventory into deal
+                                        {isComboMode ? 'Choose multiple items for bundle deal' : 'Convert inventory into deal'}
                                     </p>
                                 </div>
                                 <button onClick={() => setShowCreateModal(false)} className="w-12 h-12 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-zinc-400 transition-all"><X className="w-6 h-6" /></button>
@@ -367,9 +390,13 @@ const VendorDeals = () => {
                                     <button 
                                         key={p.id} 
                                         onClick={() => {
-                                            setSelectedProduct(p);
+                                            if (isComboMode) {
+                                                setSelectedComboItems(prev => prev.includes(p.id) ? prev.filter(id => id !== p.id) : [...prev, p.id]);
+                                            } else {
+                                                setSelectedProduct(p);
+                                            }
                                         }}
-                                        className={`w-full p-4 rounded-3xl transition-all flex items-center gap-5 border bg-transparent border-transparent hover:bg-white/5 group text-left`}
+                                        className={`w-full p-4 rounded-3xl transition-all flex items-center gap-5 border ${isComboMode && selectedComboItems.includes(p.id) ? 'bg-purple-500/10 border-purple-500' : 'bg-transparent border-transparent hover:bg-white/5'} group text-left`}
                                     >
                                         <div className="w-16 h-16 rounded-2xl bg-zinc-950 overflow-hidden shrink-0 shadow-xl group-hover:scale-105 transition-transform">
                                             <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
@@ -379,14 +406,37 @@ const VendorDeals = () => {
                                             <span className="text-xs font-black text-purple-500 tracking-tighter">Normal: ₹{p.price}</span>
                                         </div>
                                         <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-zinc-600 group-hover:bg-purple-500 group-hover:text-white transition-all">
-                                            <Plus className="w-5 h-5" />
+                                            {isComboMode ? (
+                                                selectedComboItems.includes(p.id) ? <Check className="w-5 h-5 text-purple-500" /> : <Plus className="w-5 h-5" />
+                                            ) : <Plus className="w-5 h-5" />}
                                         </div>
                                     </button>
                                 ))}
                             </div>
                         </div>
 
-                        {/* Bundle review removed - only existing combos allowed */}
+                        {isComboMode && selectedComboItems.length >= 2 && (
+                            <div className="p-8 bg-zinc-950 border-t border-white/5">
+                                <button 
+                                    onClick={() => {
+                                        const selectedProds = products.filter(p => selectedComboItems.includes(p.id));
+                                        setSelectedProduct({
+                                            id: 'combo',
+                                            name: `${selectedComboItems.length} Item Bundle`,
+                                            price: selectedProds.reduce((sum, p) => sum + p.price, 0),
+                                            image: selectedProds[0]?.image || '',
+                                            category: 'Bundle',
+                                            description: '',
+                                            inStock: true
+                                        } as Product);
+                                    }}
+                                    className="w-full h-16 bg-purple-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-purple-500/20 active:scale-95 transition-all flex items-center justify-center gap-3"
+                                >
+                                    Review Deal Details ({selectedComboItems.length} Items)
+                                    <ChevronRight className="w-5 h-5" />
+                                </button>
+                            </div>
+                        )}
                     </motion.div>
                 </motion.div>
             )}
@@ -416,13 +466,13 @@ const VendorDeals = () => {
                             <div className="absolute top-0 right-0 w-32 h-32 bg-purple-600/10 blur-[60px] rounded-full" />
                             <div className="flex items-center gap-6 relative z-10">
                                 <div className="w-24 h-24 rounded-[2rem] overflow-hidden shadow-[0_20px_50px_-20px_rgba(0,0,0,0.5)] group-hover:scale-105 transition-transform duration-500 bg-zinc-950">
-                                    {selectedProduct.isCombo && selectedProduct.comboItems && selectedProduct.comboItems.length > 0 ? (
+                                    {isComboMode && selectedComboItems.length > 0 ? (
                                         <div className="w-full h-full grid grid-cols-2 grid-rows-2 gap-[1px]">
-                                            {selectedProduct.comboItems.slice(0, 4).map((id) => {
+                                            {selectedComboItems.slice(0, 4).map((id) => {
                                                 const p = products.find(prod => prod.id === id);
                                                 return <img key={id} src={p?.image || ''} className="w-full h-full object-cover" alt="" />;
                                             })}
-                                            {selectedProduct.comboItems.length < 4 && Array.from({ length: 4 - selectedProduct.comboItems.length }).map((_, i) => (
+                                            {selectedComboItems.length < 4 && Array.from({ length: 4 - selectedComboItems.length }).map((_, i) => (
                                                 <div key={i} className="w-full h-full bg-zinc-900" />
                                             ))}
                                         </div>

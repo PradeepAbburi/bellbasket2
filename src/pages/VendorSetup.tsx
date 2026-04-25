@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MapPin, Search, Loader2, Navigation, CheckCircle2, ArrowRight, Store, Upload, Camera, X, Ticket, Building, LandPlot, Globe } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
-import { lazy } from 'react';
+import { lazy, Suspense } from 'react';
 const MapView = lazy(() => import('@/components/MapView'));
 import { toast } from 'sonner';
 import { db } from '@/lib/firebase';
@@ -351,12 +351,19 @@ const VendorSetup = () => {
         try {
             console.log("Launching store for user:", user.id);
 
+            const oneMonthFromNow = new Date();
+            oneMonthFromNow.setMonth(oneMonthFromNow.getMonth() + 1);
+            const initialPlan = (user.plan && user.plan !== 'none') ? user.plan : 'pro';
+            const initialExpiry = user.subscriptionExpiry || oneMonthFromNow.toISOString();
+
             // 1. Update user in Firestore first (this ensures profile has lat/lng and setup flag)
             try {
                 await setDoc(doc(db, 'users', user.id), {
                     lng: storeLng,
                     phone: phone,
                     hasSetupStore: true,
+                    plan: initialPlan,
+                    subscriptionExpiry: initialExpiry,
                     mandal,
                     district,
                     state,
@@ -397,7 +404,7 @@ const VendorSetup = () => {
                     gstin: gstin || "",
                     phone: phone,
                     storeType: storeType,
-                    plan: user.plan || 'none',
+                    plan: initialPlan,
                     isBlocked: user.isBlocked || false,
                     products: [],
                     mandal,
@@ -420,12 +427,12 @@ const VendorSetup = () => {
             }
 
             // 3. Update local state
-            login({ ...user, lat: storeLat, lng: storeLng, phone: phone, hasSetupStore: true, referralCode: user.referralCode || referralCode, mandal, district, state, country });
+            login({ ...user, lat: storeLat, lng: storeLng, phone: phone, hasSetupStore: true, plan: initialPlan, subscriptionExpiry: initialExpiry, referralCode: user.referralCode || referralCode, mandal, district, state, country });
 
             toast.success('Your store is now LIVE!', {
-                description: "Map sync complete and shop open. Please select a subscription to continue.",
+                description: "Enjoy your free month of Pro! Start adding products now.",
             });
-            navigate('/vendor/subscription');
+            navigate('/vendor');
         } catch (error: any) {
             console.error("Launch Error Trace:", error);
             toast.error('Launch Error', {
@@ -474,22 +481,24 @@ const VendorSetup = () => {
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Store Name</label>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Store Name <span className="text-red-500">*</span></label>
                                 <input
                                     value={storeName}
                                     onChange={e => setStoreName(e.target.value)}
                                     placeholder="e.g. Sunny Groceries"
+                                    required
                                     className="w-full px-5 py-4 rounded-2xl bg-secondary/50 border-0 text-sm font-bold text-foreground focus:ring-4 focus:ring-primary/10 transition-all"
                                 />
                             </div>
 
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Phone Number</label>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Phone Number <span className="text-red-500">*</span></label>
                                 <input
                                     type="tel"
                                     value={phone}
                                     onChange={e => setPhone(e.target.value)}
                                     placeholder="+91 98XXX XXXXX"
+                                    required
                                     className="w-full px-5 py-4 rounded-2xl bg-secondary/50 border-0 text-sm font-bold text-foreground focus:ring-4 focus:ring-primary/10 transition-all"
                                 />
                             </div>
@@ -533,12 +542,12 @@ const VendorSetup = () => {
                                                 key={catName}
                                                 type="button"
                                                 onClick={() => setCategory(catName)}
-                                                className={`flex flex-col items-center gap-3 p-4 rounded-3xl transition-all relative overflow-hidden group ${isSelected ? 'bg-primary text-white ring-2 ring-primary/20' : 'bg-secondary/50 text-foreground hover:bg-secondary'}`}
+                                                className={`flex flex-col items-center gap-3 p-4 rounded-3xl transition-all relative overflow-hidden group border-2 ${isSelected ? 'border-primary bg-primary/5' : 'border-transparent bg-secondary/50 hover:bg-secondary'}`}
                                             >
-                                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${isSelected ? 'bg-white/20' : `bg-gradient-to-br ${metadata?.gradient || 'from-gray-400 to-gray-500'} text-white shadow-sm ring-4 ring-white`}`}>
+                                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${isSelected ? 'bg-primary/20 text-primary shadow-inner' : `bg-gradient-to-br ${metadata?.gradient || 'from-gray-400 to-gray-500'} text-white shadow-sm ring-4 ring-white`}`}>
                                                     <Icon className={`w-6 h-6 ${isSelected ? 'animate-pulse' : ''}`} />
                                                 </div>
-                                                <span className={`text-[11px] font-black uppercase tracking-widest text-center line-clamp-1 ${isSelected ? 'text-white' : 'text-muted-foreground'}`}>
+                                                <span className={`text-[11px] font-black uppercase tracking-widest text-center line-clamp-1 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`}>
                                                     {catName}
                                                 </span>
                                                 
@@ -549,7 +558,7 @@ const VendorSetup = () => {
                                                         initial={{ scale: 0 }}
                                                         animate={{ scale: 1 }}
                                                     >
-                                                        <CheckCircle2 className="w-4 h-4 text-white fill-white/20" />
+                                                        <CheckCircle2 className="w-4 h-4 text-primary fill-primary/20" />
                                                     </motion.div>
                                                 )}
                                             </button>
@@ -649,7 +658,7 @@ const VendorSetup = () => {
                     {/* Location Card */}
                     <div className="glass rounded-[32px] p-6 space-y-6">
                         <h3 className="text-xs font-black uppercase tracking-[0.2em] text-primary flex items-center gap-2">
-                            <MapPin className="w-4 h-4" /> Store Location
+                            <MapPin className="w-4 h-4" /> Store Location <span className="text-red-500">*</span>
                         </h3>
 
                         <div className="space-y-4">

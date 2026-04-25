@@ -1,11 +1,12 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Star, CheckCircle, MessageSquare, Send, Loader2, User } from 'lucide-react';
 import { StoreReview } from '@/types';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useApp } from '@/context/AppContext';
+import { getAvatarUrl } from '@/utils/avatars';
 import { db } from '@/lib/firebase';
-import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, getDoc } from 'firebase/firestore';
 import { toast } from 'sonner';
 
 interface ReviewModalProps {
@@ -27,11 +28,46 @@ const ReviewModal = ({ isOpen, onClose, reviews: allReviews = [], storeId, store
     const [newComment, setNewComment] = useState('');
     const [newName, setNewName] = useState(user?.name || '');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [userAvatars, setUserAvatars] = useState<Record<string, string>>({});
 
     const reviews = useMemo(() => {
         if (!allReviews) return [];
         return allReviews.filter(r => r.comment && r.comment.trim() !== '');
     }, [allReviews]);
+
+    // Fetch avatars for reviewers
+    useEffect(() => {
+        const fetchAvatars = async () => {
+            const uniqueUserIds = [...new Set(reviews
+                .filter(r => r.userId)
+                .map(r => r.userId!)
+            )];
+
+            const newAvatars: Record<string, string> = {};
+            await Promise.all(uniqueUserIds.map(async (uid) => {
+                if (userAvatars[uid]) return; // Skip if already fetched
+                try {
+                    const userDoc = await getDoc(doc(db, 'users', uid));
+                    if (userDoc.exists()) {
+                        const userData = userDoc.data();
+                        if (userData.avatarUrl) {
+                            newAvatars[uid] = userData.avatarUrl;
+                        }
+                    }
+                } catch (err) {
+                    console.error("Error fetching reviewer avatar:", err);
+                }
+            }));
+
+            if (Object.keys(newAvatars).length > 0) {
+                setUserAvatars(prev => ({ ...prev, ...newAvatars }));
+            }
+        };
+
+        if (reviews.length > 0) {
+            fetchAvatars();
+        }
+    }, [reviews]);
 
     const hasReviewed = useMemo(() => {
         if (!user?.id || !allReviews) return false;
@@ -86,6 +122,7 @@ const ReviewModal = ({ isOpen, onClose, reviews: allReviews = [], storeId, store
             comment: newComment.trim(),
             date: new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }),
             userId: user.id,
+            avatarUrl: user.avatarUrl || null,
             isAnonymous: !newName && !user.name
         };
 
@@ -268,8 +305,12 @@ const ReviewModal = ({ isOpen, onClose, reviews: allReviews = [], storeId, store
                                         >
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center gap-2">
-                                                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold text-white gradient-primary">
-                                                        {review.userName.charAt(0)}
+                                                    <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center bg-secondary">
+                                                        <img 
+                                                            src={getAvatarUrl(userAvatars[review.userId || ''] || review.avatarUrl || review.userId || review.userName)} 
+                                                            alt={review.userName} 
+                                                            className="w-full h-full object-cover"
+                                                        />
                                                     </div>
                                                     <div>
                                                         <div className="flex items-center gap-2">

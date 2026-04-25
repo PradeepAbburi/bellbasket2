@@ -189,7 +189,9 @@ const ProductCard = memo(({ p, count, onAdd, onUpdate, onRemove, onClick, t, mod
         )}
         {p.inStock === false && (
           <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] flex items-center justify-center z-10 transition-all">
-            <span className="bg-rose-500 text-white text-[9px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest shadow-xl">OOS</span>
+            <div className="bg-[#cc2d4a] px-2.5 py-1 rounded-full shadow-2xl border border-white/10">
+              <span className="text-[9px] font-black text-white lowercase leading-none">oos</span>
+            </div>
           </div>
         )}
       </div>
@@ -262,7 +264,7 @@ const ProductCard = memo(({ p, count, onAdd, onUpdate, onRemove, onClick, t, mod
 });
 
 const CustomerHome = () => {
-  const { user, loading, stores: allStores, allProducts, addToCart, removeFromCart, updateQuantity, cart, orders, refreshData } = useApp();
+  const { user, loading, stores: allStores, allProducts, addToCart, removeFromCart, updateQuantity, cart, orders, refreshData, requestPushNotifications } = useApp();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -302,6 +304,9 @@ const CustomerHome = () => {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [searchResultType, setSearchResultType] = useState<'all' | 'stores' | 'products'>('all');
   const [variantSelectorProduct, setVariantSelectorProduct] = useState<Product | null>(null);
+  const [notificationPermission, setNotificationPermission] = useState<string>(
+    typeof Notification !== 'undefined' ? Notification.permission : 'default'
+  );
 
   // 1. Debounce search input for real-time suggestions
   useEffect(() => {
@@ -1491,7 +1496,41 @@ const CustomerHome = () => {
                   </div>
                 </motion.div>
               )}
-            </AnimatePresence>            {/* Stores grid header */}
+            </AnimatePresence>
+
+            {/* Notification Permission Banner for Normal Users */}
+            {notificationPermission === 'default' && !isSearching && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="bg-primary/5 border-2 border-primary/20 rounded-[2.5rem] p-6 mb-8 flex flex-col md:flex-row items-center justify-between gap-6"
+              >
+                <div className="flex items-center gap-5">
+                  <div className="w-16 h-16 rounded-3xl bg-primary/10 flex items-center justify-center shrink-0 text-primary shadow-inner">
+                    <BellRing className="w-8 h-8" />
+                  </div>
+                  <div className="text-center md:text-left">
+                    <h3 className="text-lg font-black text-foreground tracking-tight">Never Miss an Update!</h3>
+                    <p className="text-sm text-muted-foreground mt-1 max-w-xl font-medium leading-relaxed">
+                      Enable notifications to receive real-time updates on your orders, exclusive deals, and messages from stores near you.
+                    </p>
+                  </div>
+                </div>
+                <button
+                    onClick={async () => {
+                      await requestPushNotifications();
+                      if (typeof Notification !== 'undefined') {
+                        setNotificationPermission(Notification.permission);
+                      }
+                    }}
+                    className="px-8 py-4 rounded-2xl bg-primary text-white font-black text-sm uppercase tracking-widest active:scale-95 transition-all w-full md:w-auto shadow-xl shadow-primary/25 hover:shadow-primary/40 hover:-translate-y-0.5"
+                >
+                  Allow Notifications
+                </button>
+              </motion.div>
+            )}
+
+            {/* Stores grid header */}
             <div className="flex items-center justify-between gap-3 mb-6">
               <div className="space-y-1.5 min-w-0 pr-2">
                 <h1 className="text-base md:text-xl font-black text-foreground truncate tracking-tight">

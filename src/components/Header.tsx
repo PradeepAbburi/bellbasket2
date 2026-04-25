@@ -1,6 +1,7 @@
 import { useApp } from '@/context/AppContext';
+import { getAvatarUrl } from '@/utils/avatars';
 import { NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
-import { ShoppingCart, Bell, User, LogOut, Store, Menu, X, Search, ShoppingBag, Package, TrendingUp, Crown, Shield, BellRing, FileText, Zap } from 'lucide-react';
+import { ShoppingCart, Bell, User, LogOut, Store, Menu, X, Search, ShoppingBag, Package, TrendingUp, Crown, Shield, BellRing, FileText, Zap, Settings } from 'lucide-react';
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -78,27 +79,7 @@ const Header = ({ solid = false }: { solid?: boolean }) => {
     <>
       <DesktopBackground />
       <header className={`fixed top-0 left-0 right-0 z-50 border-b border-border transition-all duration-300 ${(solid || isVendorPage) ? 'bg-white dark:bg-[#202020]' : 'bg-white/80 dark:bg-[#202020]/80 backdrop-blur-md'}`}>
-        {/* Push Notification Permission Banner */}
-        <AnimatePresence>
-          {user && (isVendorView || isAdminView || activeReceiptsCount > 0) && ("Notification" in window) && Notification.permission !== "granted" && (
-            <motion.div 
-              initial={{ height: 0, opacity: 0 }} 
-              animate={{ height: 'auto', opacity: 1 }} 
-              exit={{ height: 0, opacity: 0 }}
-              className="bg-primary/95 backdrop-blur-sm overflow-hidden"
-            >
-              <button 
-                onClick={() => { initAudio(); requestPushNotifications(); }}
-                className="w-full py-1 text-[10px] font-black uppercase tracking-widest text-white flex items-center justify-center gap-2 hover:bg-primary transition-colors"
-                title="Browser needs your permission to show push alerts for new orders."
-              >
-                <BellRing className="w-3.5 h-3.5 animate-bounce" />
-                Push Notifications Muted • Enable for live updates
-                <BellRing className="w-3.5 h-3.5 animate-bounce" />
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
+
 
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
           <Link to={user?.role === 'hr' ? "/hr" : (user?.role === 'admin' ? "/admin" : (user?.role === 'vendor' ? "/vendor" : "/browse"))} className="group flex-shrink-0">
@@ -182,16 +163,16 @@ const Header = ({ solid = false }: { solid?: boolean }) => {
               ) : (
                 // Vendor Specific Tools
                 <>
-                  {hasValidPlan && (
-                    <>
                       <NavLink end to="/vendor" className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}>
                         <Store className="w-5 h-5" />
                         <span className="hidden lg:inline">Dashboard</span>
                       </NavLink>
-                      <NavLink to="/vendor/notes" className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}>
-                        <FileText className="w-5 h-5" />
-                        <span className="hidden lg:inline">Notes</span>
-                      </NavLink>
+                      {hasValidPlan && (
+                        <>
+                          <NavLink to="/vendor/notes" className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}>
+                            <FileText className="w-5 h-5" />
+                            <span className="hidden lg:inline">Notes</span>
+                          </NavLink>
                       <NavLink to="/vendor/products" className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}>
                         <Package className="w-5 h-5" />
                         <span className="hidden lg:inline">Products</span>
@@ -218,8 +199,12 @@ const Header = ({ solid = false }: { solid?: boolean }) => {
                         <TrendingUp className="w-5 h-5" />
                         <span className="hidden lg:inline">Analytics</span>
                       </NavLink>
-                    </>
-                  )}
+                        </>
+                      )}
+                      <NavLink to="/vendor/config" className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}>
+                        <Settings className="w-5 h-5" />
+                        <span className="hidden lg:inline">Config</span>
+                      </NavLink>
                   <NavLink to="/vendor/subscription" className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}>
                     <Crown className="w-5 h-5" />
                     <span className="hidden lg:inline">Subscription</span>
@@ -335,8 +320,12 @@ const Header = ({ solid = false }: { solid?: boolean }) => {
                     onMouseEnter={() => onHoverPrefetch('profile')}
                     className={({ isActive }) => `hidden md:flex items-center gap-2.5 px-3 py-1.5 rounded-xl transition-all group ${isActive ? 'bg-primary/5' : 'hover:bg-primary/5'}`}
                   >
-                    <div className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${location.pathname === '/profile' ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20 scale-105' : 'bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground'}`}>
-                      <User className="w-4 h-4" />
+                    <div className={`w-9 h-9 rounded-full overflow-hidden flex items-center justify-center transition-all ${location.pathname === '/profile' ? 'ring-2 ring-primary shadow-md shadow-primary/20 scale-105' : 'bg-primary/10 group-hover:bg-primary'}`}>
+                      <img 
+                        src={getAvatarUrl(user?.avatarUrl || user?.id || 'User')} 
+                        alt={user?.name || 'User'} 
+                        className="w-full h-full object-cover"
+                      />
                     </div>
                     <div className="hidden xl:flex flex-col text-left">
                       <span className="text-sm font-bold text-foreground leading-none">{user?.name?.split(' ')[0] || 'User'}</span>
