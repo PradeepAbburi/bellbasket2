@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mail, UserCircle, Store, ArrowRight, CheckCircle2, Loader2, Lock, Phone, Zap, Shield, Eye, EyeOff, Sun, Moon } from 'lucide-react';
+import { Mail, UserCircle, Store, ArrowRight, ArrowLeft, CheckCircle2, Loader2, Lock, Phone, Zap, Shield, Eye, EyeOff, Sun, Moon } from 'lucide-react';
 import { Helmet } from 'react-helmet';
 import { useApp } from '@/context/AppContext';
 import { toast } from 'sonner';
@@ -447,6 +447,17 @@ const Auth = () => {
           </div>
 
           <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-sm text-center relative z-10 max-h-[90vh] overflow-y-auto scrollbar-hide py-8">
+            {/* Back Button */}
+            <div className="flex justify-start mb-6 px-4">
+              <button
+                onClick={() => navigate('/')}
+                className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors glass px-4 py-2 rounded-full border border-white/20 text-xs font-bold"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Back to Home
+              </button>
+            </div>
+            
             <div className="flex justify-center mb-6">
               <div className="w-20 h-20 rounded-full bg-accent/20 flex items-center justify-center text-accent">
                 <Mail className="w-10 h-10" />
@@ -503,6 +514,18 @@ const Auth = () => {
       </div>
 
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-md relative z-10 max-h-[98vh] overflow-y-auto scrollbar-hide py-4 sm:py-8">
+        
+        {/* Back Button */}
+        <div className="flex justify-start mb-6 px-4">
+          <button
+            onClick={() => navigate('/')}
+            className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors glass px-4 py-2 rounded-full border border-white/20 text-xs font-bold"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Home
+          </button>
+        </div>
+
         <div className="text-center mb-6 sm:mb-10">
           <span className="text-2xl sm:text-3xl font-black block tracking-tight">BellBasket</span>
           <p className="text-[10px] sm:text-xs font-bold text-primary uppercase mt-2 opacity-80 tracking-widest">Find It. Grab It.</p>
