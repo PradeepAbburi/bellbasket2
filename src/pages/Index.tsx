@@ -6,31 +6,12 @@ import { useApp } from '@/context/AppContext';
 import QRCodeWithLogo from '@/components/ui/qr-code-with-logo';
 import { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
-import { db } from '@/lib/firebase';
-import { getCountFromServer, collection } from 'firebase/firestore';
 
 const Index = () => {
   const navigate = useNavigate();
   const { user } = useApp();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [storeCount, setStoreCount] = useState<number | null>(null);
-  const [userCount, setUserCount] = useState<number | null>(null);
 
-  useEffect(() => {
-    const fetchCounts = async () => {
-      try {
-        const [storeSnap, userSnap] = await Promise.all([
-          getCountFromServer(collection(db, 'stores')),
-          getCountFromServer(collection(db, 'users')),
-        ]);
-        setStoreCount(storeSnap.data().count);
-        setUserCount(userSnap.data().count);
-      } catch (e) {
-        // silently fail
-      }
-    };
-    fetchCounts();
-  }, []);
 
 
   return (
@@ -237,14 +218,14 @@ const Index = () => {
               <div className="flex items-center gap-2 glass px-4 py-2 rounded-full border border-white/10">
                 <Store className="w-4 h-4 text-primary" />
                 <span className="text-sm font-bold text-foreground">
-                  {storeCount !== null ? storeCount.toLocaleString() : '...'}
+                  100+
                 </span>
                 <span className="text-xs text-muted-foreground">Stores</span>
               </div>
               <div className="flex items-center gap-2 glass px-4 py-2 rounded-full border border-white/10">
                 <Users className="w-4 h-4 text-primary" />
                 <span className="text-sm font-bold text-foreground">
-                  {userCount !== null ? userCount.toLocaleString() : '...'}
+                  5K+
                 </span>
                 <span className="text-xs text-muted-foreground">Members</span>
               </div>
