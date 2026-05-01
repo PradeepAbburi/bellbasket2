@@ -176,8 +176,8 @@ const VendorProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     } catch (e) {}
   }
 
-  // 5. Hard redirect only if no plan at all (not even none/expired)
-  if (!plan || plan === 'none') {
+  // 5. Hard redirect if no plan or expired plan
+  if (!plan || plan === 'none' || !hasValidPlan) {
     return <Navigate to="/vendor/subscription" replace />;
   }
 

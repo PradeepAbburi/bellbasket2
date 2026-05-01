@@ -58,16 +58,16 @@ const MobileMenu = ({
             ) : isVendorView ? (
               <>
                 <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground px-4 py-2">Vendor Tools</p>
-                    <Link
-                      to="/vendor"
-                      onClick={() => { initAudio(); onClose(); }}
-                      className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-primary/5 text-foreground transition-colors"
-                    >
-                      <Store className="w-5 h-5 text-primary" />
-                      <span className="font-bold text-sm">Dashboard</span>
-                    </Link>
-                    {hasValidPlan && (
+                    {hasValidPlan ? (
                       <>
+                        <Link
+                          to="/vendor"
+                          onClick={() => { initAudio(); onClose(); }}
+                          className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-primary/5 text-foreground transition-colors"
+                        >
+                          <Store className="w-5 h-5 text-primary" />
+                          <span className="font-bold text-sm">Dashboard</span>
+                        </Link>
                         <Link
                           to="/vendor/notes"
                           onClick={() => { initAudio(); onClose(); }}
@@ -76,47 +76,47 @@ const MobileMenu = ({
                           <FileText className="w-5 h-5 text-primary" />
                           <span className="font-bold text-sm">Bell Notes</span>
                         </Link>
-                    <Link
-                      to="/vendor/deals"
-                      onClick={() => { initAudio(); onClose(); }}
-                      className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-primary/5 text-foreground transition-colors"
-                    >
-                      <Zap className="w-5 h-5 text-primary" />
-                      <span className="font-bold text-sm">Deal Manager</span>
-                    </Link>
-                    <Link
-                      to="/vendor/products"
-                      onClick={() => { initAudio(); onClose(); }}
-                      className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-primary/5 text-foreground transition-colors"
-                    >
-                      <Package className="w-5 h-5 text-primary" />
-                      <span className="font-bold text-sm">Products</span>
-                    </Link>
-                    <Link
-                      to={isServiceStore ? "/vendor/bookings" : "/vendor/orders"}
-                      onClick={() => { initAudio(); onClose(); }}
-                      className="flex items-center justify-between px-4 py-3 rounded-xl hover:bg-primary/5 text-foreground transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <ShoppingBag className="w-5 h-5 text-primary" />
-                        <span className="font-bold text-sm">{isServiceStore ? 'Manage Bookings' : 'Manage Orders'}</span>
-                      </div>
-                      {vendorBadgeCount > 0 && (
-                        <span className="bg-destructive text-white text-[10px] font-black px-2 py-0.5 rounded-full">
-                          {vendorBadgeCount}
-                        </span>
-                      )}
-                    </Link>
+                        <Link
+                          to="/vendor/deals"
+                          onClick={() => { initAudio(); onClose(); }}
+                          className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-primary/5 text-foreground transition-colors"
+                        >
+                          <Zap className="w-5 h-5 text-primary" />
+                          <span className="font-bold text-sm">Deal Manager</span>
+                        </Link>
+                        <Link
+                          to="/vendor/products"
+                          onClick={() => { initAudio(); onClose(); }}
+                          className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-primary/5 text-foreground transition-colors"
+                        >
+                          <Package className="w-5 h-5 text-primary" />
+                          <span className="font-bold text-sm">Products</span>
+                        </Link>
+                        <Link
+                          to={isServiceStore ? "/vendor/bookings" : "/vendor/orders"}
+                          onClick={() => { initAudio(); onClose(); }}
+                          className="flex items-center justify-between px-4 py-3 rounded-xl hover:bg-primary/5 text-foreground transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <ShoppingBag className="w-5 h-5 text-primary" />
+                            <span className="font-bold text-sm">{isServiceStore ? 'Manage Bookings' : 'Manage Orders'}</span>
+                          </div>
+                          {vendorBadgeCount > 0 && (
+                            <span className="bg-destructive text-white text-[10px] font-black px-2 py-0.5 rounded-full">
+                              {vendorBadgeCount}
+                            </span>
+                          )}
+                        </Link>
+                        <Link
+                          to="/vendor/config"
+                          onClick={() => { initAudio(); onClose(); }}
+                          className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-primary/5 text-foreground transition-colors"
+                        >
+                          <Settings className="w-5 h-5 text-primary" />
+                          <span className="font-bold text-sm">Store Config</span>
+                        </Link>
                       </>
-                    )}
-                    <Link
-                      to="/vendor/config"
-                      onClick={() => { initAudio(); onClose(); }}
-                      className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-primary/5 text-foreground transition-colors"
-                    >
-                      <Settings className="w-5 h-5 text-primary" />
-                      <span className="font-bold text-sm">Store Config</span>
-                    </Link>
+                    ) : null}
                 <Link
                   to="/vendor/subscription"
                   onClick={() => { initAudio(); onClose(); }}

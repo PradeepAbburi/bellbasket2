@@ -152,7 +152,7 @@ const Header = ({ solid = false }: { solid?: boolean }) => {
                             initial={{ scale: 0, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             exit={{ scale: 0, opacity: 0 }}
-                            className="absolute -top-2 -right-2 flex h-4.5 min-w-[18px] px-1 items-center justify-center bg-primary text-white text-[10px] font-black rounded-full ring-2 ring-white shadow-[0_2px_8px_rgba(0,0,0,0.15)] select-none"
+                            className="absolute -top-2 -right-2 flex h-4.5 min-w-[18px] px-1 items-center justify-center bg-primary text-white text-[10px] font-black rounded-full ring-2 ring-white shadow-[0_2px_8_rgba(0,0,0,0.15)] select-none"
                           >
                             {cartCount}
                           </motion.div>
@@ -165,16 +165,16 @@ const Header = ({ solid = false }: { solid?: boolean }) => {
               ) : (
                 // Vendor Specific Tools
                 <>
+                  {hasValidPlan ? (
+                    <>
                       <NavLink end to="/vendor" className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}>
                         <Store className="w-5 h-5" />
                         <span className="hidden lg:inline">Dashboard</span>
                       </NavLink>
-                      {hasValidPlan && (
-                        <>
-                          <NavLink to="/vendor/notes" className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}>
-                            <FileText className="w-5 h-5" />
-                            <span className="hidden lg:inline">Notes</span>
-                          </NavLink>
+                      <NavLink to="/vendor/notes" className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}>
+                        <FileText className="w-5 h-5" />
+                        <span className="hidden lg:inline">Notes</span>
+                      </NavLink>
                       <NavLink to="/vendor/products" className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}>
                         <Package className="w-5 h-5" />
                         <span className="hidden lg:inline">Products</span>
@@ -201,12 +201,12 @@ const Header = ({ solid = false }: { solid?: boolean }) => {
                         <TrendingUp className="w-5 h-5" />
                         <span className="hidden lg:inline">Analytics</span>
                       </NavLink>
-                        </>
-                      )}
                       <NavLink to="/vendor/config" className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}>
                         <Settings className="w-5 h-5" />
                         <span className="hidden lg:inline">Config</span>
                       </NavLink>
+                    </>
+                  ) : null}
                   <NavLink to="/vendor/subscription" className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}>
                     <Crown className="w-5 h-5" />
                     <span className="hidden lg:inline">Subscription</span>
@@ -221,22 +221,24 @@ const Header = ({ solid = false }: { solid?: boolean }) => {
               {user ? (
                 <div className="flex items-center gap-1">
                   <div className="relative">
-                    <button
-                      onClick={() => {
-                        setShowNotifs(!showNotifs);
-                        if (!showNotifs) markAllNotificationsRead();
-                      }}
-                      onMouseEnter={() => {
-                        onHoverPrefetch('notifications');
-                        onHoverPrefetch('receipts');
-                      }}
-                      className={`p-2.5 rounded-xl transition-all relative ${showNotifs ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'}`}
-                    >
-                      <Bell className="w-5 h-5" />
-                      {unreadCount > 0 && (
-                        <span className="absolute top-2 right-2.5 w-2 h-2 rounded-full bg-primary ring-2 ring-white" />
-                      )}
-                    </button>
+                    {hasValidPlan && (
+                      <button
+                        onClick={() => {
+                          setShowNotifs(!showNotifs);
+                          if (!showNotifs) markAllNotificationsRead();
+                        }}
+                        onMouseEnter={() => {
+                          onHoverPrefetch('notifications');
+                          onHoverPrefetch('receipts');
+                        }}
+                        className={`p-2.5 rounded-xl transition-all relative ${showNotifs ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'}`}
+                      >
+                        <Bell className="w-5 h-5" />
+                        {unreadCount > 0 && (
+                          <span className="absolute top-2 right-2.5 w-2 h-2 rounded-full bg-primary ring-2 ring-white" />
+                        )}
+                      </button>
+                    )}
 
                     <AnimatePresence>
                       {showNotifs && (

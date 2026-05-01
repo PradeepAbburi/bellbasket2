@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Crown, Check, ArrowRight, Star, ShieldCheck, Zap, Sparkles, Building2, CreditCard, Lock, Loader2, X, Shield, Ticket, Calendar, Gift, CheckCircle2 } from 'lucide-react';
+import { Crown, Check, ArrowRight, Star, ShieldCheck, Zap, Sparkles, Building2, CreditCard, Lock, Loader2, X, Shield, Ticket, Calendar, Gift, CheckCircle2, LogOut } from 'lucide-react';
 import Header from '@/components/Header';
 import { useApp } from '@/context/AppContext';
 import { toast } from 'sonner';
@@ -418,7 +418,33 @@ const VendorPlans = () => {
         <div className="min-h-screen gradient-warm">
             <Header />
             <div className="pt-24 pb-44 px-4 max-w-6xl mx-auto">
-                <div className="text-center mb-16">
+                <div className="text-center mb-16 relative">
+                    {user?.plan && user.plan !== 'none' && user.subscriptionExpiry && new Date(user.subscriptionExpiry) < new Date() && (
+                        <motion.div 
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            className="mb-8 p-6 bg-destructive/10 border-2 border-destructive/20 rounded-[2rem] max-w-2xl mx-auto flex flex-col items-center gap-4 shadow-xl shadow-destructive/5"
+                        >
+                            <div className="w-12 h-12 rounded-full bg-destructive/20 flex items-center justify-center text-destructive animate-pulse">
+                                <X className="w-6 h-6" />
+                            </div>
+                            <div className="text-center">
+                                <h2 className="text-xl font-black text-destructive uppercase tracking-tight">Your Subscription Has Expired</h2>
+                                <p className="text-sm text-muted-foreground mt-1 font-medium">Your store is currently offline. Please choose a plan below to resume operations.</p>
+                            </div>
+                            <button 
+                                onClick={() => {
+                                    const { logout } = useApp(); // Accessing from hook might be tricky here, but we can use the prop or better, the context
+                                    auth.signOut();
+                                    window.location.href = '/';
+                                }}
+                                className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-white text-destructive border border-destructive/20 font-black text-xs uppercase tracking-widest hover:bg-destructive hover:text-white transition-all active:scale-95 shadow-lg"
+                            >
+                                <LogOut className="w-4 h-4" />
+                                Logout & Exit
+                            </button>
+                        </motion.div>
+                    )}
                     <h1 className="text-4xl md:text-5xl font-black text-foreground mb-4">
                         Grow Your <span className="text-primary">Business</span>
                     </h1>
@@ -532,12 +558,16 @@ const VendorPlans = () => {
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
+                                        if (isActive) {
+                                            navigate('/vendor');
+                                            return;
+                                        }
                                         setSelectedPlan(plan);
                                         setShowPayment(true);
                                     }}
                                     className={`w-full py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all group ${
                                         isActive
-                                        ? 'bg-green-600 text-white'
+                                        ? 'bg-green-600 text-white hover:scale-[1.02]'
                                         : (plan.popular || isExpired)
                                           ? 'bg-primary text-primary-foreground hover:scale-[1.02]'
                                           : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
