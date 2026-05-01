@@ -29,7 +29,6 @@ const Profile = () => {
         typeof Notification !== 'undefined' ? Notification.permission : 'default'
     );
     const [showAvatarSelector, setShowAvatarSelector] = useState(false);
-    const [showSettingsModal, setShowSettingsModal] = useState(false);
     const storeFileInputRef = useRef<HTMLInputElement>(null);
 
     const vendorStore = stores.find(s => s.id === user?.id);
@@ -62,13 +61,12 @@ const Profile = () => {
             showEditProfile || 
             showChangePassword || 
             showLanguageSettings || 
-            showAvatarSelector ||
-            showSettingsModal
+            showAvatarSelector
         );
         
         setIsAnyModalOpen(isModalOpen);
         return () => setIsAnyModalOpen(false);
-    }, [showEditProfile, showChangePassword, showLanguageSettings, showAvatarSelector, showSettingsModal, setIsAnyModalOpen]);
+    }, [showEditProfile, showChangePassword, showLanguageSettings, showAvatarSelector, setIsAnyModalOpen]);
 
     // Password Change State
     const [currentPassword, setCurrentPassword] = useState('');
@@ -197,15 +195,7 @@ const Profile = () => {
             </Helmet>
             <Header />
             <main className="pt-24 pb-32 px-4 max-w-lg mx-auto space-y-8 relative">
-                {/* Profile Header */}
-                <div className="absolute top-24 right-4 z-10">
-                    <button 
-                        onClick={() => setShowSettingsModal(true)}
-                        className="p-3 rounded-2xl bg-secondary/80 backdrop-blur-md border border-border/50 text-foreground shadow-lg active:scale-95 transition-all hover:bg-secondary"
-                    >
-                        <Settings className="w-6 h-6" />
-                    </button>
-                </div>
+
 
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center text-center space-y-4">
                     <div className="relative">
@@ -362,7 +352,171 @@ const Profile = () => {
                     </div>
                 )}
 
-                {/* Settings list moved to modal */}
+                {/* Settings Section */}
+                <div className="space-y-6 pt-4">
+                    <div className="px-2">
+                        <span className="text-[11px] font-bold tracking-wide text-primary/70 uppercase">{t('common.settings')}</span>
+                        <div className="h-[1px] w-8 bg-border/50 mt-1" />
+                    </div>
+
+                    <div className="space-y-3 px-2">
+                        <div
+                            onClick={() => setShowEditProfile(true)}
+                            className="bg-secondary/30 rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:bg-secondary/50 transition-all group"
+                        >
+                            <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                                    <Edit2 className="w-5 h-5 text-primary" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-bold text-foreground">{t('common.account_details')}</p>
+                                    <p className="text-xs text-muted-foreground">{t('common.account_details_desc')}</p>
+                                </div>
+                            </div>
+                            <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                        </div>
+
+                        <div
+                            onClick={() => setShowChangePassword(true)}
+                            className="bg-secondary/30 rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:bg-secondary/50 transition-all group"
+                        >
+                            <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 rounded-xl bg-destructive/10 flex items-center justify-center">
+                                    <Lock className="w-5 h-5 text-destructive" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-bold text-foreground">{t('common.change_password')}</p>
+                                    <p className="text-xs text-muted-foreground">{t('common.change_password_desc')}</p>
+                                </div>
+                            </div>
+                            <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                        </div>
+
+                        <div
+                            onClick={() => navigate('/support')}
+                            className="bg-secondary/30 rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:bg-secondary/50 transition-all group"
+                        >
+                            <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center">
+                                    <HelpCircle className="w-5 h-5 text-purple-600" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-bold text-foreground">{t('common.help')} & {t('common.support')}</p>
+                                    <p className="text-xs text-muted-foreground">{t('common.help_desc')}</p>
+                                </div>
+                            </div>
+                            <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                        </div>
+
+                        <div
+                            onClick={() => setShowLanguageSettings(true)}
+                            className="bg-secondary/30 rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:bg-secondary/50 transition-all group"
+                        >
+                            <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center">
+                                    <Languages className="w-5 h-5 text-indigo-600" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-bold text-foreground">{t('common.language')} & Regional</p>
+                                    <p className="text-xs text-muted-foreground">{user.language || 'English'}</p>
+                                </div>
+                            </div>
+                            <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                        </div>
+
+                        {notificationPermission !== 'granted' && (
+                            <div
+                                onClick={async () => {
+                                    await requestPushNotifications();
+                                    if (typeof Notification !== 'undefined') {
+                                        setNotificationPermission(Notification.permission);
+                                    }
+                                }}
+                                className="bg-secondary/30 rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:bg-secondary/50 transition-all group"
+                            >
+                                <div className="flex items-center gap-4">
+                                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                                        <BellRing className="w-5 h-5 text-primary" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-bold text-foreground">{t('common.turn_on_notifications')}</p>
+                                        <p className="text-xs text-muted-foreground">{t('common.turn_on_notifications_desc')}</p>
+                                    </div>
+                                </div>
+                                <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                            </div>
+                        )}
+
+                        <div
+                            onClick={() => navigate('/privacy')}
+                            className="bg-secondary/30 rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:bg-secondary/50 transition-all group"
+                        >
+                            <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center">
+                                    <Shield className="w-5 h-5 text-orange-600" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-bold text-foreground">{t('common.privacy_policy')}</p>
+                                    <p className="text-xs text-muted-foreground">{t('common.privacy_policy_desc')}</p>
+                                </div>
+                            </div>
+                            <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                        </div>
+
+                        <div
+                            onClick={() => navigate('/terms')}
+                            className="bg-secondary/30 rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:bg-secondary/50 transition-all group"
+                        >
+                            <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                                    <FileText className="w-5 h-5 text-blue-600" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-bold text-foreground">{t('common.terms_and_conditions')}</p>
+                                    <p className="text-xs text-muted-foreground">{t('common.terms_and_conditions_desc')}</p>
+                                </div>
+                            </div>
+                            <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                        </div>
+
+                        {user.role === 'vendor' && (
+                            <div
+                                onClick={() => navigate('/vendor/config')}
+                                className="bg-secondary/30 rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:bg-secondary/50 transition-all group"
+                            >
+                                <div className="flex items-center gap-4">
+                                    <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
+                                        <ImageIcon className="w-5 h-5 text-amber-600" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-bold text-foreground">Store Configuration</p>
+                                        <p className="text-xs text-muted-foreground">Identity, Hours & Location</p>
+                                    </div>
+                                </div>
+                                <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                            </div>
+                        )}
+
+                        <div className="pt-4">
+                            <button
+                                onClick={() => { 
+                                    logout(); 
+                                    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth < 768;
+                                    navigate(isMobile ? '/browse' : '/'); 
+                                }}
+                                className="w-full bg-slate-50 hover:bg-secondary/50 rounded-2xl p-4 flex items-center justify-between text-red-600 transition-all group shadow-sm border border-border/20"
+                            >
+                                <div className="flex items-center gap-4">
+                                    <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center">
+                                        <LogOut className="w-5 h-5" />
+                                    </div>
+                                    <p className="text-sm font-black uppercase tracking-widest">{t('common.logout')}</p>
+                                </div>
+                                <ChevronRight className="w-5 h-5 text-red-300 group-hover:text-red-600 transition-colors" />
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </main>
 
             {/* Modals */}
@@ -522,184 +676,7 @@ const Profile = () => {
                     </div>
                 )}
 
-                {/* Settings Modal */}
-                {showSettingsModal && (
-                    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center">
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowSettingsModal(false)} className="absolute inset-0 bg-background/80 backdrop-blur-md" />
-                        <motion.div 
-                            initial={{ y: "100%", opacity: 0 }} 
-                            animate={{ y: 0, opacity: 1 }} 
-                            exit={{ y: "100%", opacity: 0 }} 
-                            className="relative w-full max-w-lg glass-strong rounded-t-[3rem] sm:rounded-[3rem] p-8 shadow-2xl space-y-6 max-h-[85vh] overflow-y-auto"
-                        >
-                            <div className="flex items-center justify-between mb-2">
-                                <div className="space-y-1">
-                                    <h2 className="text-2xl font-black tracking-tight">{t('common.settings')}</h2>
-                                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Customize your experience</p>
-                                </div>
-                                <button onClick={() => setShowSettingsModal(false)} className="p-3 hover:bg-secondary rounded-2xl transition-colors"><X className="w-6 h-6" /></button>
-                            </div>
 
-                            <div className="space-y-3">
-                                <div
-                                    onClick={() => { setShowSettingsModal(false); setShowEditProfile(true); }}
-                                    className="bg-secondary/30 rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:bg-secondary/50 transition-all group"
-                                >
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                                            <Edit2 className="w-5 h-5 text-primary" />
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-bold text-foreground">{t('common.account_details')}</p>
-                                            <p className="text-xs text-muted-foreground">{t('common.account_details_desc')}</p>
-                                        </div>
-                                    </div>
-                                    <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
-                                </div>
-
-                                <div
-                                    onClick={() => { setShowSettingsModal(false); setShowChangePassword(true); }}
-                                    className="bg-secondary/30 rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:bg-secondary/50 transition-all group"
-                                >
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 rounded-xl bg-destructive/10 flex items-center justify-center">
-                                            <Lock className="w-5 h-5 text-destructive" />
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-bold text-foreground">{t('common.change_password')}</p>
-                                            <p className="text-xs text-muted-foreground">{t('common.change_password_desc')}</p>
-                                        </div>
-                                    </div>
-                                    <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
-                                </div>
-
-                                <div
-                                    onClick={() => { setShowSettingsModal(false); navigate('/support'); }}
-                                    className="bg-secondary/30 rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:bg-secondary/50 transition-all group"
-                                >
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center">
-                                            <HelpCircle className="w-5 h-5 text-purple-600" />
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-bold text-foreground">{t('common.help')} & {t('common.support')}</p>
-                                            <p className="text-xs text-muted-foreground">{t('common.help_desc')}</p>
-                                        </div>
-                                    </div>
-                                    <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
-                                </div>
-
-                                <div
-                                    onClick={() => { setShowSettingsModal(false); setShowLanguageSettings(true); }}
-                                    className="bg-secondary/30 rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:bg-secondary/50 transition-all group"
-                                >
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center">
-                                            <Languages className="w-5 h-5 text-indigo-600" />
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-bold text-foreground">{t('common.language')} & Regional</p>
-                                            <p className="text-xs text-muted-foreground">{user.language || 'English'}</p>
-                                        </div>
-                                    </div>
-                                    <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
-                                </div>
-
-                                {notificationPermission !== 'granted' && (
-                                    <div
-                                        onClick={async () => {
-                                            await requestPushNotifications();
-                                            if (typeof Notification !== 'undefined') {
-                                                setNotificationPermission(Notification.permission);
-                                            }
-                                        }}
-                                        className="bg-secondary/30 rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:bg-secondary/50 transition-all group"
-                                    >
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                                                <BellRing className="w-5 h-5 text-primary" />
-                                            </div>
-                                            <div>
-                                                <p className="text-sm font-bold text-foreground">{t('common.turn_on_notifications')}</p>
-                                                <p className="text-xs text-muted-foreground">{t('common.turn_on_notifications_desc')}</p>
-                                            </div>
-                                        </div>
-                                        <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
-                                    </div>
-                                )}
-
-                                <div
-                                    onClick={() => { setShowSettingsModal(false); navigate('/privacy'); }}
-                                    className="bg-secondary/30 rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:bg-secondary/50 transition-all group"
-                                >
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center">
-                                            <Shield className="w-5 h-5 text-orange-600" />
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-bold text-foreground">{t('common.privacy_policy')}</p>
-                                            <p className="text-xs text-muted-foreground">{t('common.privacy_policy_desc')}</p>
-                                        </div>
-                                    </div>
-                                    <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
-                                </div>
-
-                                <div
-                                    onClick={() => { setShowSettingsModal(false); navigate('/terms'); }}
-                                    className="bg-secondary/30 rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:bg-secondary/50 transition-all group"
-                                >
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
-                                            <FileText className="w-5 h-5 text-blue-600" />
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-bold text-foreground">{t('common.terms_and_conditions')}</p>
-                                            <p className="text-xs text-muted-foreground">{t('common.terms_and_conditions_desc')}</p>
-                                        </div>
-                                    </div>
-                                    <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
-                                </div>
-
-                                {user.role === 'vendor' && (
-                                    <div
-                                        onClick={() => { setShowSettingsModal(false); navigate('/vendor/config'); }}
-                                        className="bg-secondary/30 rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:bg-secondary/50 transition-all group"
-                                    >
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
-                                                <ImageIcon className="w-5 h-5 text-amber-600" />
-                                            </div>
-                                            <div>
-                                                <p className="text-sm font-bold text-foreground">Store Configuration</p>
-                                                <p className="text-xs text-muted-foreground">Identity, Hours & Location</p>
-                                            </div>
-                                        </div>
-                                        <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
-                                    </div>
-                                )}
-
-                                <div className="pt-4">
-                                    <button
-                                        onClick={() => { 
-                                            logout(); 
-                                            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth < 768;
-                                            navigate(isMobile ? '/browse' : '/'); 
-                                        }}
-                                        className="w-full bg-red-500/10 hover:bg-red-500/20 rounded-2xl p-4 flex items-center justify-between text-red-600 transition-all group"
-                                    >
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center">
-                                                <LogOut className="w-5 h-5" />
-                                            </div>
-                                            <p className="text-sm font-black uppercase tracking-widest">{t('common.logout')}</p>
-                                        </div>
-                                        <ChevronRight className="w-5 h-5 text-red-300 group-hover:text-red-600 transition-colors" />
-                                    </button>
-                                </div>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
 
                 {/* Avatar Selector Modal */}
                 {showAvatarSelector && (

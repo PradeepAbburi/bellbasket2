@@ -438,7 +438,7 @@ const VendorPlans = () => {
                                     auth.signOut();
                                     window.location.href = '/';
                                 }}
-                                className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-white text-destructive border border-destructive/20 font-black text-xs uppercase tracking-widest hover:bg-destructive hover:text-white transition-all active:scale-95 shadow-lg"
+                                className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-slate-50 text-destructive border border-destructive/20 font-black text-xs uppercase tracking-widest hover:bg-destructive hover:text-white transition-all active:scale-95 shadow-lg"
                             >
                                 <LogOut className="w-4 h-4" />
                                 Logout & Exit
