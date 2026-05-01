@@ -1676,13 +1676,13 @@ const CustomerHome = () => {
                     </div>
                   )}
 
-                  {/* Products Section - Show when searching OR category selected */}
-                  {(activeSearch || selectedCategory) && (searchResultType === 'all' || searchResultType === 'products') && (
+                  {/* Products Section - Show only when searching */}
+                  {activeSearch && (searchResultType === 'all' || searchResultType === 'products') && (
                     <div className="space-y-4">
                       <div className="flex items-center gap-2">
                         <div className="w-1 h-4 bg-primary rounded-full" />
                         <h2 className="text-sm font-black uppercase tracking-widest text-foreground/70">
-                          {activeSearch ? (activeMode === 'service' ? 'Matching Services' : 'Matching Products') : (activeMode === 'service' ? `All ${selectedCategory} Services` : `All ${selectedCategory} Products`)}
+                          {activeMode === 'service' ? 'Matching Services' : 'Matching Products'}
                         </h2>
                       </div>
                       
