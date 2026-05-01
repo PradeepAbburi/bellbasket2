@@ -26,7 +26,6 @@ const ReceiptDetailPage = () => {
     const [type, setType] = useState<'order' | 'booking' | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [threadOrders, setThreadOrders] = useState<Order[]>([]);
 
     // Review local state
     const [review, setReview] = useState({ rating: 0, text: '', isAnonymous: false, submitted: false, submittedAt: '' });
@@ -73,23 +72,6 @@ const ReceiptDetailPage = () => {
         fetchReceipt();
     }, [id]);
 
-    useEffect(() => {
-        if (type === 'order' && data?.threadId) {
-            setLoading(true);
-            const q = query(collection(db, 'orders'), where('threadId', '==', data.threadId));
-            const unsubscribe = onSnapshot(q, (snapshot) => {
-                const orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
-                setThreadOrders(orders.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
-                setLoading(false);
-            }, (err) => {
-                console.error("Thread fetch error:", err);
-                setLoading(false);
-            });
-            return () => unsubscribe();
-        } else {
-            setThreadOrders([]);
-        }
-    }, [type, data?.threadId]);
 
     const handleReviewSubmit = async () => {
         if (!id || !type || !data) return;
@@ -204,75 +186,20 @@ const ReceiptDetailPage = () => {
                         <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-accent/10 rounded-full blur-3xl -z-10" />
                         
                         {type === 'order' ? (
-                            threadOrders.length > 1 ? (
-                                <div className="space-y-12">
-                                    <div className="flex items-center gap-3 px-2 mb-4">
-                                        <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center">
-                                            <ShoppingBag className="w-5 h-5 text-primary" />
-                                        </div>
-                                        <div>
-                                            <h2 className="text-sm font-black text-foreground uppercase tracking-[0.2em]">{t('common.receipts.shopping_journey')}</h2>
-                                            <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">{t('common.receipts.shop_stops_connected', { count: threadOrders.length })}</p>
-                                        </div>
-                                    </div>
-
-                                    <div className="relative space-y-20 pl-20 pr-2">
-                                        {/* Premium Animated Sidebar Line */}
-                                        <div className="absolute left-[32px] top-6 bottom-10 w-[2.5px] rounded-full bg-gradient-to-b from-primary via-accent to-primary opacity-20" />
-                                        
-                                        {threadOrders.map((order, idx) => (
-                                            <div key={order.id} className="relative group/timeline">
-                                                {/* Sophisticated Stop Marker */}
-                                                <div className="absolute -left-[64px] top-6 z-20 flex flex-col items-center gap-2">
-                                                    <div className={`w-9 h-9 rounded-[1rem] border-[1.5px] flex items-center justify-center transition-all duration-500 group-hover/timeline:rotate-[10deg] shadow-2xl backdrop-blur-xl ${order.id === id ? 'bg-primary border-primary text-white shadow-primary/40 ring-4 ring-primary/10 scale-110' : 'bg-background border-border/60 text-muted-foreground'}`}>
-                                                        <span className="text-[12px] font-black tracking-tighter">{idx + 1}</span>
-                                                    </div>
-                                                    
-                                                    {/* Animated Active Indicator */}
-                                                    {order.id === id && (
-                                                        <div className="absolute inset-0 -z-10 bg-primary/20 rounded-[1rem] animate-ping duration-[2500ms]" />
-                                                    )}
-                                                </div>
-                                                
-                                                {/* Clean Connector Labels */}
-                                                <div className="absolute -left-14 top-24 pointer-events-none opacity-10">
-                                                    <div className="w-[1px] h-12 bg-border mx-auto" />
-                                                </div>
-
-                                                <RenderOrderCard
-                                                    order={order}
-                                                    i={idx}
-                                                    review={order.id === id ? review : (order.review ? { ...order.review, submitted: true } as any : { rating: 0, text: '', submitted: false })}
-                                                    onRate={(rating) => order.id === id && setReview(prev => ({ ...prev, rating }))}
-                                                    onReviewChange={(text) => order.id === id && setReview(prev => ({ ...prev, text }))}
-                                                    onAnonymous={(isAnonymous) => order.id === id && setReview(prev => ({ ...prev, isAnonymous }))}
-                                                    onSubmit={order.id === id ? handleReviewSubmit : () => {}}
-                                                    t={t}
-                                                    getStoreForOrder={getStoreForOrder}
-                                                    userCoords={userCoords}
-                                                    standalone={true}
-                                                    hasReviewedStore={Array.isArray(getStoreForOrder(order.storeId)?.reviews) && getStoreForOrder(order.storeId)!.reviews!.some((r: any) => r.userId === user?.id)}
-                                                />
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            ) : (
-                                <RenderOrderCard
-                                    order={data}
-                                    i={0}
-                                    review={review}
-                                    onRate={(rating) => setReview(prev => ({ ...prev, rating }))}
-                                    onReviewChange={(text) => setReview(prev => ({ ...prev, text }))}
-                                    onAnonymous={(isAnonymous) => setReview(prev => ({ ...prev, isAnonymous }))}
-                                    onSubmit={handleReviewSubmit}
-                                    t={t}
-                                    getStoreForOrder={getStoreForOrder}
-                                    userCoords={userCoords}
-                                    standalone={true}
-                                    hasReviewedStore={Array.isArray(getStoreForOrder(data.storeId)?.reviews) && getStoreForOrder(data.storeId)!.reviews!.some((r: any) => r.userId === user?.id)}
-                                />
-                            )
+                            <RenderOrderCard
+                                order={data}
+                                i={0}
+                                review={review}
+                                onRate={(rating) => setReview(prev => ({ ...prev, rating }))}
+                                onReviewChange={(text) => setReview(prev => ({ ...prev, text }))}
+                                onAnonymous={(isAnonymous) => setReview(prev => ({ ...prev, isAnonymous }))}
+                                onSubmit={handleReviewSubmit}
+                                t={t}
+                                getStoreForOrder={getStoreForOrder}
+                                userCoords={userCoords}
+                                standalone={true}
+                                hasReviewedStore={Array.isArray(getStoreForOrder(data.storeId)?.reviews) && getStoreForOrder(data.storeId)!.reviews!.some((r: any) => r.userId === user?.id)}
+                            />
                         ) : (
                             <RenderBookingCard
                                 booking={data}

@@ -7,10 +7,10 @@ import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const BottomNav = () => {
-    const { user, cart, orders, serviceBookings, stores, cartSubtotal } = useApp();
+    const { user, cart, orders, serviceBookings, stores, cartSubtotal, isAnyModalOpen } = useApp();
     const { t } = useTranslation();
     const location = useLocation();
-    
+
     const cartCount = React.useMemo(() => cart.reduce((s, c) => s + c.quantity, 0), [cart]);
 
     // Calculate active items for badges
@@ -23,14 +23,17 @@ const BottomNav = () => {
         serviceBookings.filter(b => !['completed', 'rejected'].includes(b.status)).length,
     [orders, serviceBookings]);
 
+    if (isAnyModalOpen) return null;
+    
     // Hide if not logged in, not verified, or on auth/setup pages, or for HR/Admin roles
-    if (!user || !user.isVerified || user.role === 'hr' || user.role === 'admin' || location.pathname === '/auth' || location.pathname === '/vendor/setup') return null;
+    if (!user || !user.isVerified || user.role === 'hr' || user.role === 'admin' || location.pathname === '/' || location.pathname === '/auth' || location.pathname === '/vendor/setup') return null;
 
     // Hide BottomNav on add/edit product, subscription, notes, and deals page
     if (
         location.pathname === '/vendor/subscription' || 
         location.pathname === '/vendor/notes' || 
         location.pathname === '/vendor/deals' || 
+        location.pathname === '/vendor/combos' ||
         location.pathname === '/vendor/config' ||
         location.pathname === '/vendor/products/new' ||
         location.pathname.startsWith('/vendor/products/edit/')
@@ -48,85 +51,62 @@ const BottomNav = () => {
     return (
         <div id="bottom-nav" className="fixed bottom-0 left-0 right-0 z-50 md:hidden pointer-events-none">
             {/* View Cart Banner - Floating above the bottom nav */}
-            {!isVendor && cart.length > 0 && location.pathname !== '/cart' && (
-                <div
-                    className="absolute bottom-full mb-4 left-4 right-4 pointer-events-auto md:hidden"
-                >
-                    <NavLink
-                        to="/cart"
-                        className="flex items-center justify-between bg-primary text-primary-foreground h-14 px-6 rounded-2xl shadow-lg shadow-primary/20"
-                    >
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-white/20 rounded-xl">
-                                <ShoppingCart className="w-5 h-5" />
-                            </div>
-                            <div className="flex flex-col -gap-0.5">
-                                <span className="font-black text-sm leading-none">₹{cartSubtotal}</span>
-                                <span className="text-[10px] font-bold opacity-80">{cartCount} {cartCount === 1 ? 'Item' : 'Items'}</span>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-xs">
-                            {t('common.cart')} <ChevronRight className="w-4 h-4" />
-                        </div>
-                    </NavLink>
-                </div>
-            )}
 
-            <nav className={`${(location.pathname.startsWith('/vendor')) ? 'bg-white dark:bg-[#0D0D0D]' : 'bg-white/95 dark:bg-[#0D0D0D]/95 backdrop-blur-md'} border-t border-border flex items-center justify-around pointer-events-auto pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_30px_rgba(0,0,0,0.3)]`}>
-                {isVendor ? (
-                    <>
-                        <NavItem
-                            to="/vendor"
-                            end
-                            icon={LayoutDashboard}
-                            label={t('common.dashboard')}
-                        />
-                        <NavItem
-                            to="/vendor/products"
-                            icon={Package}
-                            label={isServiceStore ? 'Services' : t('common.products')}
-                        />
-                        <NavItem
-                            to={isServiceStore ? "/vendor/bookings" : "/vendor/orders"}
-                            icon={ShoppingBag}
-                            label={isServiceStore ? 'Bookings' : t('common.orders')}
-                            badge={isServiceStore ? activeBookingsCount : activeOrdersCount}
-                        />
-                    </>
-                ) : (
-                    <>
-                        <NavItem
-                            to="/browse"
-                            icon={Search}
-                            label={t('common.browse')}
-                        />
-                        <NavItem
-                            to="/deals"
-                            icon={Zap}
-                            label="Deals"
-                        />
-                        <NavItem
-                            to="/receipts"
-                            icon={ShoppingBag}
-                            label={t('common.orders')}
-                            badge={activeReceiptsCount}
-                        />
-                        <NavItem
-                            to="/cart"
-                            icon={ShoppingCart}
-                            label={t('common.cart')}
-                            badge={cartCount}
-                        />
-                    </>
-                )}
 
-                <NavItem
-                    to="/profile"
-                    icon={User}
-                    label={t('common.profile')}
-                    avatarUrl={getAvatarUrl(user?.avatarUrl || user?.id || 'User')}
-                />
-            </nav>
+            <div className="relative pointer-events-auto bg-white dark:bg-[#0D0D0D]">
+                {/* Background extension for overscroll/gaps */}
+                <div className="absolute top-0 left-0 right-0 h-[200px] bg-white dark:bg-[#0D0D0D] -z-10" />
+                
+                <nav className={`${(location.pathname.startsWith('/vendor')) ? '' : 'bg-white/95 dark:bg-[#0D0D0D]/95 backdrop-blur-md'} border-t border-border flex items-center justify-around pb-[max(env(safe-area-inset-bottom),6px)] pt-1 shadow-[0_-8px_30px_rgba(0,0,0,0.15)]`}>
+                    {isVendor ? (
+                        <>
+                            <NavItem
+                                to="/vendor"
+                                end
+                                icon={LayoutDashboard}
+                                label={t('common.dashboard')}
+                            />
+                            <NavItem
+                                to="/vendor/products"
+                                icon={Package}
+                                label={isServiceStore ? 'Services' : t('common.products')}
+                            />
+                            <NavItem
+                                to={isServiceStore ? "/vendor/bookings" : "/vendor/orders"}
+                                icon={ShoppingBag}
+                                label={isServiceStore ? 'Bookings' : t('common.orders')}
+                                badge={isServiceStore ? activeBookingsCount : activeOrdersCount}
+                            />
+                        </>
+                    ) : (
+                        <>
+                            <NavItem
+                                to="/browse"
+                                icon={Home}
+                                label={t('common.home')}
+                            />
+                            <NavItem
+                                to="/deals"
+                                icon={Zap}
+                                label={t('common.deals')}
+                            />
+                            <NavItem
+                                to="/receipts"
+                                icon={ShoppingBag}
+                                label={t('common.orders')}
+                                badge={activeReceiptsCount + cartCount}
+                            />
+                        </>
+                    )}
+
+                    <NavItem
+                        to="/profile"
+                        icon={User}
+                        label={t('common.profile')}
+                        avatarUrl={getAvatarUrl(user?.avatarUrl || user?.id || 'User')}
+                    />
+                </nav>
+            </div>
         </div>
     );
 };
@@ -139,7 +119,7 @@ const NavItem = memo(({ to, icon: Icon, label, badge, end = false, avatarUrl }: 
         <NavLink
             to={to}
             end={end}
-            className="relative flex flex-col items-center justify-center py-2 flex-1 group hover:bg-muted/30 transition-colors"
+            className="relative flex flex-col items-center justify-center py-1.5 flex-1 group hover:bg-muted/30 transition-colors"
         >
             <div className={`relative transition-transform duration-300 ${isActive ? 'scale-110' : 'group-hover:scale-105'}`}>
                 {avatarUrl ? (

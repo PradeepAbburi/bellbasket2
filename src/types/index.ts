@@ -36,6 +36,7 @@ export interface Product {
   country?: string;
   storeName?: string;
   storeType?: 'product' | 'service';
+  deal?: Deal;
 }
 
 export interface StoreReview {
@@ -86,6 +87,7 @@ export interface Store {
   district?: string;
   state?: string;
   country?: string;
+  website?: string;
 }
 
 // ... rest of the interfaces
@@ -132,7 +134,6 @@ export interface Order {
   deletedByUser?: boolean;
   deletedByVendor?: boolean;
   completedAt?: string;
-  threadId?: string;
 }
 
 export interface ServiceBooking {
@@ -203,6 +204,7 @@ export interface User {
   avatarUrl?: string;
   deviceType?: 'native_app' | 'web_push';
   lastTokenRefresh?: string;
+  savedStores?: { storeId: string; savedAt: string }[];
 }
 
 export interface Staff {
@@ -311,4 +313,6 @@ export interface ProductRequest {
   status: 'pending' | 'fulfilled';
   image?: string;
   createdAt: string;
+  deletedByUser?: boolean;
+  deletedByVendor?: boolean;
 }

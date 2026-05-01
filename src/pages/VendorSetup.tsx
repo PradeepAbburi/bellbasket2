@@ -35,6 +35,7 @@ const VendorSetup = () => {
     const [gstin, setGstin] = useState('');
     const [imageURL, setImageURL] = useState('');
     const [phone, setPhone] = useState('');
+    const [website, setWebsite] = useState('');
     const [referralCode, setReferralCode] = useState('');
     
     // UI states
@@ -410,7 +411,8 @@ const VendorSetup = () => {
                     mandal,
                     district,
                     state,
-                    country
+                    country,
+                    website: website || ""
                 };
 
 
@@ -432,6 +434,7 @@ const VendorSetup = () => {
             toast.success('Your store is now LIVE!', {
                 description: "Enjoy your free month of Pro! Start adding products now.",
             });
+            sessionStorage.setItem('just_finished_setup', 'true');
             navigate('/vendor');
         } catch (error: any) {
             console.error("Launch Error Trace:", error);
@@ -452,9 +455,9 @@ const VendorSetup = () => {
                         <Store className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                        <h1 className="text-sm font-black text-white uppercase tracking-tight">BellBasket Partner</h1>
+                        <h1 className="text-sm font-black text-white uppercase tracking-tight">{t('vendor_dashboard.partner')}</h1>
                         <p className="text-[10px] text-zinc-400 uppercase tracking-widest font-black">
-                            Store Registration
+                            {t('vendor_dashboard.registration')}
                         </p>
                     </div>
                 </div>
@@ -462,26 +465,26 @@ const VendorSetup = () => {
                     onClick={() => navigate('/vendor/subscription?claim=true')}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest hover:bg-primary/20 transition-all"
                 >
-                    <Ticket className="w-3 h-3" /> Have a Coupon?
+                    <Ticket className="w-3 h-3" /> {t('vendor_dashboard.have_coupon')}
                 </button>
             </header>
 
             <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-8 space-y-8">
                 <div className="space-y-2 text-center">
-                    <h2 className="text-3xl font-black text-foreground tracking-tight">Store Setup</h2>
-                    <p className="text-sm text-muted-foreground">Complete your profile to start accepting orders.</p>
+                    <h2 className="text-3xl font-black text-foreground tracking-tight">{t('vendor_dashboard.setup_title')}</h2>
+                    <p className="text-sm text-muted-foreground">{t('vendor_dashboard.setup_desc')}</p>
                 </div>
 
                 <div className="space-y-8">
                     {/* Basic Info Card */}
                     <div className="glass rounded-[32px] p-6 space-y-6">
                         <h3 className="text-xs font-black uppercase tracking-[0.2em] text-primary flex items-center gap-2">
-                            <Store className="w-4 h-4" /> Basic Information
+                            <Store className="w-4 h-4" /> {t('vendor_dashboard.basic_info')}
                         </h3>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Store Name <span className="text-red-500">*</span></label>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">{t('vendor_dashboard.store_name')} <span className="text-red-500">*</span></label>
                                 <input
                                     value={storeName}
                                     onChange={e => setStoreName(e.target.value)}
@@ -492,7 +495,7 @@ const VendorSetup = () => {
                             </div>
 
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Phone Number <span className="text-red-500">*</span></label>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">{t('vendor_dashboard.phone_number')} <span className="text-red-500">*</span></label>
                                 <input
                                     type="tel"
                                     value={phone}
@@ -504,21 +507,32 @@ const VendorSetup = () => {
                             </div>
 
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Store Type</label>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Store Website (Optional)</label>
+                                <input
+                                    type="url"
+                                    value={website}
+                                    onChange={e => setWebsite(e.target.value)}
+                                    placeholder="https://yourstore.com"
+                                    className="w-full px-5 py-4 rounded-2xl bg-secondary/50 border-0 text-sm font-bold text-foreground focus:ring-4 focus:ring-primary/10 transition-all"
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">{t('vendor_dashboard.store_type')}</label>
                                 <div className="grid grid-cols-2 gap-2">
                                     <button
                                         type="button"
                                         onClick={() => setStoreType('product')}
                                         className={`px-5 py-4 rounded-2xl text-sm font-bold transition-all ${storeType === 'product' ? 'bg-primary text-white' : 'bg-secondary/50 text-foreground hover:bg-secondary/80'}`}
                                     >
-                                        Products Store
+                                        {t('vendor_dashboard.products_store')}
                                     </button>
                                     <button
                                         type="button"
                                         onClick={() => setStoreType('service')}
                                         className={`px-5 py-4 rounded-2xl text-sm font-bold transition-all ${storeType === 'service' ? 'bg-primary text-white' : 'bg-secondary/50 text-foreground hover:bg-secondary/80'}`}
                                     >
-                                        Service Booking
+                                        {t('vendor_dashboard.service_booking')}
                                     </button>
                                 </div>
                             </div>
@@ -527,8 +541,8 @@ const VendorSetup = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-4">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1 flex justify-between items-center">
-                                    Business Category
-                                    <span className="text-[9px] text-primary bg-primary/10 px-2 py-0.5 rounded-full lowercase tracking-normal">Select the best match for your store</span>
+                                    {t('vendor_dashboard.biz_category')}
+                                    <span className="text-[9px] text-primary bg-primary/10 px-2 py-0.5 rounded-full lowercase tracking-normal">{t('vendor_dashboard.cat_select_desc')}</span>
                                 </label>
                                 
                                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -548,7 +562,7 @@ const VendorSetup = () => {
                                                     <Icon className={`w-6 h-6 ${isSelected ? 'animate-pulse' : ''}`} />
                                                 </div>
                                                 <span className={`text-[11px] font-black uppercase tracking-widest text-center line-clamp-1 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`}>
-                                                    {catName}
+                                                    {t(`categories.${catName}`, { defaultValue: catName })}
                                                 </span>
                                                 
                                                 {isSelected && (
@@ -569,7 +583,7 @@ const VendorSetup = () => {
 
                             <div className="space-y-2">
                                 <div className="flex justify-between items-center ml-1">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">GSTIN Number (Optional)</label>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{t('vendor_dashboard.gstin')}</label>
                                 </div>
                                 <input
                                     value={gstin}
@@ -581,7 +595,7 @@ const VendorSetup = () => {
 
                             <div className="space-y-2">
                                 <div className="flex justify-between items-center ml-1">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Referral ID (Optional)</label>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{t('vendor_dashboard.referral')}</label>
                                 </div>
                                 <input
                                     value={referralCode}
@@ -597,7 +611,7 @@ const VendorSetup = () => {
                     {/* Storefront Image Card */}
                     <div className="glass rounded-[32px] p-6 space-y-6">
                         <h3 className="text-xs font-black uppercase tracking-[0.2em] text-primary flex items-center gap-2">
-                            <Camera className="w-4 h-4" /> Storefront Image
+                            <Camera className="w-4 h-4" /> {t('vendor_dashboard.storefront_img')}
                         </h3>
 
                         <div className="flex flex-col gap-4">
@@ -622,8 +636,8 @@ const VendorSetup = () => {
                                             <Upload className="w-8 h-8 text-primary" />
                                         </div>
                                         <div className="text-center">
-                                            <p className="font-black text-sm text-foreground">Add Storefront Image</p>
-                                            <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">Keep it bright & attractive</p>
+                                            <p className="font-black text-sm text-foreground">{t('vendor_dashboard.add_img')}</p>
+                                            <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">{t('vendor_dashboard.img_desc')}</p>
                                         </div>
                                     </div>
                                     
@@ -633,14 +647,14 @@ const VendorSetup = () => {
                                             onClick={() => fileInputRef.current?.click()}
                                             className="flex items-center justify-center gap-2 py-4 rounded-2xl bg-secondary hover:bg-secondary/80 text-foreground text-xs font-black uppercase tracking-widest transition-all active:scale-95"
                                         >
-                                            <Upload className="w-4 h-4" /> Upload
+                                            <Upload className="w-4 h-4" /> {t('common.upload')}
                                         </button>
                                         <button
                                             type="button"
                                             onClick={() => startCamera()}
                                             className="flex items-center justify-center gap-2 py-4 rounded-2xl bg-secondary hover:bg-secondary/80 text-foreground text-xs font-black uppercase tracking-widest transition-all active:scale-95"
                                         >
-                                            <Camera className="w-4 h-4" /> Camera
+                                            <Camera className="w-4 h-4" /> {t('common.camera')}
                                         </button>
                                     </div>
                                 </div>
@@ -658,7 +672,7 @@ const VendorSetup = () => {
                     {/* Location Card */}
                     <div className="glass rounded-[32px] p-6 space-y-6">
                         <h3 className="text-xs font-black uppercase tracking-[0.2em] text-primary flex items-center gap-2">
-                            <MapPin className="w-4 h-4" /> Store Location <span className="text-red-500">*</span>
+                            <MapPin className="w-4 h-4" /> {t('vendor_dashboard.store_location')} <span className="text-red-500">*</span>
                         </h3>
 
                         <div className="space-y-4">
@@ -668,7 +682,7 @@ const VendorSetup = () => {
                                     type="text"
                                     value={locationSearch}
                                     onChange={e => handleLocationSearch(e.target.value)}
-                                    placeholder="Search your shop area..."
+                                    placeholder={t('vendor_dashboard.search_area')}
                                     className="w-full pl-12 pr-12 py-4 rounded-2xl bg-secondary/50 border-0 text-sm font-bold text-foreground outline-none focus:ring-4 focus:ring-primary/10 transition-all"
                                 />
                                 <button
@@ -712,11 +726,11 @@ const VendorSetup = () => {
                             </div>
 
                             {/* BIGGER MAP WITH SATELLITE SUPPORT */}
-                            <div className="relative h-[450px] rounded-3xl overflow-hidden border-4 border-white shadow-xl">
-                                <Suspense fallback={<div className="h-full w-full bg-muted animate-pulse flex items-center justify-center text-xs font-black uppercase tracking-widest text-muted-foreground rotate-12">Calibrating Satellite View...</div>}>
+                             <div className="relative h-[450px] rounded-3xl overflow-hidden border-4 border-white shadow-xl">
+                                <Suspense fallback={<div className="h-full w-full bg-muted animate-pulse flex items-center justify-center text-xs font-black uppercase tracking-widest text-muted-foreground rotate-12">{t('vendor_dashboard.calibrating_sat')}</div>}>
                                     <MapView
                                         center={[storeLat, storeLng]}
-                                        centerLabel={storeAddress ? storeAddress.split(',')[0] : 'Your Store'}
+                                        centerLabel={storeAddress ? storeAddress.split(',')[0] : t('vendor_dashboard.your_store')}
                                         stores={[]}
                                         onMapClick={(lat, lng) => {
                                             setStoreLat(lat);
@@ -752,27 +766,27 @@ const VendorSetup = () => {
                         disabled={saving || !storeAddress}
                         className="w-full bg-primary text-primary-foreground py-5 rounded-3xl font-black text-sm flex items-center justify-center gap-3 transition-all disabled:opacity-50"
                     >
-                        {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Launch My Store <ArrowRight className="w-5 h-5" /></>}
+                        {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <>{t('vendor_dashboard.launch_store')} <ArrowRight className="w-5 h-5" /></>}
                     </button>
 
-                    <p className="text-[10px] text-center text-muted-foreground px-8 leading-relaxed">
-                        By launching your store, you agree to BellBasket's {' '}
+                     <p className="text-[10px] text-center text-muted-foreground px-8 leading-relaxed">
+                        {t('vendor_dashboard.terms_note')} {' '}
                         <button
                             type="button"
                             onClick={() => navigate('/privacy')}
                             className="text-primary hover:underline font-bold"
                         >
-                            Privacy Policy
+                            {t('vendor_dashboard.privacy_policy')}
                         </button>
-                        {' '}and{' '}
+                        {' '}{t('common.and')}{' '}
                         <button
                             type="button"
                             onClick={() => navigate('/terms')}
                             className="text-primary hover:underline font-bold"
                         >
-                            Terms & Conditions
+                            {t('vendor_dashboard.terms_conditions')}
                         </button>
-                        . We use your location and business details to connect you with nearby customers.
+                        . {t('vendor_dashboard.location_usage_note')}
                     </p>
                 </div>
 

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Store as StoreIcon, Power, PowerOff, Package, TrendingUp, ShoppingCart, Crown, Check, Star, MessageSquare, Send, Zap, Building2, BarChart3, Clock, Scissors, Settings, MessageCircle, ArrowRight, Image as ImageIcon, Lock, Save, Mail, XCircle, Share2, Phone, Camera, Upload, MapPin, Search, Navigation, X, KeyRound, ShieldAlert, BellRing, Rocket, FileText, StickyNote, Plus, PackageSearch } from 'lucide-react';
+import { Store as StoreIcon, Power, PowerOff, Package, TrendingUp, ShoppingCart, Crown, Check, Star, MessageSquare, Send, Zap, Building2, BarChart3, Clock, Scissors, Settings, MessageCircle, ArrowRight, Image as ImageIcon, Lock, Save, Mail, XCircle, Share2, Phone, Camera, Upload, MapPin, Search, Navigation, X, KeyRound, ShieldAlert, BellRing, Rocket, FileText, StickyNote, Plus, PackageSearch, Package2 } from 'lucide-react';
 import { getStoreVisualStatus } from '@/utils/store-status';
 import Header from '@/components/Header';
 import { useApp } from '@/context/AppContext';
@@ -52,6 +52,15 @@ const VendorDashboard = () => {
   const [showSupportModal, setShowSupportModal] = useState(false);
   const [supportQuery, setSupportQuery] = useState('');
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    const justFinished = sessionStorage.getItem('just_finished_setup') === 'true';
+    if (justFinished) {
+      sessionStorage.removeItem('just_finished_setup');
+      return true;
+    }
+    return false;
+  });
+  const [onboardingStep, setOnboardingStep] = useState(0);
 
   useEffect(() => {
     if (user?.subscriptionExpiry && user.plan !== 'none') {
@@ -105,7 +114,7 @@ const VendorDashboard = () => {
 
   const sendTestPush = async () => {
     if (!user?.id) return;
-    const loadingToast = toast.loading("Sending test push notification...");
+    const loadingToast = toast.loading(t('common.sending'));
     try {
       const response = await fetch('/api/notify', {
         method: 'POST',
@@ -405,7 +414,7 @@ const VendorDashboard = () => {
   };
 
   const handleBellBoost = () => {
-    toast.info("Coming Soon!", {
+    toast.info(t('common.coming_soon'), {
         duration: 5000
     });
   };
@@ -413,83 +422,91 @@ const VendorDashboard = () => {
   const isServiceStore = vendorStore?.storeType === 'service';
 
   const stats = [
-    { label: isServiceStore ? 'Total Services' : t('vendor_dashboard.total_products'), value: productCount, icon: isServiceStore ? Scissors : Package },
-    { label: isServiceStore ? 'Active Bookings' : t('vendor_dashboard.active_orders'), value: isServiceStore ? serviceBookings.length : vendorOrders.length, icon: ShoppingCart },
+    { label: isServiceStore ? t('vendor_dashboard.total_services') : t('vendor_dashboard.total_products'), value: productCount, icon: isServiceStore ? Scissors : Package },
+    { label: isServiceStore ? t('vendor_dashboard.active_bookings') : t('vendor_dashboard.active_orders'), value: isServiceStore ? serviceBookings.length : vendorOrders.length, icon: ShoppingCart },
     { label: t('vendor_dashboard.revenue'), value: `₹${revenue.toLocaleString()}`, icon: TrendingUp },
   ];
 
+  const onboardingSteps = [
+    { title: t('onboarding.vendor.products_title'), desc: t('onboarding.vendor.products_desc'), icon: Package },
+    { title: t('onboarding.vendor.orders_title'), desc: t('onboarding.vendor.orders_desc'), icon: ShoppingCart },
+    { title: t('onboarding.vendor.pack_title'), desc: t('onboarding.vendor.pack_desc'), icon: Check },
+    { title: t('onboarding.vendor.handover_title'), desc: t('onboarding.vendor.handover_desc'), icon: Zap },
+  ];
+
   return (
-    <div className="min-h-screen gradient-warm">
-      <Header />
-
-      {/* Share Modal */}
-      <AnimatePresence>
-        {showShareModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-          >
+    <>
+      <div className={`min-h-screen gradient-warm transition-all duration-500 ${showOnboarding ? 'blur-md pointer-events-none' : ''}`}>
+        <Header />
+        
+        {/* Share Modal */}
+        <AnimatePresence>
+          {showShareModal && (
             <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="bg-[#202020] w-full max-w-sm rounded-[2.5rem] p-8 relative shadow-2xl border border-white/10"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
             >
-              <button
-                onClick={() => setShowShareModal(false)}
-                className="absolute top-6 right-6 p-2 rounded-full hover:bg-secondary/50 text-muted-foreground transition-colors"
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                className="bg-[#202020] w-full max-w-sm rounded-[2.5rem] p-8 relative shadow-2xl border border-white/10"
               >
-                <XCircle className="w-5 h-5" />
-              </button>
+                <button
+                  onClick={() => setShowShareModal(false)}
+                  className="absolute top-6 right-6 p-2 rounded-full hover:bg-secondary/50 text-muted-foreground transition-colors"
+                >
+                  <XCircle className="w-5 h-5" />
+                </button>
 
-              <div className="text-center space-y-6">
-                <div className="space-y-2">
-                  <h2 className="text-2xl font-black text-foreground tracking-tight">Store QR Code</h2>
-                  <p className="text-sm text-muted-foreground font-medium">Customers can scan this to visit your store</p>
-                </div>
+                <div className="text-center space-y-6">
+                  <div className="space-y-2">
+                    <h2 className="text-2xl font-black text-foreground tracking-tight">{t('vendor_dashboard.store_qr')}</h2>
+                    <p className="text-sm text-muted-foreground font-medium">{t('vendor_dashboard.qr_desc')}</p>
+                  </div>
 
-                <div className="bg-gradient-to-br from-primary/5 to-secondary/5 p-8 rounded-[2rem] border border-primary/10 flex flex-col items-center justify-center gap-4">
-                  <QRCodeWithLogo value={storeUrl} size={180} logoSize={40} />
-                  <div className="flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary rounded-full text-xs font-black uppercase tracking-widest">
-                    <Zap className="w-3.5 h-3.5" />
-                    Permanent QR Code
+                  <div className="bg-gradient-to-br from-primary/5 to-secondary/5 p-8 rounded-[2rem] border border-primary/10 flex flex-col items-center justify-center gap-4">
+                    <QRCodeWithLogo value={storeUrl} size={180} logoSize={40} />
+                    <div className="flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary rounded-full text-xs font-black uppercase tracking-widest">
+                      <Zap className="w-3.5 h-3.5" />
+                      {t('store.permanent_qr')}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(storeUrl);
+                        toast.success("Link copied!");
+                      }}
+                      className="flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-secondary hover:bg-secondary/80 text-foreground font-bold text-sm transition-all border border-border/40"
+                    >
+                      {t('store.copy_link')}
+                    </button>
+                    <button
+                      className="flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-primary text-white font-bold text-sm transition-all shadow-sm"
+                      onClick={() => {
+                        if (navigator.share) {
+                          navigator.share({
+                            title: vendorStore?.name || "My Store",
+                            url: storeUrl
+                          });
+                        }
+                      }}
+                    >
+                      <Share2 className="w-4 h-4" /> {t('common.share')}
+                    </button>
                   </div>
                 </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(storeUrl);
-                      toast.success("Link copied!");
-                    }}
-                    className="flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-secondary hover:bg-secondary/80 text-foreground font-bold text-sm transition-all border border-border/40"
-                  >
-                    Copy Link
-                  </button>
-                  <button
-                    className="flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-primary text-white font-bold text-sm transition-all shadow-sm"
-                    onClick={() => {
-                      if (navigator.share) {
-                        navigator.share({
-                          title: vendorStore?.name || "My Store",
-                          url: storeUrl
-                        });
-                      }
-                    }}
-                  >
-                    <Share2 className="w-4 h-4" /> Share
-                  </button>
-                </div>
-              </div>
+              </motion.div>
             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          )}
+        </AnimatePresence>
 
-      <PullToRefresh onRefresh={refreshData} className="pt-20 pb-40 lg:pb-8 px-4 max-w-4xl mx-auto">
-        <div className="space-y-10">
+        <PullToRefresh onRefresh={refreshData} className="pt-20 pb-40 lg:pb-8 px-4 max-w-4xl mx-auto">
+          <div className="space-y-10">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-y-5 mb-8 pt-4">
           <div className="space-y-1">
             <h1 className="text-2xl font-bold text-foreground">{t('common.dashboard')}</h1>
@@ -500,7 +517,7 @@ const VendorDashboard = () => {
               className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 rounded-xl bg-secondary/80 text-foreground text-xs font-bold  transition-all shadow-sm"
               title="Share Store Link"
             >
-              <Share2 className="w-4 h-4" /> <span className="hidden sm:inline">Share Store</span>
+              <Share2 className="w-4 h-4" /> <span className="hidden sm:inline">{t('store.share_store')}</span>
             </button>
             <button
               onClick={handleBellBoost}
@@ -552,7 +569,7 @@ const VendorDashboard = () => {
             </button>
             {notificationPermission === 'denied' && (
               <div className="flex items-center gap-2 px-3 sm:px-4 py-2.5 rounded-xl bg-destructive/10 text-destructive text-[10px] sm:text-xs font-black uppercase tracking-widest border border-destructive/20 ">
-                <BellRing className="w-4 h-4" /> Blocked! Please allow in browser settings
+                <BellRing className="w-4 h-4" /> {t('common.notifications_blocked')}
               </div>
             )}
 
@@ -560,14 +577,14 @@ const VendorDashboard = () => {
                <div className="flex items-center gap-2 px-3 sm:px-4 py-2.5 rounded-2xl bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 shadow-sm transition-all animate-in fade-in slide-in-from-right-4 duration-500">
                   <Package className="w-4 h-4 text-emerald-500 " />
                   <div className="flex flex-col items-start leading-none gap-0.5">
-                     <span className="text-[10px] uppercase tracking-widest font-black">Delivery Active</span>
-                     <span className="text-[9px] opacity-70 font-bold">₹{vendorStore?.deliveryFee} fee</span>
+                     <span className="text-[10px] uppercase tracking-widest font-black">{t('vendor_dashboard.delivery_active')}</span>
+                     <span className="text-[9px] opacity-70 font-bold">₹{vendorStore?.deliveryFee} {t('common.delivery_charge')}</span>
                   </div>
                </div>
             ) : (
                <div className="flex items-center gap-2 px-3 sm:px-4 py-2.5 rounded-2xl bg-secondary/50 text-muted-foreground border border-border/50 shadow-sm transition-all opacity-60">
                   <Package className="w-4 h-4" />
-                  <span className="text-[10px] uppercase tracking-widest font-black">Delivery Off</span>
+                  <span className="text-[10px] uppercase tracking-widest font-black">{t('vendor_dashboard.delivery_off')}</span>
                </div>
             )}
           </div>
@@ -585,9 +602,9 @@ const VendorDashboard = () => {
                 <BellRing className="w-8 h-8" />
               </div>
               <div className="text-center md:text-left">
-                <h3 className="text-lg font-black text-foreground">Allow On-Screen Notifications?</h3>
+                <h3 className="text-lg font-black text-foreground">{t('common.allow_notifications')}</h3>
                 <p className="text-sm text-muted-foreground mt-1 max-w-xl font-medium">
-                  We recommend enabling notifications to receive updates (like new orders, messages, or alerts) even when you are not actively looking at the website.
+                  {t('common.allow_notifications_desc')}
                 </p>
               </div>
             </div>
@@ -600,7 +617,7 @@ const VendorDashboard = () => {
                 }}
                 className="px-8 py-3.5 rounded-2xl bg-primary text-white font-black text-sm uppercase tracking-widest active:scale-95 transition-all w-full md:w-auto shadow-lg hover:shadow-primary/25 hover:-translate-y-0.5"
             >
-              Allow
+              {t('common.allow')}
             </button>
           </motion.div>
         )}
@@ -617,15 +634,15 @@ const VendorDashboard = () => {
                 <ShieldAlert className="w-10 h-10" />
               </div>
               <div className="text-center md:text-left">
-                <h2 className="text-2xl font-black uppercase tracking-tight">Account Restricted</h2>
-                <p className="font-medium opacity-90 mt-1">Your store access has been restricted by administrators. Please contact support to resolve this.</p>
+                <h2 className="text-2xl font-black uppercase tracking-tight">{t('common.restricted_account')}</h2>
+                <p className="font-medium opacity-90 mt-1">{t('common.restricted_account_desc')}</p>
               </div>
             </div>
             <button
                onClick={requestSupport}
                className="px-8 py-3.5 rounded-2xl bg-white dark:bg-[#202020] text-destructive font-black text-xs uppercase tracking-widest active:scale-95 transition-all w-full md:w-auto border border-border"
             >
-              Contact Support
+              {t('common.support')}
             </button>
           </motion.div>
         )}
@@ -641,15 +658,15 @@ const VendorDashboard = () => {
                 <XCircle className="w-5 h-5 text-destructive" />
               </div>
               <div className="flex-1 text-left">
-                <h3 className="text-sm font-bold text-destructive">Auto-pay payment failed</h3>
-                <p className="text-xs text-destructive/80 font-medium">Please resubscribe to the subscription again to continue your store features.</p>
+                <h3 className="text-sm font-bold text-destructive">{t('common.auto_pay_failed')}</h3>
+                <p className="text-xs text-destructive/80 font-medium">{t('common.auto_pay_failed_desc')}</p>
               </div>
             </div>
             <button
               onClick={() => navigate('/vendor/subscription')}
               className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-destructive text-white text-xs font-bold whitespace-nowrap shrink-0 shadow-sm active:scale-95 transition-all text-center"
             >
-              Resubscribe Now
+              {t('common.resubscribe')}
             </button>
           </motion.div>
         )}
@@ -665,8 +682,8 @@ const VendorDashboard = () => {
                 <Clock className="w-5 h-5 text-amber-600 dark:text-amber-500" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-amber-800 dark:text-amber-500">Subscription expires in {daysToExpiry} {daysToExpiry === 1 ? 'day' : 'days'}</h3>
-                <p className="text-xs text-amber-700 dark:text-amber-500/80 font-medium">Auto-renew is disabled. Keep your store online by resubscribing.</p>
+                <h3 className="text-sm font-bold text-amber-800 dark:text-amber-500">{t(daysToExpiry === 1 ? 'common.subscription_expires_in' : 'common.subscription_expires_in_plural', { count: daysToExpiry })}</h3>
+                <p className="text-xs text-amber-700 dark:text-amber-500/80 font-medium">{t('common.auto_renew_disabled')}</p>
               </div>
             </div>
             <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -674,7 +691,7 @@ const VendorDashboard = () => {
                 onClick={() => navigate('/vendor/subscription')}
                 className="flex-1 sm:flex-none px-6 py-2.5 rounded-xl bg-amber-500 text-white text-xs font-bold shadow-sm active:scale-95 transition-all"
               >
-                Renew Now
+                {t('common.renew_now')}
               </button>
               <button
                 onClick={dismissExpiryBanner}
@@ -799,15 +816,14 @@ const VendorDashboard = () => {
           ))}
         </div>
 
-
         {/* Marketing & Growth Section */}
         <div className="mb-10">
           <div className="flex items-center justify-between mb-4 px-1">
             <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
               <Rocket className="w-5 h-5 text-primary" />
-              Marketing & Visibility
+              {t('vendor_dashboard.marketing_title')}
             </h2>
-            <span className="text-[10px] font-black uppercase tracking-widest text-primary/70">Boost your sales</span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-primary/70">{t('vendor_dashboard.marketing_desc')}</span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -841,6 +857,21 @@ const VendorDashboard = () => {
                 </div>
             )}
 
+            {/* Combo Packs Tool */}
+            <div 
+              onClick={() => navigate('/vendor/combos')}
+              className="bg-white dark:bg-[#202020] rounded-3xl p-6 text-center border-border/40 bg-secondary/20 cursor-pointer transition-all group border flex flex-col items-center justify-center"
+            >
+              <div className="w-10 h-10 rounded-2xl bg-secondary flex items-center justify-center mb-3">
+                <Package2 className="w-5 h-5 text-foreground/70" />
+              </div>
+              <p className="text-foreground font-black text-sm">Combo Packs</p>
+              <p className="text-[10px] text-muted-foreground mt-1 mb-4 line-clamp-1 truncate">Create bundles with multi-item discounts</p>
+              <div className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-secondary text-foreground text-[10px] font-black uppercase tracking-widest border border-border/40">
+                  <Plus className="w-3.5 h-3.5" /> Manage Combos
+              </div>
+            </div>
+
             {/* BellBoost Tool */}
             <div 
               onClick={handleBellBoost}
@@ -849,8 +880,8 @@ const VendorDashboard = () => {
               <div className="w-10 h-10 rounded-2xl bg-purple-500/10 flex items-center justify-center mb-3">
                 <Rocket className="w-5 h-5 text-purple-600" />
               </div>
-              <p className="text-foreground font-black text-sm">BellBoost Marketing</p>
-              <p className="text-[10px] text-muted-foreground mt-1 mb-4 line-clamp-1 truncate">Audience matching engine.</p>
+              <p className="text-foreground font-black text-sm">{t('vendor_dashboard.bellboost_tool')}</p>
+              <p className="text-[10px] text-muted-foreground mt-1 mb-4 line-clamp-1 truncate">{t('vendor_dashboard.bellboost_desc')}</p>
               <div className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-purple-600 text-white text-[10px] font-black uppercase tracking-widest">
                   <Rocket className="w-3.5 h-3.5" /> BellBoost
               </div>
@@ -865,10 +896,10 @@ const VendorDashboard = () => {
                 <div className="w-10 h-10 rounded-2xl bg-teal-500/10 flex items-center justify-center mb-3">
                     <Zap className="w-5 h-5 text-teal-600" />
                 </div>
-                <p className="text-foreground font-black text-sm">Deals Manager</p>
-                <p className="text-[10px] text-muted-foreground mt-1 mb-4 line-clamp-1">Create limited-time flash sales.</p>
+                <p className="text-foreground font-black text-sm">{t('vendor_dashboard.deals_manager')}</p>
+                <p className="text-[10px] text-muted-foreground mt-1 mb-4 line-clamp-1">{t('vendor_dashboard.deals_desc')}</p>
                 <div className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-teal-600 text-white text-[10px] font-black uppercase tracking-widest">
-                    <Zap className="w-3.5 h-3.5" /> Manage Deals
+                    <Zap className="w-3.5 h-3.5" /> {t('vendor_dashboard.manage_deals')}
                 </div>
                 </div>
             ) : (
@@ -876,13 +907,13 @@ const VendorDashboard = () => {
                 <div className="absolute inset-0 bg-gradient-to-br from-teal-500/5 to-transparent pointer-events-none" />
                 <div className="flex flex-col items-center justify-center text-center relative z-10">
                     <Zap className="w-8 h-8 text-teal-600 mb-3 grayscale group-hover:grayscale-0 transition-all" />
-                    <h3 className="text-sm font-black text-foreground mb-1">Flash Sale Deals</h3>
-                    <p className="text-[10px] text-muted-foreground mb-4">Run real-time countdown deals.</p>
+                    <h3 className="text-sm font-black text-foreground mb-1">{t('vendor_dashboard.flash_deals')}</h3>
+                    <p className="text-[10px] text-muted-foreground mb-4">{t('vendor_dashboard.deals_desc_locked')}</p>
                     <button
                         onClick={() => navigate('/vendor/subscription')}
                         className="bg-teal-600 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest opacity-80"
                     >
-                        PRO FEATURE
+                        {t('common.pro_feature')}
                     </button>
                     <Lock className="absolute top-2 right-2 w-4 h-4 text-teal-500/30" />
                 </div>
@@ -899,11 +930,11 @@ const VendorDashboard = () => {
     <div className="flex items-center justify-between mb-4 px-1">
       <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
         <StickyNote className="w-5 h-5 text-primary" />
-        Bell Notes & Req
+        {t('vendor_dashboard.notes_req_title')}
       </h2>
       {(productRequests.length > 0 || recentNotes.length > 0) && (
         <span className="text-[10px] font-black bg-primary/20 text-primary px-2 py-0.5 rounded-full uppercase tracking-widest">
-          {productRequests.filter((r: any) => r.status === 'pending').length + recentNotes.length} Total
+          {productRequests.filter((r: any) => r.status === 'pending').length + recentNotes.length} {t('common.total')}
         </span>
       )}
     </div>
@@ -917,7 +948,7 @@ const VendorDashboard = () => {
           <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
             <Plus className="w-5 h-5 text-primary" />
           </div>
-          <p className="text-sm text-muted-foreground font-medium">Add notes or check customer reqs</p>
+          <p className="text-sm text-muted-foreground font-medium">{t('vendor_dashboard.notes_req_empty')}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -959,7 +990,7 @@ const VendorDashboard = () => {
                     <span className="text-[8px] font-black text-amber-500 uppercase tracking-widest">Req</span>
                  </div>
                  <h3 className="font-bold text-foreground text-sm truncate">{request.productName}</h3>
-                 <p className="text-[10px] text-muted-foreground font-medium truncate italic">Requested by {request.userName || 'Customer'}</p>
+                 <p className="text-[10px] text-muted-foreground font-medium truncate italic">{t('vendor_dashboard.requested_by')} {request.userName || t('common.customer')}</p>
               </div>
               <ArrowRight className="w-4 h-4 text-muted-foreground/30" />
             </div>
@@ -971,7 +1002,7 @@ const VendorDashboard = () => {
         onClick={() => navigate('/vendor/notes')}
         className="w-full py-4 rounded-2xl bg-secondary/50 text-foreground font-black text-[10px] uppercase tracking-[0.2em] border border-border/40 hover:bg-secondary transition-all active:scale-95"
       >
-        Open Bell Notes & Req
+        {t('vendor_dashboard.open_notes_req')}
       </button>
     </div>
 
@@ -1017,14 +1048,14 @@ const VendorDashboard = () => {
               <div className="space-y-4">
                 <div className="p-4 rounded-2xl bg-secondary/50 border border-border/40">
                   <p className="text-sm text-foreground/80 leading-relaxed font-medium">
-                    {selectedRequest.description || "No specific details provided."}
+                    {selectedRequest.description || t('vendor_dashboard.no_details')}
                   </p>
                 </div>
 
                 <div className="flex items-center justify-between pt-2">
                   <div className="flex flex-col">
-                    <span className="text-[10px] font-black text-primary uppercase tracking-widest mb-1">Customer</span>
-                    <span className="font-bold text-foreground">{selectedRequest.userName || 'Anonymous'}</span>
+                    <span className="text-[10px] font-black text-primary uppercase tracking-widest mb-1">{t('common.customer')}</span>
+                    <span className="font-bold text-foreground">{selectedRequest.userName || t('common.anonymous')}</span>
                   </div>
                   {selectedRequest.userPhone && (
                     <a href={`tel:${selectedRequest.userPhone}`} className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-lg shadow-primary/5 hover:scale-105 active:scale-95 transition-all">
@@ -1041,7 +1072,7 @@ const VendorDashboard = () => {
                     }}
                     className="flex-1 py-4 rounded-2xl bg-secondary text-foreground font-black text-[10px] uppercase tracking-widest hover:bg-secondary/80 transition-all"
                    >
-                     Go to Notes
+                     {t('vendor_dashboard.go_to_notes')}
                    </button>
                    <button 
                     onClick={async () => {
@@ -1056,7 +1087,7 @@ const VendorDashboard = () => {
                     }}
                     className="flex-1 py-4 rounded-2xl bg-emerald-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:opacity-90 transition-all active:scale-95"
                    >
-                     Fulfilled
+                     {t('vendor_dashboard.fulfilled')}
                    </button>
                 </div>
               </div>
@@ -1072,7 +1103,7 @@ const VendorDashboard = () => {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-foreground">
             {isServiceStore 
-              ? `Recent Bookings (${serviceBookings.filter(b => b.status === 'pending' || b.status === 'accepted').length})` 
+              ? `${t('vendor_dashboard.recent_bookings')} (${serviceBookings.filter(b => b.status === 'pending' || b.status === 'accepted').length})` 
               : `${t('common.recent_orders')} (${vendorOrders.filter(o => o.status === 'pending' || o.status === 'accepted' || o.status === 'packed').length})`}
           </h2>
           <button
@@ -1086,7 +1117,7 @@ const VendorDashboard = () => {
         <div className="space-y-3 mb-12">
           {(!isServiceStore ? vendorOrders : serviceBookings).length === 0 ? (
             <div className="bg-white dark:bg-[#202020] rounded-2xl p-8 text-center text-muted-foreground border border-border/50">
-              {isServiceStore ? 'No bookings yet.' : t('vendor_orders.no_orders')}
+              {isServiceStore ? t('vendor_dashboard.no_bookings') : t('vendor_orders.no_orders')}
             </div>
           ) : (
             (!isServiceStore ? vendorOrders : serviceBookings).slice(0, 3).map(item => (
@@ -1141,7 +1172,7 @@ const VendorDashboard = () => {
         <div className="mt-16 mb-4 flex items-center justify-between">
           <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
             <MessageSquare className="w-5 h-5" />
-            Recent Reviews
+            {t('vendor_dashboard.recent_reviews')}
           </h2>
           <button
             onClick={() => navigate('/vendor/reviews')}
@@ -1156,7 +1187,7 @@ const VendorDashboard = () => {
             if (!hasReviews) {
               return (
                 <div className="bg-white dark:bg-[#202020] rounded-2xl p-8 text-center text-muted-foreground border border-border/50">
-                  No reviews with comments yet.
+                  {t('vendor_dashboard.no_reviews_empty')}
                 </div>
               );
             }
@@ -1209,17 +1240,17 @@ const VendorDashboard = () => {
                     <div className="pl-[52px] bg-secondary/30 rounded-xl p-4 border-l-4 border-primary">
                       <div className="flex items-center gap-2 mb-2">
                         <StoreIcon className="w-4 h-4 text-primary" />
-                        <span className="text-xs font-bold text-primary">Your Reply</span>
+                        <span className="text-xs font-bold text-primary">{t('vendor_dashboard.your_reply')}</span>
                       </div>
                       <p className="text-sm text-foreground">{review.reply}</p>
                     </div>
                   ) : user?.plan && user.plan !== 'basic' && user.plan !== 'none' ? (
                     <div className="pl-[52px] space-y-2">
-                      <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Reply to this review</label>
+                      <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">{t('vendor_dashboard.reply_label')}</label>
                       <div className="flex gap-2">
                         <input
                           type="text"
-                          placeholder="Thank you for your feedback..."
+                          placeholder={t('vendor_dashboard.reply_placeholder')}
                           value={replyInputs[review.id] || ''}
                           onChange={(e) => setReplyInputs(prev => ({
                             ...prev,
@@ -1247,7 +1278,7 @@ const VendorDashboard = () => {
                         className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors bg-secondary/30 px-4 py-2 rounded-xl"
                       >
                         <Crown className="w-3.5 h-3.5" />
-                        Upgrade to Growth+ to reply to reviews
+                        {t('vendor_dashboard.upgrade_to_reply')}
                       </button>
                     </div>
                   )}
@@ -1275,13 +1306,13 @@ const VendorDashboard = () => {
                      <Settings className="w-8 h-8 sm:w-10 sm:h-10 drop-shadow-[0_0_15px_rgba(255,184,0,0.4)]" />
                   </div>
                   <div className="space-y-2">
-                     <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight uppercase">Store Config</h2>
-                     <p className="text-white/40 text-[9px] sm:text-[10px] font-black uppercase tracking-[0.3em] sm:tracking-[0.4em] leading-relaxed">Identity • Hours • Location • Identity</p>
+                     <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight uppercase">{t('vendor_dashboard.store_config')}</h2>
+                     <p className="text-white/40 text-[9px] sm:text-[10px] font-black uppercase tracking-[0.3em] sm:tracking-[0.4em] leading-relaxed">{t('vendor_dashboard.store_config_desc')}</p>
                   </div>
                </div>
                
                <div className="w-full md:w-auto px-8 py-4 bg-primary text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-primary/20 flex items-center justify-center gap-3 group-hover:gap-5 transition-all">
-                  Configure Console <ArrowRight className="w-4 h-4" />
+                  {t('vendor_dashboard.configure_console')} <ArrowRight className="w-4 h-4" />
                </div>
             </div>
           </motion.div>
@@ -1309,9 +1340,9 @@ const VendorDashboard = () => {
                     <Mail className="w-8 h-8" />
                   </div>
                   <div className="space-y-2">
-                    <h2 className="text-2xl font-black text-foreground">Contact Support</h2>
+                    <h2 className="text-2xl font-black text-foreground">{t('common.contact_support')}</h2>
                     <p className="text-sm text-muted-foreground font-medium max-w-xs mx-auto leading-relaxed">
-                      For assistance, please email our support team directly. We typically reply within 24 hours.
+                      {t('common.support_desc')}
                     </p>
                   </div>
 
@@ -1326,7 +1357,7 @@ const VendorDashboard = () => {
                     onClick={() => setShowSupportModal(false)}
                     className="w-full py-4 text-xs font-bold text-muted-foreground hover:text-foreground uppercase tracking-widest transition-colors"
                   >
-                    Close Window
+                    {t('common.close')}
                   </button>
                 </div>
               </motion.div>
@@ -1337,6 +1368,64 @@ const VendorDashboard = () => {
           </div>
         </PullToRefresh>
       </div>
+
+      {/* Onboarding Modal (Not blurred) */}
+      <AnimatePresence>
+        {showOnboarding && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 pointer-events-auto">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              className="bg-white dark:bg-[#1A1A1A] w-full max-sm rounded-[2.5rem] p-8 relative shadow-2xl border border-border/10"
+            >
+              <div className="text-center space-y-6">
+                <div className="flex justify-center">
+                  <div className="w-20 h-20 rounded-3xl bg-primary/10 flex items-center justify-center text-primary">
+                    {(() => {
+                      const Icon = onboardingSteps[onboardingStep].icon;
+                      return <Icon className="w-10 h-10" />;
+                    })()}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <h2 className="text-2xl font-black text-foreground tracking-tight">
+                    {onboardingSteps[onboardingStep].title}
+                  </h2>
+                  <p className="text-sm text-muted-foreground font-medium leading-relaxed">
+                    {onboardingSteps[onboardingStep].desc}
+                  </p>
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  <button
+                    onClick={() => {
+                      if (onboardingStep < onboardingSteps.length - 1) {
+                        setOnboardingStep(prev => prev + 1);
+                      } else {
+                        setShowOnboarding(false);
+                      }
+                    }}
+                    className="w-full py-4 rounded-2xl bg-primary text-white font-black text-sm uppercase tracking-widest shadow-lg hover:shadow-primary/25 active:scale-95 transition-all"
+                  >
+                    {onboardingStep === onboardingSteps.length - 1 ? t('common.finish') : t('common.next')}
+                  </button>
+                  
+                  <div className="flex justify-center gap-1.5 pt-2">
+                    {onboardingSteps.map((_, i) => (
+                      <div 
+                        key={i}
+                        className={`h-1.5 rounded-full transition-all duration-300 ${i === onboardingStep ? 'w-6 bg-primary' : 'w-1.5 bg-muted'}`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </>
   );
 };
 

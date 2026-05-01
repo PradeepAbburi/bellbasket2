@@ -1,23 +1,37 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { Bell, MapPin, ShoppingCart, Store, ArrowRight, Sparkles, Smartphone, ChevronRight, Menu, X, Sun, Moon, Star, Zap } from 'lucide-react';
+import { Bell, MapPin, ShoppingCart, Store, ArrowRight, Sparkles, Smartphone, ChevronRight, Menu, X, Star, Zap, Users } from 'lucide-react';
 const heroBg = '/assets/hero-bg.jpg';
 import { useApp } from '@/context/AppContext';
 import QRCodeWithLogo from '@/components/ui/qr-code-with-logo';
 import { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
+import { db } from '@/lib/firebase';
+import { getCountFromServer, collection } from 'firebase/firestore';
 
 const Index = () => {
   const navigate = useNavigate();
-  const { } = useApp(); // theme/toggleTheme removed
+  const { user } = useApp();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [storeCount, setStoreCount] = useState<number | null>(null);
+  const [userCount, setUserCount] = useState<number | null>(null);
 
   useEffect(() => {
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth < 768;
-    if (isMobile) {
-      navigate('/browse', { replace: true });
-    }
-  }, [navigate]);
+    const fetchCounts = async () => {
+      try {
+        const [storeSnap, userSnap] = await Promise.all([
+          getCountFromServer(collection(db, 'stores')),
+          getCountFromServer(collection(db, 'users')),
+        ]);
+        setStoreCount(storeSnap.data().count);
+        setUserCount(userSnap.data().count);
+      } catch (e) {
+        // silently fail
+      }
+    };
+    fetchCounts();
+  }, []);
+
 
   return (
     <div className="min-h-screen gradient-warm">
@@ -59,6 +73,38 @@ const Index = () => {
             ]
           })}
         </script>
+        <script type="application/ld+json">
+          {JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "FAQPage",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "What is BellBasket?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "BellBasket is a hyper-local marketplace that connects you with trusted stores in your neighborhood. We empower local vendors by giving them a digital storefront while providing customers with a convenient way to shop from nearby shops."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "How do I order from a local store?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Simply set your location to discover stores near you. Browse their catalog, add items to your basket, and place your order. You can then pick up your items directly from the store at your convenience."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Can I become a vendor on BellBasket?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes! Any local store owner, home-based business, or vendor can join BellBasket. Click on 'Become a Vendor', set up your shop profile, and start listing your products to reach customers in your neighborhood."
+                }
+              }
+            ]
+          })}
+        </script>
       </Helmet>
 
       {/* Hero */}
@@ -86,9 +132,18 @@ const Index = () => {
                 <Link to="/careers" className="text-sm font-bold text-primary hover:text-primary/80 transition-colors glass px-4 py-2 rounded-full border border-primary/20">
                   Careers
                 </Link>
-                <Link to="/auth" className="text-sm font-bold text-foreground/80 hover:text-foreground transition-colors glass px-4 py-2 rounded-full border border-white/20">
-                  Sign In
-                </Link>
+                {user ? (
+                  <Link 
+                    to={user.role === 'vendor' ? '/vendor' : '/browse'} 
+                    className="text-sm font-bold text-primary-foreground transition-colors gradient-primary px-4 py-2 rounded-full shadow-sm hover:opacity-90"
+                  >
+                    Go to App
+                  </Link>
+                ) : (
+                  <Link to="/auth" className="text-sm font-bold text-foreground/80 hover:text-foreground transition-colors glass px-4 py-2 rounded-full border border-white/20">
+                    Sign In
+                  </Link>
+                )}
               </div>
 
               {/* Mobile Menu Toggle */}
@@ -113,7 +168,16 @@ const Index = () => {
                 <div className="p-2 flex flex-col">
                   <Link to="/about" className="px-4 py-2.5 rounded-xl hover:bg-white/5 font-bold text-sm text-foreground transition-colors">About</Link>
                   <Link to="/careers" className="px-4 py-2.5 rounded-xl hover:bg-primary/5 font-bold text-sm text-foreground transition-colors">Careers</Link>
-                  <Link to="/auth" className="mt-1 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground font-black text-xs text-center uppercase tracking-widest">Sign In</Link>
+                  {user ? (
+                    <Link 
+                      to={user.role === 'vendor' ? '/vendor' : '/browse'} 
+                      className="mt-1 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground font-black text-xs text-center uppercase tracking-widest"
+                    >
+                      Go to App
+                    </Link>
+                  ) : (
+                    <Link to="/auth" className="mt-1 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground font-black text-xs text-center uppercase tracking-widest">Sign In</Link>
+                  )}
                 </div>
               </motion.div>
             )}
@@ -143,13 +207,22 @@ const Index = () => {
               Discover local stores near you. Support your community vendors and get fresh products delivered or ready for pickup.
             </p>
             <div className="flex flex-col sm:flex-row gap-3">
-              <button
-                onClick={() => navigate('/auth')}
-                onMouseEnter={() => import('@/pages/Auth')}
-                className="gradient-primary text-primary-foreground px-8 py-3.5 rounded-xl font-semibold text-base flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
-              >
-                Get Started <ArrowRight className="w-4 h-4" />
-              </button>
+              {user ? (
+                <button
+                  onClick={() => navigate(user.role === 'vendor' ? '/vendor' : '/browse')}
+                  className="gradient-primary text-primary-foreground px-8 py-3.5 rounded-xl font-semibold text-base flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
+                >
+                  Go to App <ArrowRight className="w-4 h-4" />
+                </button>
+              ) : (
+                <button
+                  onClick={() => navigate('/auth')}
+                  onMouseEnter={() => import('@/pages/Auth')}
+                  className="gradient-primary text-primary-foreground px-8 py-3.5 rounded-xl font-semibold text-base flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
+                >
+                  Get Started <ArrowRight className="w-4 h-4" />
+                </button>
+              )}
               <button
                 onClick={() => navigate('/auth?role=vendor')}
                 onMouseEnter={() => import('@/pages/Auth')}
@@ -157,6 +230,24 @@ const Index = () => {
               >
                 <Store className="w-4 h-4" /> Become a Vendor
               </button>
+            </div>
+
+            {/* Live Stats Bar */}
+            <div className="mt-8 flex items-center gap-6">
+              <div className="flex items-center gap-2 glass px-4 py-2 rounded-full border border-white/10">
+                <Store className="w-4 h-4 text-primary" />
+                <span className="text-sm font-bold text-foreground">
+                  {storeCount !== null ? storeCount.toLocaleString() : '...'}
+                </span>
+                <span className="text-xs text-muted-foreground">Stores</span>
+              </div>
+              <div className="flex items-center gap-2 glass px-4 py-2 rounded-full border border-white/10">
+                <Users className="w-4 h-4 text-primary" />
+                <span className="text-sm font-bold text-foreground">
+                  {userCount !== null ? userCount.toLocaleString() : '...'}
+                </span>
+                <span className="text-xs text-muted-foreground">Members</span>
+              </div>
             </div>
             <motion.button
               initial={{ opacity: 0 }}

@@ -36,12 +36,9 @@ const CountdownTimer = ({ endTime }: { endTime: string }) => {
   if (!timeLeft) return <span className="text-rose-500 font-bold uppercase tracking-widest text-[8px] md:text-[9px]">Ended</span>;
 
   return (
-    <div className="flex items-center gap-1 font-mono text-[9px] md:text-[10px] font-black text-primary">
-      <Clock className="w-2.5 h-2.5 md:w-3 md:h-3" />
-      <span className="tabular-nums">
-        {String(timeLeft.h).padStart(2, '0')}:{String(timeLeft.m).padStart(2, '0')}:{String(timeLeft.s).padStart(2, '0')}
-      </span>
-    </div>
+    <span className="tabular-nums">
+      {String(timeLeft.h).padStart(2, '0')}:{String(timeLeft.m).padStart(2, '0')}:{String(timeLeft.s).padStart(2, '0')}
+    </span>
   );
 };
 
@@ -286,7 +283,7 @@ const CustomerDeals = () => {
                 <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="relative h-40 lg:h-44 rounded-[2.5rem] overflow-hidden bg-gradient-to-br from-yellow-400 to-amber-600 p-6 flex flex-col justify-center gap-1.5 shadow-2xl shadow-yellow-500/10"
+                className="relative h-40 lg:h-44 rounded-3xl overflow-hidden bg-gradient-to-br from-yellow-400 to-amber-600 p-6 flex flex-col justify-center gap-1.5 shadow-2xl shadow-yellow-500/10"
                 >
                 <div className="absolute top-0 right-0 p-8 opacity-20 transform translate-x-1/4 -translate-y-1/4">
                     <Zap className="w-48 h-48 lg:w-64 lg:h-64 text-black" />
@@ -406,7 +403,7 @@ const CustomerDeals = () => {
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 onClick={() => setSelectedProductForDetail({ product, store, deal })}
-                                className="bg-[#f8f9fa] dark:bg-[#161616] p-2.5 rounded-[1.8rem] flex flex-col hover:shadow-2xl hover:shadow-primary/10 transition-all border border-slate-200 dark:border-white/5 group/product cursor-pointer relative overflow-hidden group h-full"
+                                className="bg-[#f8f9fa] dark:bg-[#161616] p-2.5 rounded-3xl flex flex-col hover:shadow-2xl hover:shadow-primary/10 transition-all border border-slate-200 dark:border-white/5 group/product cursor-pointer relative overflow-hidden group h-full"
                             >
                                 {/* Media Section */}
                                 <div className="relative aspect-square overflow-hidden bg-secondary/5 shrink-0 rounded-2xl">
@@ -435,8 +432,15 @@ const CustomerDeals = () => {
                                         {discountPercent}% OFF
                                     </div>
 
-                                    {/* Timer Box with Background */}
-                                    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-md rounded-full px-3 py-1 shadow-lg border border-white/10">
+                                    {product.hasVariants && (
+                                        <div className="absolute top-3 right-3 z-20 bg-secondary/80 backdrop-blur-md text-secondary-foreground text-[7px] sm:text-[8px] font-black px-2 py-1 rounded-full flex items-center gap-1 shadow-lg border border-white/20 uppercase tracking-widest">
+                                            {product.variants?.length ? `${product.variants.length} Variants` : 'Variants'}
+                                        </div>
+                                    )}
+
+                                    {/* Timer Box with Solid Background */}
+                                    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-primary text-black rounded-full px-3 py-1 shadow-lg flex items-center gap-1 font-mono text-[9px] font-black">
+                                       <Clock className="w-3 h-3" />
                                        <CountdownTimer endTime={deal.endTime} />
                                     </div>
                                 </div>
@@ -551,19 +555,20 @@ const CustomerDeals = () => {
             product={selectedProductForDetail.product}
             store={selectedProductForDetail.store}
             deal={selectedProductForDetail.deal}
-            qty={cart.find(c => c.product.id === selectedProductForDetail.product.id)?.quantity || 0}
-            onAddToCart={() => {
-              const { product, store, deal } = selectedProductForDetail;
-              const dealProduct = { ...product, price: deal.dealPrice, discountedPrice: deal.dealPrice };
+            cart={cart}
+            onAddToCart={(p, v) => {
+              const { store, deal } = selectedProductForDetail;
+              const finalProd = deal ? { ...p, price: deal.dealPrice, discountedPrice: deal.dealPrice } : p;
               addToCart({ 
-                product: dealProduct, 
+                product: finalProd, 
+                selectedVariant: v,
                 storeId: store.id, 
                 storeName: store.name, 
                 storePhone: store.phone || '', 
                 quantity: 1 
               });
             }}
-            onUpdateQuantity={(newQty) => updateQuantity(selectedProductForDetail.product.id, newQty)}
+            onUpdateQuantity={(pid, q, vid) => updateQuantity(pid, q, vid)}
             onClose={() => setSelectedProductForDetail(null)}
             onViewStore={() => navigate(`/store/${selectedProductForDetail.store.id}`)}
             onViewProduct={(pid) => navigate(`/store/${selectedProductForDetail.store.id}?productId=${pid}`)}

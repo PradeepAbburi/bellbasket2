@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ShoppingCart, Star, MapPin, Package2, ShieldCheck, Zap, ArrowRight, Plus, Minus, Info, Clock, Phone, Sparkles } from 'lucide-react';
-import { Product, Store, Deal } from '@/types';
+import { Product, Store, Deal, CartItem, ProductVariant } from '@/types';
+import { useApp } from '@/context/AppContext';
 
 interface ProductDetailModalProps {
   product: Product;
   store: Store;
   deal?: Deal;
-  qty: number;
-  onAddToCart: (quantity: number) => void;
-  onUpdateQuantity: (newQty: number) => void;
+  cart: CartItem[];
+  onAddToCart: (product: Product, variant?: ProductVariant) => void;
+  onUpdateQuantity: (productId: string, newQty: number, variantId?: string) => void;
   onClose: () => void;
   onViewStore: () => void;
   onViewProduct: (productId: string) => void;
@@ -39,12 +40,9 @@ const CountdownTimer = ({ endTime }: { endTime: string }) => {
   if (!timeLeft) return <span className="text-rose-500 font-black uppercase tracking-[0.2em] text-[9px]">Sale Ended</span>;
 
   return (
-    <div className="flex items-center gap-1.5 font-mono text-[11px] font-black text-primary">
-      <Clock className="w-3.5 h-3.5" />
-      <span className="tabular-nums tracking-tighter">
-        {String(timeLeft.h).padStart(2, '0')}:{String(timeLeft.m).padStart(2, '0')}:{String(timeLeft.s).padStart(2, '0')}
-      </span>
-    </div>
+    <span className="tabular-nums tracking-tighter">
+      {String(timeLeft.h).padStart(2, '0')}:{String(timeLeft.m).padStart(2, '0')}:{String(timeLeft.s).padStart(2, '0')}
+    </span>
   );
 };
 
@@ -52,14 +50,20 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   product,
   store,
   deal,
-  qty,
+  cart,
   onAddToCart,
   onUpdateQuantity,
   onClose,
   onViewStore,
   onViewProduct,
 }) => {
+  const { setIsAnyModalOpen } = useApp();
   const [showCallModal, setShowCallModal] = React.useState(false);
+
+  useEffect(() => {
+    setIsAnyModalOpen(true);
+    return () => setIsAnyModalOpen(false);
+  }, [setIsAnyModalOpen]);
   const discountPercent = deal 
     ? Math.round(((deal.originalPrice - deal.dealPrice) / deal.originalPrice) * 100)
     : product.discountedPrice 
@@ -81,14 +85,14 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
         initial={{ opacity: 0, scale: 0.9, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.9, y: 20 }}
-        className="relative w-full max-w-xl bg-[#161616] rounded-[2rem] overflow-hidden shadow-2xl border border-white/10"
+        className="relative w-full max-w-xl bg-[#161616] rounded-3xl overflow-hidden shadow-2xl border border-white/10"
         onClick={(e) => e.stopPropagation()}
       >
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 z-50 p-2 rounded-full bg-black/50 backdrop-blur-md text-white hover:bg-white/10 transition-all border border-white/10"
+          className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-white flex items-center justify-center text-black hover:bg-white/90 transition-all active:scale-90 shadow-lg"
         >
-          <X className="w-4 h-4" />
+          <X className="w-5 h-5" strokeWidth={3} />
         </button>
 
         <div className="flex flex-col h-full max-h-[90vh] overflow-y-auto custom-scrollbar">
@@ -122,8 +126,11 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             )}
 
             {deal && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 inline-flex items-center gap-1.5 bg-black/60 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 z-10">
-                <CountdownTimer endTime={deal.endTime} />
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 inline-flex items-center gap-1.5 bg-primary px-4 py-2 rounded-full shadow-2xl z-10 scale-110">
+                <div className="flex items-center gap-1.5 font-mono text-[11px] font-black text-black">
+                  <Clock className="w-3.5 h-3.5" />
+                  <CountdownTimer endTime={deal.endTime} />
+                </div>
               </div>
             )}
           </div>
@@ -146,6 +153,60 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 {product.description || "Special limited-time flash deal available exclusively for neighborhood delivery."}
               </p>
             </div>
+
+            {/* Variants Section */}
+            {product.hasVariants && product.variants && product.variants.length > 0 && (
+              <div className="space-y-3">
+                <h3 className="text-[9px] font-black uppercase tracking-widest text-zinc-500 flex items-center gap-2">
+                  <Zap className="w-3 h-3" /> Available Variants & Prices
+                </h3>
+                <div className="space-y-2">
+                  {product.variants.map((v) => {
+                    const hasVDisc = v.discountedPrice && v.discountedPrice < v.price;
+                    const vPrice = hasVDisc ? v.discountedPrice : v.price;
+                    const vInCart = cart.find(c => c.product.id === product.id && c.selectedVariant?.id === v.id);
+                    const vQty = vInCart ? vInCart.quantity : 0;
+
+                    return (
+                      <div key={v.id} className="bg-white/5 border border-white/5 p-3 rounded-2xl flex items-center justify-between transition-all hover:bg-white/10 group/variant">
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-[10px] font-black text-zinc-400 uppercase tracking-wider">{v.quantity}</span>
+                          <div className="flex items-baseline gap-1.5">
+                            <span className="text-sm font-black text-white">₹{vPrice}</span>
+                            {hasVDisc && <span className="text-[10px] text-zinc-600 line-through font-bold">₹{v.price}</span>}
+                          </div>
+                        </div>
+                        
+                        {vQty === 0 ? (
+                          <button
+                            onClick={() => onAddToCart(product, v)}
+                            className="h-8 px-4 rounded-xl bg-primary text-black text-[9px] font-black uppercase tracking-widest hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/10"
+                          >
+                            Add
+                          </button>
+                        ) : (
+                          <div className="flex items-center bg-zinc-950 rounded-xl p-1 gap-2 border border-white/5 shadow-inner">
+                            <button
+                              onClick={() => onUpdateQuantity(product.id, vQty - 1, v.id)}
+                              className="w-8 h-8 flex items-center justify-center bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white rounded-lg transition-all active:scale-90 border border-rose-500/20"
+                            >
+                              <Minus className="w-3.5 h-3.5" />
+                            </button>
+                            <span className="text-xs font-black text-white min-w-[1.5rem] text-center">{vQty}</span>
+                            <button
+                              onClick={() => onUpdateQuantity(product.id, vQty + 1, v.id)}
+                              className="w-8 h-8 flex items-center justify-center bg-primary/10 text-primary rounded-lg transition-all hover:bg-primary hover:text-black active:scale-90 border border-primary/20"
+                            >
+                              <Plus className="w-3.5 h-3.5" strokeWidth={3} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Combo Items - Smaller cards */}
             {product.isCombo && product.comboItemsData && (
@@ -188,45 +249,56 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               <ArrowRight className="w-4 h-4 text-zinc-700 group-hover:translate-x-1 transition-all" />
             </div>
 
-            {/* Action Bar - Balanced sizing */}
-            <div className="pt-4 border-t border-white/5 flex items-center gap-3">
-              {qty === 0 ? (
-                <button
-                  onClick={() => onAddToCart(1)}
-                  className="flex-1 h-12 bg-primary text-black rounded-xl font-black uppercase tracking-widest text-[11px] flex items-center justify-center gap-2 shadow-lg shadow-primary/10 active:scale-95 transition-all"
-                >
-                  <Plus className="w-4 h-4" strokeWidth={3} />
-                  Add to Cart
-                </button>
-              ) : (
-                <div className="flex-1 flex items-center bg-zinc-900 rounded-xl overflow-hidden p-0.5 gap-1 h-12 border border-white/5">
+            {!product.hasVariants && (
+              <div className="pt-4 border-t border-white/5 flex items-center gap-3">
+                {(cart.find(c => c.product.id === product.id && !c.selectedVariant)?.quantity || 0) === 0 ? (
                   <button
-                    onClick={() => onUpdateQuantity(qty - 1)}
-                    className="flex-1 h-full flex items-center justify-center hover:bg-white/5 text-white transition-all rounded-lg"
-                  >
-                    <Minus className="w-4 h-4" />
-                  </button>
-                  <div className="w-12 text-center font-black text-lg text-white">{qty}</div>
-                  <button
-                    onClick={() => onUpdateQuantity(qty + 1)}
-                    className="flex-1 h-full flex items-center justify-center bg-primary text-black transition-all rounded-lg shadow-inner"
+                    onClick={() => onAddToCart(product)}
+                    className="flex-1 h-12 bg-primary text-black rounded-xl font-black uppercase tracking-widest text-[11px] flex items-center justify-center gap-2 shadow-lg shadow-primary/10 active:scale-95 transition-all"
                   >
                     <Plus className="w-4 h-4" strokeWidth={3} />
+                    Add to Cart
                   </button>
-                </div>
-              )}
-              
-              {store.phone && (
-                <button
-                    onClick={() => setShowCallModal(true)}
-                    className="w-12 h-12 rounded-xl bg-green-500/10 text-green-500 hover:bg-green-500 hover:text-white flex items-center justify-center transition-all border border-green-500/20"
-                    title="Contact Vendor"
-                >
-                    <Phone className="w-5 h-5" />
-                </button>
-              )}
-
-            </div>
+                ) : (
+                  <div className="flex-1 flex items-center justify-between bg-zinc-950 rounded-2xl p-1 border border-white/5 shadow-inner">
+                    <button
+                      onClick={() => {
+                        const existing = cart.find(c => c.product.id === product.id && !c.selectedVariant);
+                        if (existing) onUpdateQuantity(product.id, existing.quantity - 1);
+                      }}
+                      className="w-10 h-10 flex items-center justify-center bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-all rounded-xl active:scale-90 border border-rose-500/20"
+                    >
+                      <Minus className="w-4 h-4" />
+                    </button>
+                    <div className="flex flex-col items-center">
+                        <span className="text-[7px] font-black text-zinc-500 uppercase tracking-widest">Quantity</span>
+                        <div className="text-sm font-black text-white tabular-nums">
+                            {cart.find(c => c.product.id === product.id && !c.selectedVariant)?.quantity || 0}
+                        </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const existing = cart.find(c => c.product.id === product.id && !c.selectedVariant);
+                        if (existing) onUpdateQuantity(product.id, existing.quantity + 1);
+                      }}
+                      className="w-10 h-10 flex items-center justify-center bg-primary/10 text-primary transition-all rounded-xl border border-primary/20 active:scale-90 hover:bg-primary hover:text-black"
+                    >
+                      <Plus className="w-4 h-4" strokeWidth={3} />
+                    </button>
+                  </div>
+                )}
+                
+                {store.phone && (
+                  <button
+                      onClick={() => setShowCallModal(true)}
+                      className="w-12 h-12 rounded-xl bg-green-500/10 text-green-500 hover:bg-green-500 hover:text-white flex items-center justify-center transition-all border border-green-500/20"
+                      title="Contact Vendor"
+                  >
+                      <Phone className="w-5 h-5" />
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -243,7 +315,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 initial={{ scale: 0.9, opacity: 0, y: 10 }}
                 animate={{ scale: 1, opacity: 1, y: 0 }}
                 exit={{ scale: 0.9, opacity: 0, y: 10 }}
-                className="bg-[#1a1a1a] w-full max-w-xs rounded-[2rem] p-8 relative shadow-2xl border border-white/10 text-center"
+                className="bg-[#1a1a1a] w-full max-w-xs rounded-3xl p-8 relative shadow-2xl border border-white/10 text-center"
               >
                 <button
                   onClick={() => setShowCallModal(false)}
@@ -253,7 +325,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 </button>
 
                 <div className="space-y-6">
-                  <div className="w-16 h-16 rounded-[1.5rem] bg-green-500/10 flex items-center justify-center mx-auto text-green-500">
+                  <div className="w-16 h-16 rounded-2xl bg-green-500/10 flex items-center justify-center mx-auto text-green-500">
                     <Phone className="w-8 h-8" />
                   </div>
                   

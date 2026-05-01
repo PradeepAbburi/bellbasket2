@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback, startTransition, memo, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useSearchParams, Link, useLocation } from 'react-router-dom';
-import { MapPin, Star, Search, Navigation, Loader2, History, X, Store as StoreIcon, Plus, Minus, ChevronLeft, ChevronRight, Clock, Tag, ShoppingBasket, Sparkles, Filter, ChevronDown, ArrowUpDown, Package2 } from 'lucide-react';
+import { MapPin, Star, Search, Navigation, Loader2, History, X, Store as StoreIcon, Plus, Minus, ChevronLeft, ChevronRight, Clock, Tag, ShoppingBasket, Sparkles, Filter, ChevronDown, ArrowUpDown, Package2, BellRing, Heart } from 'lucide-react';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -51,7 +51,7 @@ function getDistanceKm(lat1: number, lng1: number, lat2: number, lng2: number): 
 
 
 const SkeletonStoreCard = () => (
-  <div className="bg-card rounded-[2.5rem] p-4 flex gap-4 border border-border/50 animate-pulse">
+  <div className="bg-card rounded-3xl p-4 flex gap-4 border border-border/50 animate-pulse">
     <div className="w-24 h-24 rounded-2xl bg-muted shrink-0" />
     <div className="flex-1 space-y-3 py-1">
       <div className="h-4 bg-muted rounded-full w-3/4" />
@@ -76,6 +76,7 @@ const SkeletonProductCard = () => (
 
 // Memoized Store Card with Prefetching
 const StoreCard = memo(({ store, onClick, t }: { store: Store & { distance?: number; effectiveRating?: number }, onClick: () => void, t: any }) => {
+  const { toggleSaveStore, isStoreSaved } = useApp();
   const prefetch = () => {
     // Programmatic prefetch of StoreDetail
     import('./StoreDetail');
@@ -94,13 +95,27 @@ const StoreCard = memo(({ store, onClick, t }: { store: Store & { distance?: num
     >
       <div className="relative h-40 overflow-hidden">
         <img loading="lazy" src={store.image} alt={store.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-        <div className="absolute top-3 right-3 flex flex-col items-end gap-2">
+        <div className="absolute top-3 right-3 flex items-center gap-2">
           <span className={`text-[9.5px] font-black px-2.5 py-1.5 rounded-full shadow-lg backdrop-blur-md border border-black/5 uppercase tracking-widest bg-white text-black flex items-center gap-1.5`}>
             <div className={`w-1.5 h-1.5 rounded-full ${store.isOpen ? 'bg-green-500' : 'bg-red-500'} animate-pulse`} />
             {store.isOpen ? t('home.open_now') : t('home.closed')}
           </span>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleSaveStore(store.id);
+            }}
+            className={`p-2 rounded-full shadow-lg backdrop-blur-md border transition-all active:scale-90 ${
+              isStoreSaved(store.id)
+                ? 'bg-pink-500 text-white border-pink-400'
+                : 'bg-white/80 text-black border-black/5 hover:bg-white'
+            }`}
+            aria-label={isStoreSaved(store.id) ? "Unsave Store" : "Save Store"}
+          >
+            <Heart className={`w-3.5 h-3.5 ${isStoreSaved(store.id) ? 'fill-current' : ''}`} />
+          </button>
         </div>
-        <div className="absolute top-3 left-3 flex items-center gap-2">
+        <div className="absolute top-3 left-3 flex items-center gap-2 z-10">
             <span className="text-[9.5px] font-black px-2.5 py-1 rounded-full shadow-lg backdrop-blur-md flex items-center gap-1 border border-black/5 bg-white text-black">
                 {CATEGORY_METADATA[store.category]?.icon && (() => {
                     const Icon = CATEGORY_METADATA[store.category].icon;
@@ -148,13 +163,14 @@ const ProductCard = memo(({ p, count, onAdd, onUpdate, onRemove, onClick, t, mod
     import('./StoreDetail'); // Product detail is inside StoreDetail view
   };
 
-  const hasDiscount = selectedVariant 
-    ? (!!selectedVariant.discountedPrice && selectedVariant.discountedPrice < selectedVariant.price)
-    : (!!p.discountedPrice && Number(p.discountedPrice) > 0 && Number(p.discountedPrice) < p.price);
+  const hasDiscount = p.discountedPrice && p.discountedPrice < p.price;
+  const lowestVariantPrice = (!selectedVariant && p.hasVariants && p.variants?.length)
+    ? Math.min(...p.variants.map(v => v.discountedPrice || v.price))
+    : null;
   const discountedPrice = selectedVariant
     ? (hasDiscount ? selectedVariant.discountedPrice : selectedVariant.price)
-    : (hasDiscount ? Number(p.discountedPrice) : p.price);
-  const discountPercent = hasDiscount ? Math.round((( (selectedVariant ? selectedVariant.price : p.price) - discountedPrice) / (selectedVariant ? selectedVariant.price : p.price)) * 100) : 0;
+    : (lowestVariantPrice || (hasDiscount ? Number(p.discountedPrice) : p.price));
+  const discountPercent = hasDiscount ? Math.round((( (selectedVariant ? selectedVariant.price : p.price) - (selectedVariant ? (selectedVariant.discountedPrice || selectedVariant.price) : (hasDiscount ? Number(p.discountedPrice) : p.price))) / (selectedVariant ? selectedVariant.price : p.price)) * 100) : 0;
 
   return (
     <motion.div
@@ -164,7 +180,7 @@ const ProductCard = memo(({ p, count, onAdd, onUpdate, onRemove, onClick, t, mod
       onClick={onClick}
       onMouseEnter={prefetch}
       onTouchStart={prefetch}
-      className="bg-[#f8f9fa] dark:bg-[#161616] p-3 rounded-[2.5rem] flex flex-col gap-3 hover:shadow-2xl hover:shadow-primary/10 transition-all border border-slate-200 dark:border-white/5 group/product cursor-pointer relative will-change-transform"
+      className="bg-[#f8f9fa] dark:bg-[#161616] p-3 rounded-3xl flex flex-col gap-3 hover:shadow-2xl hover:shadow-primary/10 transition-all border border-slate-200 dark:border-white/5 group/product cursor-pointer relative will-change-transform"
     >
       <div className="aspect-square rounded-2xl overflow-hidden bg-secondary/10 relative">
         {p.isCombo && p.comboItemsData && p.comboItemsData.length > 0 ? (
@@ -183,8 +199,13 @@ const ProductCard = memo(({ p, count, onAdd, onUpdate, onRemove, onClick, t, mod
             <img loading="lazy" src={p.image} alt={p.name} className="w-full h-full object-cover group-hover/product:scale-110 transition-transform duration-700 ease-out" />
         )}
         {hasDiscount && (
-          <div className="absolute top-2 left-2 bg-primary text-primary-foreground text-[8px] font-black px-1.5 py-0.5 rounded-lg shadow-lg uppercase tracking-tight">
+          <div className="absolute top-2 left-2 bg-primary text-primary-foreground text-[8px] font-black px-1.5 py-0.5 rounded-lg shadow-lg uppercase tracking-tight z-20">
             {discountPercent}% OFF
+          </div>
+        )}
+        {p.hasVariants && (
+          <div className="absolute top-2 right-2 bg-secondary/80 backdrop-blur-md text-secondary-foreground text-[8px] font-black px-1.5 py-0.5 rounded-lg shadow-lg uppercase tracking-tight border border-white/10 z-20">
+            {p.variants?.length ? `${p.variants.length} Variants` : 'Variants'}
           </div>
         )}
         {p.inStock === false && (
@@ -210,7 +231,7 @@ const ProductCard = memo(({ p, count, onAdd, onUpdate, onRemove, onClick, t, mod
             <button disabled className="w-full h-8 rounded-xl bg-muted text-muted-foreground text-[9px] font-black flex items-center justify-center uppercase tracking-widest cursor-not-allowed">
               OOS
             </button>
-          ) : (count === 0 || p.hasVariants) ? (
+          ) : (count === 0) ? (
             <button 
               onClick={(e) => { 
                 e.stopPropagation(); 
@@ -227,7 +248,7 @@ const ProductCard = memo(({ p, count, onAdd, onUpdate, onRemove, onClick, t, mod
               ) : (
                 <>
                   <Plus className="w-3 h-3" /> 
-                  {p.hasVariants && selectedVariant ? 'ADD MORE' : 'ADD TO CART'}
+                  {p.hasVariants ? 'SELECT' : 'ADD'}
                 </>
               )}
             </button>
@@ -296,7 +317,6 @@ const CustomerHome = () => {
   const [activeMode, setActiveMode] = useState<'product' | 'service'>(() => (localStorage.getItem('active_mode') as 'product' | 'service') || 'product');
   const [priceSort, setPriceSort] = useState<'none' | 'low-high' | 'high-low'>('none');
   const [ratingSort, setRatingSort] = useState<'none' | 'top-rated' | 'low-rated'>('none');
-  const [distanceSort, setDistanceSort] = useState<'none' | 'nearest' | 'farthest'>('none');
   const [maxDistance, setMaxDistance] = useState<number>(20);
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
   const [localProducts, setLocalProducts] = useState<Product[]>([]);
@@ -467,6 +487,19 @@ const CustomerHome = () => {
     localStorage.setItem('active_mode', activeMode);
   }, [activeMode]);
 
+
+  // Hide BottomBar when any modal/popup is open
+  useEffect(() => {
+    const bottomNav = document.getElementById('bottom-nav');
+    const isModalOpen = !!(showLocationPicker || variantSelectorProduct);
+    
+    if (bottomNav) {
+      bottomNav.style.display = isModalOpen ? 'none' : '';
+    }
+    return () => {
+      if (bottomNav) bottomNav.style.display = '';
+    };
+  }, [showLocationPicker, variantSelectorProduct]);
 
   useEffect(() => {
     const searchQuery = searchParams.get('q');
@@ -730,7 +763,12 @@ const CustomerHome = () => {
         ...meta,
         storeCount: counts[name] || 0
       }))
-      .sort((a, b) => b.storeCount - a.storeCount);
+      .sort((a, b) => {
+        // Keep "Others" or "Other Services" last
+        if (a.name === 'Others' || a.name === 'Other Services') return 1;
+        if (b.name === 'Others' || b.name === 'Other Services') return -1;
+        return b.storeCount - a.storeCount;
+      });
   }, [activeMode, allStores]);
 
   // Pre-calculate minimum price for each store for sorting
@@ -864,6 +902,11 @@ const CustomerHome = () => {
         const weightA = getPlanWeight(a.plan);
         const weightB = getPlanWeight(b.plan);
 
+        // Always prioritize distance as requested
+        const distA = a.distance || 0;
+        const distB = b.distance || 0;
+        if (Math.abs(distA - distB) > 0.1) return distA - distB;
+
         if (ratingSort !== 'none') {
           if (ratingSort === 'top-rated') { if (b.effectiveRating !== a.effectiveRating) return b.effectiveRating - a.effectiveRating; }
           else { if (a.effectiveRating !== b.effectiveRating) return a.effectiveRating - b.effectiveRating; }
@@ -880,22 +923,38 @@ const CustomerHome = () => {
           }
         }
 
-        if (distanceSort !== 'none') {
-          if (distanceSort === 'nearest') return (a.distance || 0) - (b.distance || 0);
-          else return (b.distance || 0) - (a.distance || 0);
-        }
-
+        // Plan and Rating as tie-breakers for same-distance stores
         if (weightA !== weightB) return weightB - weightA;
-        if (ratingSort === 'none' && priceSort === 'none') { if (Math.abs(b.effectiveRating - a.effectiveRating) >= 0.1) return b.effectiveRating - a.effectiveRating; }
-        return (a.distance || 0) - (b.distance || 0);
+        if (Math.abs(b.effectiveRating - a.effectiveRating) >= 0.1) return b.effectiveRating - a.effectiveRating;
+        return distA - distB;
       });
+
+    // Apply sort filters to searchedProducts (flat product list in search view)
+    let sortedProducts = [...enrichedMatched];
+
+    if (priceSort !== 'none') {
+      sortedProducts = sortedProducts.sort((a, b) => {
+        const pA = a.discountedPrice && Number(a.discountedPrice) > 0 && Number(a.discountedPrice) < a.price ? Number(a.discountedPrice) : a.price;
+        const pB = b.discountedPrice && Number(b.discountedPrice) > 0 && Number(b.discountedPrice) < b.price ? Number(b.discountedPrice) : b.price;
+        return priceSort === 'low-high' ? pA - pB : pB - pA;
+      });
+    } else if (ratingSort !== 'none') {
+      sortedProducts = sortedProducts.sort((a, b) => {
+        const rA = a.storeRating || 0;
+        const rB = b.storeRating || 0;
+        return ratingSort === 'top-rated' ? rB - rA : rA - rB;
+      });
+    } else {
+      // Default product sort: Distance
+      sortedProducts = sortedProducts.sort((a, b) => (a.distance || 0) - (b.distance || 0));
+    }
 
     return {
       filteredStores: (selectedStoreId ? sortedStores.filter(s => s.id === selectedStoreId) : sortedStores) as (Store & { distance?: number; effectiveRating?: number })[],
       storeMatchingProducts: matchingGroups,
-      searchedProducts: enrichedMatched
+      searchedProducts: sortedProducts
     };
-  }, [activeSearch, selectedCategory, userLat, userLng, allStores, allProducts, localProducts, locationName, activeMode, maxDistance, priceSort, ratingSort, distanceSort, storeMinPrices, selectedLocationType, userState, userCountry, selectedStoreId, checkMatchesArea]);
+  }, [activeSearch, selectedCategory, userLat, userLng, allStores, allProducts, localProducts, locationName, activeMode, maxDistance, priceSort, ratingSort, storeMinPrices, selectedLocationType, userState, userCountry, selectedStoreId, checkMatchesArea]);
 
   const handleSearchTrigger = (val?: string) => {
     setSelectedStoreId(null);
@@ -917,7 +976,7 @@ const CustomerHome = () => {
     return (
       <div className="min-h-screen gradient-warm">
         <Header />
-        <div className="pt-24 pb-32 px-4 max-w-4xl mx-auto space-y-8">
+        <div className="pt-24 pb-32 px-4 max-w-6xl mx-auto space-y-8">
            <div className="glass rounded-2xl p-4 flex items-center justify-between gap-4 animate-pulse">
               <div className="w-10 h-10 rounded-xl bg-muted shrink-0" />
               <div className="flex-1 space-y-2">
@@ -951,9 +1010,32 @@ const CustomerHome = () => {
         <meta property="og:url" content="https://bellbasket.com/browse" />
         <meta property="og:type" content="website" />
         <link rel="canonical" href="https://bellbasket.com/browse" />
+        <script type="application/ld+json">
+          {JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "ItemList",
+            "name": "Stores near me on BellBasket",
+            "description": `Discover and shop from the best local stores in ${locationName || 'your area'}.`,
+            "itemListElement": filteredStores.slice(0, 15).map((s, i) => ({
+              "@type": "ListItem",
+              "position": i + 1,
+              "item": {
+                "@type": "LocalBusiness",
+                "name": s.name,
+                "image": s.image,
+                "url": `https://bellbasket.com${s.slug ? `/stores/${s.slug}` : `/store/${s.id}`}`,
+                "address": {
+                  "@type": "PostalAddress",
+                  "streetAddress": s.address,
+                  "addressLocality": s.address.split(',')[0] || "Local"
+                }
+              }
+            }))
+          })}
+        </script>
       </Helmet>
       <Header />
-      <PullToRefresh onRefresh={refreshData} className="pt-16 sm:pt-18 pb-32 px-4 max-w-4xl mx-auto space-y-6">
+      <PullToRefresh onRefresh={refreshData} className="pt-16 sm:pt-18 pb-32 px-4 max-w-6xl mx-auto space-y-6">
         {/* Main Content Area - Hidden while searching */}
         {!isSearching && (
           <div className="space-y-6">
@@ -1049,9 +1131,9 @@ const CustomerHome = () => {
                         <div className="flex items-center justify-between px-1">
                           <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">
                             <History className="w-3 h-3" />
-                            Recently Searched
+                            {t('home.recently_searched', { defaultValue: 'Recently Searched' })}
                           </div>
-                          <button onClick={clearHistory} className="text-[10px] text-primary hover:underline font-bold">Clear</button>
+                          <button onClick={clearHistory} className="text-[10px] text-primary hover:underline font-bold">{t('common.clear', { defaultValue: 'Clear' })}</button>
                         </div>
                         <div className="flex flex-wrap gap-2">
                           {searchHistory.map(item => (
@@ -1084,11 +1166,11 @@ const CustomerHome = () => {
                       <div className="flex items-center justify-between mb-3 px-1">
                         <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-primary">
                           <MapPin className="w-3.5 h-3.5" />
-                          Refine on Map
+                          {t('home.refine_on_map', { defaultValue: 'Refine on Map' })}
                         </div>
                       </div>
                       <div className="h-48 rounded-2xl overflow-hidden border-2 border-primary/10 shadow-inner relative group">
-                        <Suspense fallback={<div className="h-full w-full bg-muted animate-pulse flex items-center justify-center text-xs font-bold text-muted-foreground uppercase tracking-widest leading-relaxed">Localizing neighborhood Map...</div>}>
+                        <Suspense fallback={<div className="h-full w-full bg-muted animate-pulse flex items-center justify-center text-xs font-bold text-muted-foreground uppercase tracking-widest leading-relaxed">{t('home.localizing_map', { defaultValue: 'Localizing neighborhood Map...' })}</div>}>
                           <MapView
                             center={[userLat, userLng]}
                             centerLabel="Your current pin"
@@ -1113,7 +1195,7 @@ const CustomerHome = () => {
                         </Suspense>
                         <div className="absolute bottom-3 left-3 right-3 z-[400] pointer-events-none">
                           <div className="bg-black/60 backdrop-blur-md text-[10px] text-white px-3 py-1.5 rounded-full font-bold text-center">
-                            Tap anywhere on map to fix your location
+                            {t('home.tap_map_to_fix', { defaultValue: 'Tap anywhere on map to fix your location' })}
                           </div>
                         </div>
                       </div>
@@ -1227,7 +1309,7 @@ const CustomerHome = () => {
             <button
               onClick={() => handleSearchTrigger()}
               disabled={isSearching}
-              className="bg-primary text-primary-foreground px-4 md:px-6 py-3 rounded-xl font-bold text-sm shadow-lg hover:shadow-primary/30 active:scale-95 transition-all flex items-center justify-center min-w-[50px] md:min-w-[100px]"
+              className="bg-primary text-primary-foreground px-4 md:px-6 py-2.5 rounded-xl font-bold text-sm shadow-lg hover:shadow-primary/30 active:scale-95 transition-all flex items-center justify-center min-w-[50px] md:min-w-[100px]"
             >
               {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : (
                 <>
@@ -1241,8 +1323,6 @@ const CustomerHome = () => {
               onPriceSortChange={setPriceSort}
               ratingSort={ratingSort}
               onRatingSortChange={setRatingSort}
-              distanceSort={distanceSort}
-              onDistanceSortChange={setDistanceSort}
               showRating={true}
               maxDistance={maxDistance}
               onMaxDistanceChange={setMaxDistance}
@@ -1276,10 +1356,10 @@ const CustomerHome = () => {
                   className="space-y-4 overflow-hidden"
                 >
                   <div className="flex flex-col gap-3 mb-6">
-                    <div className="flex items-center justify-between gap-2">
-                      <h2 className="text-lg md:text-xl font-black text-foreground tracking-tight shrink-0">{t('home.shop_by_category')}</h2>
+                    <div className="flex items-center justify-between gap-4 flex-wrap">
+                      <h2 className="text-lg md:text-xl font-black text-foreground tracking-tight flex-1 min-w-0">{t('home.shop_by_category')}</h2>
                       
-                      <div className="flex bg-secondary/80 backdrop-blur-sm p-1 rounded-xl items-center gap-1 border border-border shadow-inner w-fit">
+                      <div className="flex bg-secondary/80 backdrop-blur-sm p-1 rounded-xl items-center gap-1 border border-border shadow-inner w-fit shrink-0">
                         <button
                           onClick={() => handleModeChange('product')}
                           className={`px-3 md:px-4 py-1.5 rounded-lg text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${activeMode === 'product' ? 'bg-primary text-white shadow-md scale-105' : 'text-muted-foreground hover:text-foreground'}`}
@@ -1417,14 +1497,14 @@ const CustomerHome = () => {
                           }
                         }}
                       >
-                        {[...Array(Math.ceil((1 + categories.length) / 8))].map((_, pageIndex) => {
+                        {[...Array(Math.ceil((1 + categories.length) / 10))].map((_, pageIndex) => {
                           const allItems = [{ type: 'all', data: null }, ...categories.map(c => ({ type: 'category', data: c }))];
-                          const pageItems = allItems.slice(pageIndex * 8, (pageIndex + 1) * 8);
+                          const pageItems = allItems.slice(pageIndex * 10, (pageIndex + 1) * 10);
 
                           if (pageItems.length === 0) return null;
 
                           return (
-                            <div key={pageIndex} className="min-w-full flex-none grid grid-cols-4 grid-rows-2 gap-x-3 gap-y-4 px-1 snap-center">
+                            <div key={pageIndex} className="min-w-full flex-none grid grid-cols-5 grid-rows-2 gap-x-2 gap-y-4 px-1 snap-center">
                               {pageItems.map((item, idx) => {
                                 if (item.type === 'all') {
                                   return (
@@ -1434,10 +1514,10 @@ const CustomerHome = () => {
                                       onClick={() => setSelectedCategory(null)}
                                       className="flex flex-col items-center gap-2 group transition-all"
                                     >
-                                      <div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center transition-all duration-300 ${!selectedCategory ? 'bg-gradient-to-br from-yellow-400 to-amber-500 text-black shadow-lg shadow-yellow-500/20 scale-105' : 'bg-yellow-400 text-black shadow-sm hover:bg-yellow-500 border border-yellow-300'}`}>
-                                        <StoreIcon className="w-6 h-6 sm:w-7 sm:h-7" />
+                                      <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center transition-all duration-300 ${!selectedCategory ? 'bg-gradient-to-br from-yellow-400 to-amber-500 text-black shadow-lg shadow-yellow-500/20 scale-105' : 'bg-yellow-400 text-black shadow-sm hover:bg-yellow-500 border border-yellow-300'}`}>
+                                        <StoreIcon className="w-5 h-5 sm:w-7 sm:h-7" />
                                       </div>
-                                      <span className={`text-[9px] font-black uppercase tracking-wider text-center transition-colors ${!selectedCategory ? 'text-primary' : 'text-muted-foreground group-hover:text-primary'}`}>{activeMode === 'product' ? t('home.all_shops') : 'All Services'}</span>
+                                      <span className={`text-[8px] font-black uppercase tracking-wider text-center transition-colors ${!selectedCategory ? 'text-primary' : 'text-muted-foreground group-hover:text-primary'}`}>{activeMode === 'product' ? t('home.all_shops') : 'All Services'}</span>
                                     </motion.button>
                                   );
                                 }
@@ -1455,7 +1535,7 @@ const CustomerHome = () => {
                                     className="flex flex-col items-center gap-2 group transition-all"
                                   >
                                     <div 
-                                      className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-sm border relative overflow-hidden ${selectedCategory === cat?.name ? 'border-primary ring-4 ring-primary/20 scale-105 shadow-lg shadow-primary/10' : 'border-border group-hover:border-primary/30 group-hover:shadow-md'}`} 
+                                      className={`w-12 h-12 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-sm border relative overflow-hidden ${selectedCategory === cat?.name ? 'border-primary ring-4 ring-primary/20 scale-105 shadow-lg shadow-primary/10' : 'border-border group-hover:border-primary/30 group-hover:shadow-md'}`} 
                                       style={{ 
                                         backgroundColor: selectedCategory === cat?.name ? cat?.color : `${cat?.color}15`,
                                         borderColor: selectedCategory === cat?.name ? cat?.color : undefined
@@ -1466,11 +1546,11 @@ const CustomerHome = () => {
                                         className={`relative z-10 transition-all duration-300 ${selectedCategory === cat?.name ? 'text-white scale-110' : ''}`} 
                                         style={{ color: selectedCategory === cat?.name ? '#fff' : cat?.color }}
                                       >
-                                        {Icon && <Icon className="w-6 h-6 sm:w-7 sm:h-7" />}
+                                        {Icon && <Icon className="w-5 h-5 sm:w-7 sm:h-7" />}
                                       </div>
                                     </div>
                                     <span 
-                                      className={`text-[9px] font-black uppercase tracking-wider text-center leading-tight transition-colors line-clamp-2 max-w-[70px] ${selectedCategory === cat?.name ? 'text-primary' : 'text-muted-foreground'}`} 
+                                      className={`text-[8px] font-black uppercase tracking-wider text-center leading-tight transition-colors line-clamp-2 max-w-[64px] ${selectedCategory === cat?.name ? 'text-primary' : 'text-muted-foreground'}`} 
                                       style={selectedCategory === cat?.name ? { color: cat?.color } : {}}
                                     >
                                       {t(`categories.${cat?.name}`, { defaultValue: cat?.name.split(' & ')[0] })}
@@ -1485,7 +1565,7 @@ const CustomerHome = () => {
 
                       {/* Dots */}
                       <div className="flex justify-center items-center gap-1.5 mt-2">
-                        {[...Array(Math.ceil((1 + categories.length) / 8))].map((_, i) => (
+                        {[...Array(Math.ceil((1 + categories.length) / 10))].map((_, i) => (
                           <div
                             key={i}
                             className={`h-1.5 rounded-full transition-all duration-300 ${i === mobileCategoryPage ? 'w-4 bg-primary' : 'w-1.5 bg-primary/20'}`}
@@ -1531,9 +1611,9 @@ const CustomerHome = () => {
             )}
 
             {/* Stores grid header */}
-            <div className="flex items-center justify-between gap-3 mb-6">
-              <div className="space-y-1.5 min-w-0 pr-2">
-                <h1 className="text-base md:text-xl font-black text-foreground truncate tracking-tight">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+              <div className="space-y-1.5 min-w-0">
+                <h1 className="text-lg md:text-xl font-black text-foreground truncate tracking-tight">
                   {selectedStoreId ? 'Selected Store' : (activeSearch || selectedCategory ? (activeSearch ? `"${activeSearch}"` : t(`categories.${selectedCategory}`, { defaultValue: selectedCategory })) : (locationName.split(',')[0].length > 2 && locationName !== 'Connaught Place' ? `Stores in ${locationName.split(',')[0]}` : 'Hyperlocal Shops'))}
                 </h1>
                 <div className="flex flex-wrap items-center gap-2">
@@ -1547,8 +1627,8 @@ const CustomerHome = () => {
                 </div>
               </div>
 
-              {(activeSearch || selectedCategory) && (
-                <div className="flex items-center gap-1 bg-secondary/30 p-1 rounded-xl border border-border/40 overflow-hidden">
+              {activeSearch && !selectedCategory && (
+                <div className="flex items-center gap-1 bg-secondary/30 p-1 rounded-xl border border-border/40 overflow-hidden w-fit shrink-0">
                   {[
                     { id: 'all', label: 'All' },
                     { id: 'stores', label: 'Stores' },
@@ -1573,24 +1653,25 @@ const CustomerHome = () => {
             <div className={!selectedStoreId && (activeSearch || selectedCategory) ? "w-full pb-20 space-y-8" : "grid sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-20"}>
               {!selectedStoreId && (activeSearch || selectedCategory) ? (
                 <>
-                  {/* Matching Stores Section - only when searching for a store name */}
+                  {/* Matching Stores Section - stores that match search or have matching products */}
                   {(activeSearch || selectedCategory) && filteredStores.length > 0 && (searchResultType === 'all' || searchResultType === 'stores') && (
                     <div className="space-y-4">
-                      <div className="flex items-center gap-2">
-                        <div className="w-1 h-4 bg-primary rounded-full" />
-                        <h2 className="text-sm font-black uppercase tracking-widest text-foreground/70">{selectedCategory ? `${selectedCategory} Shops` : 'Matching Stores'}</h2>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-1 h-4 bg-primary rounded-full" />
+                          <h2 className="text-sm font-black uppercase tracking-widest text-foreground/70">{selectedCategory ? `${selectedCategory} Shops` : 'Matching Stores'}</h2>
+                        </div>
+                        <span className="text-[10px] font-bold text-muted-foreground">{filteredStores.length} found</span>
                       </div>
                       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {filteredStores
-                          .filter(s => activeSearch ? s.name.toLowerCase().includes(activeSearch.toLowerCase()) : true)
-                          .map((store, i) => (
-                            <StoreCard
-                              key={store.id + i}
-                              store={store}
-                              t={t}
-                              onClick={() => handleStoreClick(store.id)}
-                            />
-                          ))}
+                        {filteredStores.map((store, i) => (
+                          <StoreCard
+                            key={store.id + i}
+                            store={store}
+                            t={t}
+                            onClick={() => handleStoreClick(store.id)}
+                          />
+                        ))}
                       </div>
                     </div>
                   )}
@@ -1628,27 +1709,30 @@ const CustomerHome = () => {
                         </div>
                       ) : (
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
-                          {searchedProducts.map((p, idx) => (
-                            <ProductCard
-                              key={p.id + idx}
-                              p={p}
-                              t={t}
-                              count={cart.find(item => item.product.id === p.id && !item.selectedVariant)?.quantity || 0}
-                              selectedVariant={cart.find(item => item.product.id === p.id && item.selectedVariant)?.selectedVariant}
-                              onAdd={() => {
-                                if (p.hasVariants) {
-                                  setVariantSelectorProduct(p);
-                                } else {
-                                  activeMode === 'service' ? handleProductClick(p.id, p.vendorId || '') : addToCart({ product: p, storeId: p.vendorId || '', storeName: p.storeName || '', storePhone: p.storePhone || '', quantity: 1 });
-                                }
-                              }}
-                              onUpdate={(q) => updateQuantity(p.id, q)}
-                              onRemove={() => removeFromCart(p.id)}
-                              onClick={() => handleProductClick(p.id, p.vendorId || '')}
-                              onVariantTrigger={(p) => setVariantSelectorProduct(p)}
-                              mode={activeMode}
-                            />
-                          ))}
+                          {searchedProducts.map((p, idx) => {
+                            const itemInCart = cart.find(item => item.product.id === p.id);
+                            return (
+                              <ProductCard
+                                key={p.id + idx}
+                                p={p}
+                                t={t}
+                                count={itemInCart?.quantity || 0}
+                                selectedVariant={itemInCart?.selectedVariant}
+                                onAdd={() => {
+                                  if (p.hasVariants) {
+                                    setVariantSelectorProduct(p);
+                                  } else {
+                                    activeMode === 'service' ? handleProductClick(p.id, p.vendorId || '') : addToCart({ product: p, storeId: p.vendorId || '', storeName: p.storeName || '', storePhone: p.storePhone || '', quantity: 1 });
+                                  }
+                                }}
+                                onUpdate={(q) => updateQuantity(p.id, q, itemInCart?.selectedVariant?.id)}
+                                onRemove={() => removeFromCart(p.id, itemInCart?.selectedVariant?.id)}
+                                onClick={() => handleProductClick(p.id, p.vendorId || '')}
+                                onVariantTrigger={(p) => setVariantSelectorProduct(p)}
+                                mode={activeMode}
+                              />
+                            );
+                          })}
                         </div>
                       )}
                     </div>
@@ -1683,7 +1767,7 @@ const CustomerHome = () => {
 
 
         <footer className="py-8 px-4 border-t border-border mt-12 bg-transparent backdrop-blur-sm">
-          <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex flex-col md:flex-row items-center gap-4">
               <span className="font-bold text-sm text-foreground">BellBasket</span>
               <a href="mailto:contact@bellbasket.com" className="text-xs text-muted-foreground hover:text-primary transition-colors">

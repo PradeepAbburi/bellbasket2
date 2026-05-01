@@ -11,13 +11,29 @@ import DesktopBackground from './DesktopBackground';
 import { getAudioStatus, onAudioStatusChange, initAudio, playBellSound } from '@/utils/notifications';
 
 const Header = ({ solid = false }: { solid?: boolean }) => {
-  const { user, cart, orders, serviceBookings, logout, notifications, markAllNotificationsRead, stores, requestPushNotifications } = useApp();
+  const { user, cart, orders, serviceBookings, logout, notifications, markAllNotificationsRead, stores, requestPushNotifications, isAnyModalOpen } = useApp();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const isDownloadPage = location.pathname === '/download';
   const [menuOpen, setMenuOpen] = useState(false);
   const [showNotifs, setShowNotifs] = useState(false);
+  const [audioStatus, setAudioStatus] = useState(getAudioStatus());
+
+  useEffect(() => {
+    // Sync with audio context state
+    const unsub = onAudioStatusChange(setAudioStatus);
+    
+    // Attempt auto-resume
+    if (audioStatus === 'suspended') {
+      initAudio();
+    }
+    
+    return unsub;
+  }, [audioStatus]);
+
+  if (isAnyModalOpen) return null;
+
   const unreadCount = notifications.filter((n: any) => !n.read && n.id !== 'welcome').length;
   
   // High-performance prefetching for navigation
@@ -61,20 +77,6 @@ const Header = ({ solid = false }: { solid?: boolean }) => {
   const activeBtn = "bg-primary text-primary-foreground shadow-lg shadow-primary/20";
   const normalBtn = "text-muted-foreground hover:bg-primary/10 hover:text-primary";
 
-  const [audioStatus, setAudioStatus] = useState(getAudioStatus());
-
-  useEffect(() => {
-    // Sync with audio context state
-    const unsub = onAudioStatusChange(setAudioStatus);
-    
-    // Attempt auto-resume
-    if (audioStatus === 'suspended') {
-      initAudio();
-    }
-    
-    return unsub;
-  }, [audioStatus]);
-
   return (
     <>
       <DesktopBackground />
@@ -111,7 +113,7 @@ const Header = ({ solid = false }: { solid?: boolean }) => {
                     className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}
                   >
                     <Zap className="w-5 h-5" />
-                    <span className="hidden lg:inline">Deals</span>
+                    <span className="hidden lg:inline">{t('common.deals')}</span>
                   </NavLink>
 
                   <NavLink 
@@ -337,7 +339,7 @@ const Header = ({ solid = false }: { solid?: boolean }) => {
                     onClick={() => { 
                       logout(); 
                       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth < 768;
-                      navigate(isMobile ? '/browse' : '/'); 
+                      navigate('/'); 
                     }}
                     className="hidden md:flex p-2.5 text-red-600 bg-white hover:bg-red-50 rounded-xl transition-all active:scale-95 border border-red-50"
                     title="Sign Out"

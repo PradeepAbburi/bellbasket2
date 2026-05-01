@@ -9,7 +9,7 @@ import PullToRefresh from '@/components/ui/PullToRefresh';
 import { useApp } from '@/context/AppContext';
 import { doc, updateDoc, arrayUnion, setDoc, getDoc, deleteDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { ServiceBooking, Store, Order } from '@/types';
-import { Trash2, CheckCircle2, Circle, RefreshCcw, Package, Clock, Star, ArrowLeft, MapPin, Navigation, Loader2, EyeOff, KeyRound, Phone, User as UserIcon, BellRing } from 'lucide-react';
+import { Trash2, CheckCircle2, Circle, RefreshCcw, Package, Clock, Star, ArrowLeft, MapPin, Navigation, Loader2, EyeOff, KeyRound, Phone, User as UserIcon, BellRing, ShoppingCart, ChevronRight } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { toast } from 'sonner';
 import { sendInAppNotification } from '@/utils/notifications';
@@ -40,7 +40,7 @@ const formatDate = (dateStr: string) => {
 };
 
 const Receipts = () => {
-  const { user, stores, orders, serviceBookings, refreshData, loading } = useApp();
+  const { user, stores, orders, serviceBookings, refreshData, loading, cart, cartSubtotal } = useApp();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [view, setView] = useState<'active' | 'history'>('active');
@@ -334,34 +334,6 @@ const Receipts = () => {
   const displayOrders = view === 'active' ? activeOrders : pastOrders;
   const displayBookings = view === 'active' ? activeBookings : pastBookings;
 
-  // Group orders by threadId for visual "threading"
-  const threadedGroups = useMemo(() => {
-    const groups: Record<string, Order[]> = {};
-    const processedThreadIds = new Set<string>();
-    const result: { type: 'standalone' | 'thread'; orders: Order[]; threadId?: string }[] = [];
-
-    displayOrders.forEach(order => {
-      if (order.threadId) {
-        if (!groups[order.threadId]) groups[order.threadId] = [];
-        groups[order.threadId].push(order);
-      }
-    });
-
-    displayOrders.forEach(order => {
-      if (!order.threadId) {
-        result.push({ type: 'standalone', orders: [order] });
-      } else if (!processedThreadIds.has(order.threadId)) {
-        processedThreadIds.add(order.threadId);
-        result.push({ 
-          type: 'thread', 
-          orders: groups[order.threadId].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
-          threadId: order.threadId 
-        });
-      }
-    });
-
-    return result;
-  }, [displayOrders]);
 
   const handleDeleteSelected = async () => {
     if (selectedIds.length === 0) return;
@@ -451,7 +423,32 @@ const Receipts = () => {
               exit={{ opacity: 0 }}
               className="space-y-6 pb-20"
             >
-              {/* Removed Banner */}
+              {/* Active Basket Banner */}
+              {cart.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: -20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mb-6"
+                >
+                  <button
+                    onClick={() => navigate('/cart')}
+                    className="w-full flex items-center justify-between bg-primary text-primary-foreground p-5 rounded-[2rem] shadow-lg shadow-primary/20 group hover:scale-[1.02] active:scale-95 transition-all"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center shadow-inner">
+                        <ShoppingCart className="w-6 h-6" />
+                      </div>
+                      <div className="text-left">
+                        <p className="text-xs font-black uppercase tracking-[0.2em] opacity-80 leading-none mb-1">My Active Basket</p>
+                        <p className="text-xl font-black tracking-tight">₹{cartSubtotal}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 px-4 py-2 bg-white/10 rounded-full text-[10px] font-black uppercase tracking-widest border border-white/10 group-hover:bg-white/20 transition-colors">
+                      {cart.reduce((s, c) => s + c.quantity, 0)} Items <ChevronRight className="w-4 h-4" />
+                    </div>
+                  </button>
+                </motion.div>
+              )}
 
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="space-y-1">
@@ -528,51 +525,30 @@ const Receipts = () => {
                 </div>
               ) : (
                 <div className="space-y-8">
-                  {filterType === 'orders' ? threadedGroups.map((group, gIdx) => (
-                    <div key={group.threadId || gIdx} className="relative space-y-4">
-                      {group.type === 'thread' && group.orders.length > 1 && (
-                        <>
-                          <div className="absolute left-[34px] sm:left-[38px] top-16 bottom-16 w-1 bg-primary/20 rounded-full hidden sm:block" />
-                          <div className="flex items-center gap-3 px-2 mb-2">
-                             <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                                <Navigation className="w-4 h-4 text-primary animate-pulse" />
-                             </div>
-                             <div>
-                                <h3 className="text-xs font-black text-primary uppercase tracking-[0.2em]">Connected Route ({group.orders.length} Shops)</h3>
-                                <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest">Multiple pick-ups in a single trip</p>
-                             </div>
-                          </div>
-                        </>
-                      )}
-                      
-                      <div className={`grid ${group.type === 'thread' ? 'grid-cols-1' : 'md:grid-cols-2'} gap-4`}>
-                        {group.orders.map((order, i) => (
-                          <div key={order.id} className="relative">
-                            <RenderOrderCard
-                              order={order} i={i}
-                              review={reviews[order.id] || (order.review ? { ...order.review, submitted: true } : { rating: 0, text: '', submitted: false, isAnonymous: false })}
-                              onRate={(star) => handleRating(order.id, star)}
-                              onReviewChange={(text) => setReviews(prev => ({ ...prev, [order.id]: { ...(prev[order.id] || { rating: 0, submitted: false, isAnonymous: false }), text } }))}
-                              onAnonymous={(anon) => handleAnonymous(order.id, anon)}
-                              onSubmit={() => handleReviewSubmit(order.id, 'order')}
-                              t={t} storePhone={getStoreForOrder(order.storeId)?.phone}
-                              vendorInfo={vendorInfoState[order.storeId]} getStoreForOrder={getStoreForOrder}
-                              userCoords={userCoords} isSelected={selectedIds.includes(order.id)}
-                              onToggleSelect={() => toggleSelect(order.id)} onLongPress={() => toggleSelect(order.id)}
-                              showSelection={view === 'history' && selectedIds.length > 0}
-                              hasReviewedStore={Array.isArray(getStoreForOrder(order.storeId)?.reviews) && getStoreForOrder(order.storeId)!.reviews!.some((r: any) => r.userId === user?.id)}
-                              onClick={() => { 
-                                navigate(`/receipt/${order.id}`); 
-                              }}
-                            />
-                            {group.type === 'thread' && i < group.orders.length - 1 && (
-                              <div className="absolute -bottom-4 left-[34px] sm:left-[38px] z-20 w-1.5 h-4 bg-primary rounded-full hidden sm:block" />
-                            )}
-                          </div>
-                        ))}
-                      </div>
+                  {filterType === 'orders' ? (
+                    <div className="grid md:grid-cols-2 gap-4">
+                      {displayOrders.map((order, i) => (
+                        <RenderOrderCard
+                          key={order.id}
+                          order={order} i={i}
+                          review={reviews[order.id] || (order.review ? { ...order.review, submitted: true } : { rating: 0, text: '', submitted: false, isAnonymous: false })}
+                          onRate={(star) => handleRating(order.id, star)}
+                          onReviewChange={(text) => setReviews(prev => ({ ...prev, [order.id]: { ...(prev[order.id] || { rating: 0, submitted: false, isAnonymous: false }), text } }))}
+                          onAnonymous={(anon) => handleAnonymous(order.id, anon)}
+                          onSubmit={() => handleReviewSubmit(order.id, 'order')}
+                          t={t} storePhone={getStoreForOrder(order.storeId)?.phone}
+                          vendorInfo={vendorInfoState[order.storeId]} getStoreForOrder={getStoreForOrder}
+                          userCoords={userCoords} isSelected={selectedIds.includes(order.id)}
+                          onToggleSelect={() => toggleSelect(order.id)} onLongPress={() => toggleSelect(order.id)}
+                          showSelection={view === 'history' && selectedIds.length > 0}
+                          hasReviewedStore={Array.isArray(getStoreForOrder(order.storeId)?.reviews) && getStoreForOrder(order.storeId)!.reviews!.some((r: any) => r.userId === user?.id)}
+                          onClick={() => { 
+                            navigate(`/receipt/${order.id}`); 
+                          }}
+                        />
+                      ))}
                     </div>
-                  )) : (
+                  ) : (
                     <div className="grid md:grid-cols-2 gap-4">
                       {displayBookings.map((booking, i) => (
                         <RenderBookingCard

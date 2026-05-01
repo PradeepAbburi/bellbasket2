@@ -24,7 +24,7 @@ messaging.onBackgroundMessage((payload) => {
   const options = {
     body: body,
     icon: '/pwa-icon.png',
-    badge: '/pwa-icon.png',
+    badge: '/pwa-icon.png', 
     vibrate: [200, 100, 200],
     tag: payload.data?.orderId || 'general-alert',
     renotify: true,

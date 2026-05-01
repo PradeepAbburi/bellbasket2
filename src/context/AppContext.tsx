@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { User, CartItem, Order, Store, Product, PlanTier, ServiceBooking, ProductRequest } from '@/types';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -45,11 +46,16 @@ interface AppState {
   theme: 'light' | 'dark';
   toggleTheme: () => void;
   cartSubtotal: number;
+  toggleSaveStore: (storeId: string) => Promise<void>;
+  isStoreSaved: (storeId: string) => boolean;
+  isAnyModalOpen: boolean;
+  setIsAnyModalOpen: (isOpen: boolean) => void;
 }
 
 const AppContext = createContext<AppState | undefined>(undefined);
 
 export const AppProvider = ({ children }: { children: ReactNode }) => {
+  const { t } = useTranslation();
   const [user, setUser] = useState<User | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -59,6 +65,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [productRequests, setProductRequests] = useState<ProductRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+  const [isAnyModalOpen, setIsAnyModalOpen] = useState(false);
 
   // Theme auto-lock to dark
   useEffect(() => {
@@ -84,9 +91,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     if (user?.language) {
-      i18n.changeLanguage(user.language);
+      loadLanguage(user.language).then(() => {
+        i18n.changeLanguage(user.language);
+      });
     }
-  }, [user?.language]);
+  }, [user?.language, i18n]);
   const [notifications, setNotifications] = useState<any[]>([{ id: 'welcome', title: 'Welcome to BellBasket!', body: 'Stay tuned for updates on your orders.', time: new Date().toISOString() }]);
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   const prevOrderCount = React.useRef(0);
@@ -169,7 +178,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ProductRequest));
+      const fetched = snapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() } as ProductRequest))
+        .filter(r => {
+          if (user.role === 'vendor' && r.deletedByVendor) return false;
+          if (user.role === 'customer' && r.deletedByUser) return false;
+          return true;
+        });
       setProductRequests(fetched.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
     }, (error) => {
       console.error("Product Requests sync error:", error);
@@ -656,11 +671,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     refreshStores();
   }, []);
 
-  useEffect(() => {
-    if (user?.language) {
-      i18n.changeLanguage(user.language);
-    }
-  }, [user?.language]);
 
   const markAllNotificationsRead = async () => {
     if (!user?.id) return;
@@ -907,6 +917,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
 
     setCart(prev => {
+      if (prev.length > 0 && prev[0].storeId !== item.storeId) {
+        toast.info(t('common.cart.single_store_note', { defaultValue: "You can only order from one store at a time. Your cart has been updated." }));
+        return [item];
+      }
       const existing = prev.find(c => 
         c.product.id === item.product.id && 
         c.selectedVariant?.id === item.selectedVariant?.id
@@ -948,8 +962,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const placeOrder = React.useCallback(async (paymentMethod: 'online' | 'pickup' | 'delivery', options?: { deliveryMethod: 'pickup' | 'delivery', deliveryFee: number, customerName?: string, customerPhone?: string, customerAddress?: string }) => {
     if (cart.length === 0 || !user) return null;
 
-    // Split cart into multiple orders by storeId
-    const threadId = `THREAD-${Date.now()}`;
     const storesInCart = [...new Set(cart.map(c => c.storeId))];
     
     // VERY IMPORTANT: Clear cart immediately and globally
@@ -993,7 +1005,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       
       const newOrder: Order = {
         id: orderId,
-        threadId,
         userId: user.id,
         userName: options?.customerName || user.name || 'Customer',
         userPhone: options?.customerPhone || user.phone || '',
@@ -1091,6 +1102,39 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
+  const isStoreSaved = React.useCallback((storeId: string) => {
+    if (!user?.savedStores) return false;
+    return user.savedStores.some(s => (typeof s === 'string' ? s === storeId : s.storeId === storeId));
+  }, [user?.savedStores]);
+
+  const toggleSaveStore = React.useCallback(async (storeId: string) => {
+    if (!user) {
+      toast.info("Please login first", {
+        description: "You need to be signed in to save stores."
+      });
+      window.location.href = '/auth';
+      return;
+    }
+    
+    const savedStores = user.savedStores || [];
+    const isSaved = savedStores.some(s => (typeof s === 'string' ? s === storeId : s.storeId === storeId));
+    const newSavedStores = isSaved 
+      ? savedStores.filter(s => (typeof s === 'string' ? s !== storeId : s.storeId !== storeId))
+      : [{ storeId, savedAt: new Date().toISOString() }, ...savedStores];
+      
+    try {
+      await updateUser({ savedStores: newSavedStores });
+      if (!isSaved) {
+        toast.success("Store saved to your favorites!");
+      } else {
+        toast.success("Store removed from favorites");
+      }
+    } catch (e) {
+      console.error("Failed to toggle save store:", e);
+      toast.error("Failed to update favorites");
+    }
+  }, [user, updateUser]);
+
   React.useEffect(() => {
     const handleFirstInteraction = () => {
       if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
@@ -1128,7 +1172,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     markAllNotificationsRead, markNotificationAsRead, requestPushNotifications,
     productRequests, requestProduct,
     theme, toggleTheme,
-    cartSubtotal
+    cartSubtotal,
+    toggleSaveStore,
+    isStoreSaved,
+    isAnyModalOpen,
+    setIsAnyModalOpen
   }), [
     user, cart, orders, serviceBookings, stores, allProducts, loading,
     login, logout, refreshUser, addToCart, removeFromCart, updateQuantity,
@@ -1137,7 +1185,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     markAllNotificationsRead, markNotificationAsRead, requestPushNotifications,
     productRequests, requestProduct,
     theme, toggleTheme,
-    cartSubtotal
+    cartSubtotal,
+    toggleSaveStore,
+    isStoreSaved,
+    isAnyModalOpen,
+    setIsAnyModalOpen
   ]);
 
   return (

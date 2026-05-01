@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useLocation } from 'react-router-dom';
 import { useApp } from '@/context/AppContext';
 import {
     Globe,
@@ -25,6 +26,7 @@ import { useTranslation } from 'react-i18next';
 const Onboarding = () => {
     const { user, updateUser } = useApp();
     const { t, i18n } = useTranslation();
+    const location = useLocation();
     const [step, setStep] = useState(0); // 0: Language, 1+: Tutorial
     const [selectedLang, setSelectedLang] = useState(user?.language || 'English');
     const [searchQuery, setSearchQuery] = useState('');
@@ -36,6 +38,10 @@ const Onboarding = () => {
     };
 
     if (!user || user.hasCompletedOnboarding) return null;
+    
+    // Only show onboarding on the main dashboard/home pages
+    if (user.role === 'vendor' && location.pathname !== '/vendor') return null;
+    if (user.role === 'customer' && location.pathname !== '/browse') return null;
 
     const filteredLanguages = ALL_LANGUAGES.filter(lang =>
         lang.toLowerCase().includes(searchQuery.toLowerCase())

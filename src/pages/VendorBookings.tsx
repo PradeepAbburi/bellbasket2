@@ -17,7 +17,7 @@ const statusFlow = ['pending', 'accepted', 'completed'] as const;
 const VendorBookings = () => {
     const navigate = useNavigate();
     const { t } = useTranslation();
-    const { user, serviceBookings: bookings, loading } = useApp();
+    const { user, serviceBookings: bookings, loading, setIsAnyModalOpen } = useApp();
     const [view, setView] = useState<'active' | 'past'>('active');
     const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
     
@@ -26,16 +26,11 @@ const VendorBookings = () => {
     const [isSelectionMode, setIsSelectionMode] = useState(false);
     const [longPressTimer, setLongPressTimer] = useState<any>(null);
 
-    // Hide BottomNav when modal is open
+    // Use global modal state to hide nav elements
     useEffect(() => {
-        const nav = document.getElementById('bottom-nav');
-        if (selectedBookingId) {
-            nav?.style.setProperty('display', 'none', 'important');
-        } else {
-            nav?.style.removeProperty('display');
-        }
-        return () => { nav?.style.removeProperty('display'); };
-    }, [selectedBookingId]);
+        setIsAnyModalOpen(!!selectedBookingId);
+        return () => setIsAnyModalOpen(false);
+    }, [selectedBookingId, setIsAnyModalOpen]);
 
     const activeBookings = bookings.filter(b => b.status === 'pending' || b.status === 'accepted');
     const pastBookings = bookings.filter(b => b.status === 'completed' || b.status === 'rejected');

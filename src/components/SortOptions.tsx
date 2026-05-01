@@ -26,9 +26,8 @@ interface SortOptionsProps {
   onPriceSortChange: (value: 'none' | 'low-high' | 'high-low') => void;
   ratingSort?: 'none' | 'top-rated' | 'low-rated';
   onRatingSortChange?: (value: 'none' | 'top-rated' | 'low-rated') => void;
-  distanceSort?: 'none' | 'nearest' | 'farthest';
-  onDistanceSortChange?: (value: 'none' | 'nearest' | 'farthest') => void;
   showRating?: boolean;
+  ratingLabel?: string;
   maxDistance?: number;
   onMaxDistanceChange?: (value: number) => void;
   compact?: boolean;
@@ -40,9 +39,8 @@ const SortOptions: React.FC<SortOptionsProps> = ({
   onPriceSortChange,
   ratingSort,
   onRatingSortChange,
-  distanceSort = 'none',
-  onDistanceSortChange,
   showRating = false,
+  ratingLabel,
   maxDistance = 20,
   onMaxDistanceChange,
   compact = false,
@@ -51,7 +49,7 @@ const SortOptions: React.FC<SortOptionsProps> = ({
   const { t } = useTranslation();
   const isMobile = useIsMobile();
 
-  const hasActiveSort = priceSort !== 'none' || (showRating && ratingSort !== 'none') || distanceSort !== 'none';
+  const hasActiveSort = priceSort !== 'none' || (showRating && ratingSort !== 'none');
 
   const SortTrigger = (
     <button className={cn(
@@ -127,7 +125,7 @@ const SortOptions: React.FC<SortOptionsProps> = ({
         {onMaxDistanceChange && (
           <section className="bg-secondary/5 p-4 rounded-xl border border-border/20 space-y-3">
              <div className="flex items-center justify-between">
-               <label className="text-[8px] font-black uppercase tracking-[0.2em] text-primary block">Search Range</label>
+               <label className="text-[8px] font-black uppercase tracking-[0.2em] text-primary block">{t('sort.search_range', { defaultValue: 'Search Range' })}</label>
                <span className="text-[10px] font-black text-primary bg-primary/10 px-2 py-0.5 rounded-full">{maxDistance}km</span>
              </div>
              <input 
@@ -148,12 +146,12 @@ const SortOptions: React.FC<SortOptionsProps> = ({
 
         {showRating && onRatingSortChange && (
           <section>
-            <label className="text-[8px] font-black uppercase tracking-[0.2em] text-primary/70 mb-1.5 block">{t('sort.rating')}</label>
+            <label className="text-[8px] font-black uppercase tracking-[0.2em] text-primary/70 mb-1.5 block">{ratingLabel || t('sort.rating')}</label>
             <div className="grid grid-cols-1 gap-1">
               {[
                 { id: 'none', label: t('sort.none'), icon: null },
-                { id: 'top-rated', label: t('sort.top_rated'), icon: <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" /> },
-                { id: 'low-rated', label: t('sort.low_rated'), icon: <Star className="w-3 h-3 text-muted-foreground/40" /> },
+                { id: 'top-rated', label: ratingLabel ? 'Best First' : t('sort.top_rated'), icon: <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" /> },
+                { id: 'low-rated', label: ratingLabel ? 'Lowest First' : t('sort.low_rated'), icon: <Star className="w-3 h-3 text-muted-foreground/40" /> },
               ].map((opt) => (
                 <DrawerClose key={opt.id} asChild>
                   <button
@@ -182,41 +180,7 @@ const SortOptions: React.FC<SortOptionsProps> = ({
           </section>
         )}
 
-        {onDistanceSortChange && (
-          <section>
-            <label className="text-[8px] font-black uppercase tracking-[0.2em] text-primary/70 mb-1.5 block">Distance</label>
-            <div className="grid grid-cols-1 gap-1">
-              {[
-                { id: 'none', label: 'Default', icon: null },
-                { id: 'nearest', label: 'Nearest First', icon: <ArrowUpDown className="w-3 h-3 rotate-180" /> },
-                { id: 'farthest', label: 'Farthest First', icon: <ArrowUpDown className="w-3 h-3" /> },
-              ].map((opt) => (
-                <DrawerClose key={opt.id} asChild>
-                  <button
-                    onClick={() => onDistanceSortChange(opt.id as any)}
-                    className={cn(
-                      "flex items-center justify-between px-2.5 py-2 rounded-lg transition-all duration-300 border text-left",
-                      distanceSort === opt.id
-                        ? "bg-primary border-primary text-primary-foreground shadow-sm shadow-primary/10"
-                        : "bg-secondary/15 border-transparent text-muted-foreground hover:border-primary/20"
-                    )}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <div className={cn(
-                        "w-6 h-6 rounded-md flex items-center justify-center",
-                        distanceSort === opt.id ? "bg-white/20" : "bg-white dark:bg-[#333333] shadow-sm"
-                      )}>
-                        {opt.icon || <span className="text-[9px] font-black">✕</span>}
-                      </div>
-                      <span className="text-xs font-bold">{opt.label}</span>
-                    </div>
-                    {distanceSort === opt.id && <Check className="w-3 h-3 text-white" />}
-                  </button>
-                </DrawerClose>
-              ))}
-            </div>
-          </section>
-        )}
+
       </div>
     </DrawerContent>
   );
@@ -269,7 +233,7 @@ const SortOptions: React.FC<SortOptionsProps> = ({
         {onMaxDistanceChange && (
           <section className="px-3 py-2 space-y-2 bg-primary/5 mx-1 rounded-lg border border-primary/10">
             <div className="flex items-center justify-between pointer-events-none">
-               <label className="text-[8px] font-black uppercase tracking-widest text-primary/70">Distance Range</label>
+               <label className="text-[8px] font-black uppercase tracking-widest text-primary/70">{t('sort.distance_range', { defaultValue: 'Distance Range' })}</label>
                <span className="text-[10px] font-black text-primary">{maxDistance}km</span>
             </div>
             <input 
@@ -290,13 +254,13 @@ const SortOptions: React.FC<SortOptionsProps> = ({
             <DropdownMenuSeparator className="my-1.5 bg-border/40 mx-2" />
             <DropdownMenuLabel className="flex items-center gap-1.5 px-2 py-1 text-[8px] font-black uppercase tracking-widest text-primary/70">
               <Star className="w-2.5 h-2.5" />
-              {t('sort.rating')}
+              {ratingLabel || t('sort.rating')}
             </DropdownMenuLabel>
             <div className="space-y-0.5">
               {[
                 { id: 'none', label: t('sort.none'), icon: null },
-                { id: 'top-rated', label: t('sort.top_rated'), icon: <Star className="w-2.5 h-2.5 fill-yellow-400 text-yellow-400" /> },
-                { id: 'low-rated', label: t('sort.low_rated'), icon: <Star className="w-2.5 h-2.5 text-muted-foreground/40" /> },
+                { id: 'top-rated', label: ratingLabel ? 'Best First' : t('sort.top_rated'), icon: <Star className="w-2.5 h-2.5 fill-yellow-400 text-yellow-400" /> },
+                { id: 'low-rated', label: ratingLabel ? 'Lowest First' : t('sort.low_rated'), icon: <Star className="w-2.5 h-2.5 text-muted-foreground/40" /> },
               ].map((opt) => (
                 <DropdownMenuItem
                   key={opt.id}
@@ -322,42 +286,7 @@ const SortOptions: React.FC<SortOptionsProps> = ({
           </section>
         )}
 
-        {onDistanceSortChange && (
-          <section>
-            <DropdownMenuSeparator className="my-1.5 bg-border/40 mx-2" />
-            <DropdownMenuLabel className="flex items-center gap-1.5 px-2 py-1 text-[8px] font-black uppercase tracking-widest text-primary/70">
-              <ArrowUpDown className="w-2.5 h-2.5" />
-              Distance
-            </DropdownMenuLabel>
-            <div className="space-y-0.5">
-              {[
-                { id: 'none', label: 'Default', icon: null },
-                { id: 'nearest', label: 'Nearest First', icon: <ArrowUpDown className="w-2.5 h-2.5 rotate-180" /> },
-                { id: 'farthest', label: 'Farthest First', icon: <ArrowUpDown className="w-2.5 h-2.5" /> },
-              ].map((opt) => (
-                <DropdownMenuItem
-                  key={opt.id}
-                  onClick={() => onDistanceSortChange(opt.id as any)}
-                  className={cn(
-                    "group flex items-center justify-between px-2 py-1.5 rounded-lg cursor-pointer transition-all duration-300 outline-none",
-                    distanceSort === opt.id ? "bg-primary text-primary-foreground shadow-sm shadow-primary/10" : "hover:bg-primary/5 focus:bg-primary/5"
-                  )}
-                >
-                  <div className="flex items-center gap-2">
-                    <div className={cn(
-                      "w-5 h-5 rounded flex items-center justify-center transition-all duration-300 group-hover:scale-105",
-                      distanceSort === opt.id ? "bg-white/20" : "bg-secondary text-muted-foreground/40"
-                    )}>
-                      {opt.icon || <span className="text-[8px] font-black">✕</span>}
-                    </div>
-                    <span className="text-[10px] font-bold block">{opt.label}</span>
-                  </div>
-                  {distanceSort === opt.id && <Check className="w-3 h-3 text-white" />}
-                </DropdownMenuItem>
-              ))}
-            </div>
-          </section>
-        )}
+
       </div>
     </DropdownMenuContent>
   );

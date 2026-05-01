@@ -393,22 +393,13 @@ const VendorEditProduct = () => {
 
     if (initialLoading || !minLoadingTimePassed) {
         return (
-           <div className="min-h-screen bg-[#202020] flex items-center justify-center">
-              <div className="flex flex-col items-center gap-6">
-                <Loader2 className="w-12 h-12 animate-spin text-primary" />
-                <div className="flex flex-col items-center gap-2">
-                  <h2 className="text-sm font-black text-white uppercase tracking-[0.3em] animate-pulse">BellBasket</h2>
-                  <div className="h-0.5 w-12 bg-primary/30 rounded-full overflow-hidden">
-                    <motion.div 
-                      initial={{ x: '-100%' }}
-                      animate={{ x: '100%' }}
-                      transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
-                      className="h-full w-full bg-primary"
-                    />
-                  </div>
-                </div>
-              </div>
-           </div>
+          <div className="fixed inset-0 flex items-center justify-center bg-[#202020] z-[9999]">
+            <div className="animate-pulse">
+              <span className="text-2xl md:text-3xl font-black tracking-tighter text-foreground">
+                BellBasket
+              </span>
+            </div>
+          </div>
         );
     }
 

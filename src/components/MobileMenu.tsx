@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Zap, ShoppingBag, ShoppingCart, LogOut, Shield, Store, FileText, Package, Crown, X, Settings } from 'lucide-react';
+import { Search, Zap, ShoppingBag, ShoppingCart, LogOut, Shield, Store, FileText, Package, Crown, X, Settings, Home } from 'lucide-react';
 
 interface MobileMenuProps {
   isOpen: boolean;
@@ -129,12 +129,12 @@ const MobileMenu = ({
             ) : (
                 <>
                   <Link
-                    to="/browse"
+                    to="/"
                     onClick={() => { initAudio(); onClose(); }}
                     className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-primary/5 text-foreground transition-colors"
                   >
-                    <Search className="w-5 h-5 text-primary" />
-                    <span className="font-bold text-sm">Browse Marketplace</span>
+                    <Home className="w-5 h-5 text-primary" />
+                    <span className="font-bold text-sm">Home</span>
                   </Link>
                   <Link
                     to="/deals"
@@ -186,7 +186,7 @@ const MobileMenu = ({
                   initAudio(); 
                   logout(); 
                   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth < 768;
-                  navigate(isMobile ? '/browse' : '/'); 
+                  navigate('/'); 
                   onClose(); 
                 }}
                   className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-white text-red-600 border border-red-100 hover:bg-red-50 transition-colors shadow-sm"

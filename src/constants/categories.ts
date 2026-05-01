@@ -1,5 +1,5 @@
 import {
-    ShoppingBasket, Milk, Apple, Beef, Pill, Coffee, Home, Grid, UtensilsCrossed,
+    ShoppingBasket, Milk, Apple, Beef, Pill, Coffee, Home, UtensilsCrossed,
     Zap, Laptop, Wrench, PencilLine, Gift, Shirt, Sparkles, FlameKindling,
     Leaf, Smartphone, Bike, Car, Wind, Tv, Droplets, Waves, Hammer,
     Paintbrush, Bug, Brush, Palette, Cpu, Wifi, Settings as Tool,
@@ -14,7 +14,11 @@ import {
     Brush as CleaningIcon, Cpu as SoftwareIcon, Wifi as WifiIcon,
     Dumbbell as GymIcon, HeartPulse, GraduationCap, MapPin, Camera,
     Gavel, Sparkles as AstrologyIcon, UtensilsCrossed as CateringIcon,
-    UserCog, ShieldCheck, MoreHorizontal as OtherIcon
+    UserCog, ShieldCheck, Footprints, Sofa, Eye, CarFront, Truck as CourierIcon,
+    Sun, Shield, Waves as WaterTankIcon, Cpu as HomeAutoIcon, Layout as GlassIcon,
+    Utensils as TiffinIcon, HeartPulse as PhysioIcon, Flower2 as YogaIcon,
+    Dog as PetGroomingIcon, Droplets as CarWashIcon, Shirt as DryCleaningIcon,
+    MoreHorizontal as OtherIcon
 } from 'lucide-react';
 
 export const CATEGORY_METADATA: Record<string, { icon: any, color: string, gradient: string, type: 'product' | 'service' }> = {
@@ -110,8 +114,8 @@ export const CATEGORY_METADATA: Record<string, { icon: any, color: string, gradi
     },
     "Puja & Religious": {
         icon: FlameKindling,
-        color: "#f59e0b",
-        gradient: "from-amber-300 to-orange-500",
+        color: "#ea580c",
+        gradient: "from-orange-500 to-red-600",
         type: 'product'
     },
     "Ayurveda & Wellness": {
@@ -122,8 +126,8 @@ export const CATEGORY_METADATA: Record<string, { icon: any, color: string, gradi
     },
     "Pet Care": {
         icon: PawPrint,
-        color: "#f59e0b",
-        gradient: "from-amber-400 to-orange-600",
+        color: "#d97706",
+        gradient: "from-amber-600 to-orange-700",
         type: 'product'
     },
     "Sports & Fitness": {
@@ -146,20 +150,44 @@ export const CATEGORY_METADATA: Record<string, { icon: any, color: string, gradi
     },
     "Garden & Outdoor": {
         icon: Sprout,
-        color: "#22c55e",
-        gradient: "from-green-400 to-emerald-600",
+        color: "#059669",
+        gradient: "from-emerald-500 to-green-700",
         type: 'product'
     },
     "Music & Instruments": {
         icon: Music,
-        color: "#8b5cf6",
-        gradient: "from-violet-400 to-purple-600",
+        color: "#7c3aed",
+        gradient: "from-violet-500 to-purple-800",
         type: 'product'
     },
     "Gaming": {
         icon: Gamepad2,
-        color: "#6366f1",
-        gradient: "from-indigo-500 to-purple-700",
+        color: "#4338ca",
+        gradient: "from-indigo-600 to-purple-900",
+        type: 'product'
+    },
+    "Footwear": {
+        icon: Footprints,
+        color: "#92400e",
+        gradient: "from-amber-700 to-orange-900",
+        type: 'product'
+    },
+    "Home Decor": {
+        icon: Sofa,
+        color: "#0d9488",
+        gradient: "from-teal-400 to-emerald-600",
+        type: 'product'
+    },
+    "Eyewear": {
+        icon: Eye,
+        color: "#475569",
+        gradient: "from-slate-500 to-slate-700",
+        type: 'product'
+    },
+    "Automotive Accessories": {
+        icon: CarFront,
+        color: "#dc2626",
+        gradient: "from-red-500 to-red-700",
         type: 'product'
     },
     "Mobile Repair": {
@@ -188,20 +216,20 @@ export const CATEGORY_METADATA: Record<string, { icon: any, color: string, gradi
     },
     "Bike Mechanic": {
         icon: Bike,
-        color: "#ef4444",
-        gradient: "from-red-400 to-red-600",
+        color: "#b91c1c",
+        gradient: "from-red-600 to-red-900",
         type: 'service'
     },
     "Car Mechanic": {
         icon: Car,
-        color: "#3b82f6",
-        gradient: "from-blue-500 to-blue-800",
+        color: "#1d4ed8",
+        gradient: "from-blue-600 to-indigo-800",
         type: 'service'
     },
     "Electrician": {
         icon: Zap,
-        color: "#fbbf24",
-        gradient: "from-amber-400 to-amber-600",
+        color: "#eab308",
+        gradient: "from-yellow-400 to-amber-600",
         type: 'service'
     },
     "Refrigerator Repair": {
@@ -224,26 +252,26 @@ export const CATEGORY_METADATA: Record<string, { icon: any, color: string, gradi
     },
     "Geyser Repair": {
         icon: Thermometer,
-        color: "#f97316",
-        gradient: "from-orange-400 to-red-500",
+        color: "#f43f5e",
+        gradient: "from-rose-500 to-red-700",
         type: 'service'
     },
     "Microwave Repair": {
         icon: Microwave,
-        color: "#8b5cf6",
-        gradient: "from-violet-500 to-purple-700",
+        color: "#6d28d9",
+        gradient: "from-violet-600 to-purple-900",
         type: 'service'
     },
     "Carpenter": {
         icon: CarpenterIcon,
-        color: "#92400e",
-        gradient: "from-amber-700 to-orange-900",
+        color: "#78350f",
+        gradient: "from-amber-900 to-stone-900",
         type: 'service'
     },
     "Painter": {
         icon: PainterIcon,
-        color: "#ec4899",
-        gradient: "from-pink-400 to-purple-600",
+        color: "#db2777",
+        gradient: "from-pink-600 to-rose-800",
         type: 'service'
     },
     "Pest Control": {
@@ -284,8 +312,8 @@ export const CATEGORY_METADATA: Record<string, { icon: any, color: string, gradi
     },
     "Packers & Movers": {
         icon: Truck,
-        color: "#f59e0b",
-        gradient: "from-amber-500 to-orange-700",
+        color: "#ca8a04",
+        gradient: "from-yellow-600 to-amber-800",
         type: 'service'
     },
     "Saloon & Spa": {
@@ -314,8 +342,8 @@ export const CATEGORY_METADATA: Record<string, { icon: any, color: string, gradi
     },
     "Real Estate Services": {
         icon: Building2,
-        color: "#6366f1",
-        gradient: "from-indigo-400 to-blue-700",
+        color: "#4f46e5",
+        gradient: "from-indigo-600 to-blue-900",
         type: 'service'
     },
     "Tutor & Education": {
@@ -326,8 +354,8 @@ export const CATEGORY_METADATA: Record<string, { icon: any, color: string, gradi
     },
     "Interior Design": {
         icon: InteriorIcon,
-        color: "#8b5cf6",
-        gradient: "from-purple-400 to-violet-600",
+        color: "#5b21b6",
+        gradient: "from-purple-700 to-indigo-900",
         type: 'service'
     },
     "Event Management": {
@@ -338,8 +366,8 @@ export const CATEGORY_METADATA: Record<string, { icon: any, color: string, gradi
     },
     "Photography": {
         icon: PhotographyIcon,
-        color: "#06b6d4",
-        gradient: "from-cyan-400 to-blue-500",
+        color: "#0e7490",
+        gradient: "from-cyan-600 to-blue-800",
         type: 'service'
     },
     "Health & Wellness": {
@@ -374,8 +402,80 @@ export const CATEGORY_METADATA: Record<string, { icon: any, color: string, gradi
     },
     "Security Services": {
         icon: ShieldCheck,
-        color: "#1e293b",
-        gradient: "from-slate-700 to-slate-900",
+        color: "#1e40af",
+        gradient: "from-blue-700 to-indigo-900",
+        type: 'service'
+    },
+    "Courier Services": {
+        icon: CourierIcon,
+        color: "#2563eb",
+        gradient: "from-blue-500 to-blue-700",
+        type: 'service'
+    },
+    "Solar Panel Service": {
+        icon: Sun,
+        color: "#f59e0b",
+        gradient: "from-amber-400 to-orange-500",
+        type: 'service'
+    },
+    "CCTV Installation": {
+        icon: Shield,
+        color: "#3b82f6",
+        gradient: "from-blue-500 to-indigo-700",
+        type: 'service'
+    },
+    "Water Tank Cleaning": {
+        icon: WaterTankIcon,
+        color: "#0284c7",
+        gradient: "from-sky-600 to-blue-800",
+        type: 'service'
+    },
+    "Home Automation": {
+        icon: HomeAutoIcon,
+        color: "#6366f1",
+        gradient: "from-indigo-400 to-purple-600",
+        type: 'service'
+    },
+    "Glass Work": {
+        icon: GlassIcon,
+        color: "#64748b",
+        gradient: "from-slate-400 to-slate-600",
+        type: 'service'
+    },
+    "Tiffin Service": {
+        icon: TiffinIcon,
+        color: "#f59e0b",
+        gradient: "from-amber-400 to-orange-600",
+        type: 'service'
+    },
+    "Physiotherapy": {
+        icon: PhysioIcon,
+        color: "#ef4444",
+        gradient: "from-red-400 to-rose-600",
+        type: 'service'
+    },
+    "Yoga Trainer": {
+        icon: YogaIcon,
+        color: "#10b981",
+        gradient: "from-emerald-400 to-green-600",
+        type: 'service'
+    },
+    "Pet Grooming": {
+        icon: PetGroomingIcon,
+        color: "#c026d3",
+        gradient: "from-fuchsia-500 to-purple-800",
+        type: 'service'
+    },
+    "Car Wash": {
+        icon: CarWashIcon,
+        color: "#3b82f6",
+        gradient: "from-blue-400 to-blue-700",
+        type: 'service'
+    },
+    "Dry Cleaning": {
+        icon: DryCleaningIcon,
+        color: "#0891b2",
+        gradient: "from-cyan-600 to-indigo-700",
         type: 'service'
     },
     "Other Services": {
@@ -385,7 +485,7 @@ export const CATEGORY_METADATA: Record<string, { icon: any, color: string, gradi
         type: 'service'
     },
     "Others": {
-        icon: Grid,
+        icon: OtherIcon,
         color: "#f43f5e",
         gradient: "from-rose-400 to-rose-600",
         type: 'product'

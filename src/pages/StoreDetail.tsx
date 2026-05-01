@@ -1,6 +1,6 @@
 import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Star, MapPin, Clock, Plus, Minus, Loader2, MessageSquare, Search, X, Tag, Phone, ChevronRight, ChevronLeft, Share2, Sparkles, Calendar, AlertCircle, ArrowUpDown, ChevronDown, XCircle, ImageIcon, PackageSearch } from 'lucide-react';
+import { ArrowLeft, Star, MapPin, Clock, Plus, Minus, Loader2, MessageSquare, Search, X, Tag, Phone, ChevronRight, ChevronLeft, Share2, Sparkles, Calendar, AlertCircle, ArrowUpDown, ChevronDown, XCircle, ImageIcon, PackageSearch, Heart, Zap, PackageX, Globe } from 'lucide-react';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -32,6 +32,36 @@ import VariantSelector from '@/components/VariantSelector';
 import { Helmet } from 'react-helmet';
 import { StoreDetailSkeleton } from '@/components/SkeletonLoader';
 
+const CountdownTimer = ({ endTime }: { endTime: string }) => {
+  const [timeLeft, setTimeLeft] = useState<{h:number, m:number, s:number} | null>(null);
+
+  useEffect(() => {
+    const calculate = () => {
+        const distance = new Date(endTime).getTime() - new Date().getTime();
+        if (distance < 0) {
+          setTimeLeft(null);
+          return;
+        }
+        setTimeLeft({
+          h: Math.floor((distance / (1000 * 60 * 60))),
+          m: Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60)),
+          s: Math.floor((distance % (1000 * 60)) / 1000)
+        });
+    };
+    calculate();
+    const timer = setInterval(calculate, 1000);
+    return () => clearInterval(timer);
+  }, [endTime]);
+
+  if (!timeLeft) return <span className="text-rose-500 font-bold uppercase tracking-widest text-[8px]">Ended</span>;
+
+  return (
+    <span className="tabular-nums">
+      {String(timeLeft.h).padStart(2, '0')}:{String(timeLeft.m).padStart(2, '0')}:{String(timeLeft.s).padStart(2, '0')}
+    </span>
+  );
+};
+
 const StoreDetail = () => {
   const { id, slug } = useParams();
   const navigate = useNavigate();
@@ -39,7 +69,7 @@ const StoreDetail = () => {
   const productIdFromUrl = searchParams.get('productId');
   const searchQueryFromUrl = searchParams.get('search');
   const { t } = useTranslation();
-  const { cart, addToCart, updateQuantity, stores, allProducts, user, clearCart } = useApp();
+  const { cart, addToCart, updateQuantity, stores, allProducts, user, clearCart, toggleSaveStore, isStoreSaved, setIsAnyModalOpen } = useApp();
   const location = useLocation();
   const [store, setStore] = useState<any>(() => location.state?.store || stores.find(s => s.id === id || (slug && s.slug === slug)));
   const [products, setProducts] = useState<Product[]>(() => {
@@ -73,11 +103,14 @@ const StoreDetail = () => {
   const [bookingData, setBookingData] = useState({ name: '', phone: '', location: '', description: '', date: '', timeSlot: '' });
   const [isBooking, setIsBooking] = useState(false);
   const [priceSort, setPriceSort] = useState<'none' | 'low-high' | 'high-low'>('none');
+  const [ratingSort, setRatingSort] = useState<'none' | 'top-rated' | 'low-rated'>('none');
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [requestData, setRequestData] = useState({ productName: '', description: '', image: '' });
   const [activeComboItemIndex, setActiveComboItemIndex] = useState(-1); // -1: main combo, 0+: sub-items
   const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
   const [showCallModal, setShowCallModal] = useState(false);
+  const [showBookingDiscardConfirm, setShowBookingDiscardConfirm] = useState(false);
+  const [activeDeals, setActiveDeals] = useState<any[]>([]);
   const { requestProduct } = useApp();
   
   // 0. Immediate Visibility Check (for stores already in context)
@@ -105,16 +138,6 @@ const StoreDetail = () => {
     }).catch(() => { /* Silent fail */ });
   }, [store?.id]);
 
-  // Hide BottomBar when Booking Service Modal is open
-  useEffect(() => {
-    const bottomNav = document.getElementById('bottom-nav');
-    if (bottomNav) {
-      bottomNav.style.display = bookingService ? 'none' : '';
-    }
-    return () => {
-      if (bottomNav) bottomNav.style.display = '';
-    };
-  }, [bookingService]);
 
   // Scroll to product if productId is in URL
   useEffect(() => {
@@ -209,7 +232,6 @@ const StoreDetail = () => {
       if (targetId && isMounted) {
         unsubscribeStore = setupListener(targetId);
 
-        // 2. Parallel Product Fetch
         try {
           const q = query(collection(db, 'products'), where('vendorId', '==', targetId));
           const querySnapshot = await getDocs(q);
@@ -222,7 +244,6 @@ const StoreDetail = () => {
           })) as Product[];
 
           if (productData.length > 0) {
-            // Optimization: Use a Map for O(1) enrichment lookups
             const productMap = new Map(productData.map(p => [p.id, p]));
             const enriched = productData.map(p => {
               if (p.isCombo && p.comboItems?.length) {
@@ -234,9 +255,38 @@ const StoreDetail = () => {
               return p;
             });
             setProducts(enriched);
+
+            // 3. Fetch Active Deals
+            const dealsQ = query(
+              collection(db, 'deals'), 
+              where('vendorId', '==', targetId),
+              where('status', '==', 'active')
+            );
+            const dealsSnap = await getDocs(dealsQ);
+            const now = new Date();
+            const validDeals = dealsSnap.docs
+              .map(doc => ({ id: doc.id, ...doc.data() } as any))
+              .filter((d: any) => new Date(d.endTime) > now);
+            
+            setActiveDeals(validDeals);
+
+            // 4. Enrich products with deal data
+            if (validDeals.length > 0) {
+              setProducts(prev => prev.map(p => {
+                const deal = validDeals.find(d => d.productId === p.id);
+                if (deal) {
+                  return {
+                    ...p,
+                    discountedPrice: deal.dealPrice,
+                    deal: deal
+                  };
+                }
+                return p;
+              }));
+            }
           }
         } catch (error) {
-          console.warn("Product refresh failed, using context", error);
+          console.warn("Refresh failed, using context", error);
         } finally {
           if (isMounted) setLoading(false);
         }
@@ -262,10 +312,23 @@ const StoreDetail = () => {
         if (priceSort === 'low-high') return pA - pB;
         return pB - pA;
       });
+    } else if (ratingSort !== 'none') {
+      // Sort by discount percentage as a proxy for "popularity/deal quality" inside a store
+      result = [...result].sort((a, b) => {
+        const getScore = (p: Product) => {
+          if (p.discountedPrice && p.discountedPrice < p.price) {
+            return Math.round(((p.price - p.discountedPrice) / p.price) * 100);
+          }
+          return 0;
+        };
+        const sA = getScore(a);
+        const sB = getScore(b);
+        return ratingSort === 'top-rated' ? sB - sA : sA - sB;
+      });
     }
 
     return result;
-  }, [products, activeSearch, priceSort]);
+  }, [products, activeSearch, priceSort, ratingSort]);
 
   const handleSearchTrigger = () => {
     setIsSearching(true);
@@ -287,6 +350,22 @@ const StoreDetail = () => {
   const handleShareStore = () => {
     setShowShareModal(true);
   };
+
+  // Use global modal state to hide nav elements
+  useEffect(() => {
+    const isModalOpen = !!(
+      bookingService || 
+      showReviews || 
+      showShareModal || 
+      showCallModal || 
+      showRequestModal || 
+      selectedProduct || 
+      variantSelectorProduct
+    );
+    
+    setIsAnyModalOpen(isModalOpen);
+    return () => setIsAnyModalOpen(false);
+  }, [bookingService, showReviews, showShareModal, showCallModal, showRequestModal, selectedProduct, variantSelectorProduct, setIsAnyModalOpen]);
 
   const storeUrl = window.location.href;
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(storeUrl)}`;
@@ -417,6 +496,15 @@ const StoreDetail = () => {
     }
   };
 
+  const handleCloseBooking = () => {
+    const hasData = bookingData.name || bookingData.phone || bookingData.location || bookingData.description || (bookingData.date && bookingData.date !== new Date().toISOString().split('T')[0]);
+    if (hasData) {
+      setShowBookingDiscardConfirm(true);
+    } else {
+      setBookingService(null);
+    }
+  };
+
   if (!store) {
     return <StoreDetailSkeleton />;
   }
@@ -424,18 +512,18 @@ const StoreDetail = () => {
   return (
     <div className="min-h-screen gradient-warm">
       <Helmet>
-        <title>{store.brandText || store.name} in {store.address.split(',')[0]} | BellBasket</title>
-        <meta name="description" content={`Order from ${store.name} in {store.address || 'your area'}. Shop ${store.category} items, fresh products, and essentials available for pickup via BellBasket.`} />
-        <meta name="keywords" content={`${store.name}, ${store.category}, order online, ${store.address}, BellBasket, store pickup ${store.address.split(',')[0]}, ${store.brandText || ''}, marketplace, local shops`} />
+        <title>{store.name} | {store.category} in {store.district || store.mandal || store.address.split(',')[0]} - BellBasket</title>
+        <meta name="description" content={`Order ${store.category} and daily essentials from ${store.name} in ${store.district || store.mandal || store.address.split(',')[0]}. Trusted local partner for quick pickup via BellBasket.`} />
+        <meta name="keywords" content={`${store.name}, ${store.category} in ${store.district}, ${store.mandal} stores, buy ${store.category} near me, ${store.address.split(',')[0]}, BellBasket, local shops`} />
 
-        <meta property="og:title" content={`${store.brandText || store.name} | Order for Pickup on BellBasket`} />
-        <meta property="og:description" content={`Shop fresh products from ${store.name}. Quick pickup available in ${store.address.split(',')[0]}. Trusted local ${store.category} partner.`} />
+        <meta property="og:title" content={`${store.name} - ${store.category} in ${store.district || store.address.split(',')[0]}`} />
+        <meta property="og:description" content={`Shop from ${store.name} on BellBasket. Quality ${store.category} items in ${store.district || store.address.split(',')[0]}.`} />
         <meta property="og:image" content={store.image} />
         <meta property="og:url" content={window.location.href} />
 
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content={`${store.name} - Shop Local`} />
-        <meta name="twitter:description" content={`Quality ${store.category} items from ${store.name} available for pickup.`} />
+        <meta name="twitter:title" content={`${store.name} on BellBasket`} />
+        <meta name="twitter:description" content={`Quality ${store.category} items from ${store.name} in ${store.address.split(',')[0]}.`} />
         
         <link rel="canonical" href={store.slug ? `https://bellbasket.com/stores/${store.slug}` : `https://bellbasket.com/store/${store.id}`} />
 
@@ -450,11 +538,12 @@ const StoreDetail = () => {
               "@id": window.location.href,
               "url": window.location.href,
               "telephone": store.phone || "",
+              "description": `Shop from ${store.name} in ${store.address.split(',')[0]}. Quality ${store.category} items available for quick pickup via BellBasket.`,
               "address": {
                 "@type": "PostalAddress",
                 "streetAddress": store.address,
                 "addressLocality": store.address.split(',')[0] || "Local",
-                "addressRegion": "Andhra Pradesh",
+                "addressRegion": store.state || "Andhra Pradesh",
                 "addressCountry": "IN"
               },
               "geo": {
@@ -468,7 +557,16 @@ const StoreDetail = () => {
                 "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
                 "opens": "00:00",
                 "closes": "23:59"
-              }
+              },
+              ...(store.reviews && store.reviews.length > 0 ? {
+                "aggregateRating": {
+                  "@type": "AggregateRating",
+                  "ratingValue": (store.reviews.reduce((acc: number, r: any) => acc + (Number(r.rating) || 0), 0) / store.reviews.length).toFixed(1),
+                  "reviewCount": store.reviews.length,
+                  "bestRating": "5",
+                  "worstRating": "1"
+                }
+              } : {})
             },
             {
               "@context": "https://schema.org",
@@ -505,10 +603,12 @@ const StoreDetail = () => {
                   "@type": "Product",
                   "name": p.name,
                   "image": p.image,
+                  "description": p.description || `${p.name} available at ${store.name}`,
                   "offers": {
                     "@type": "Offer",
                     "price": p.price,
-                    "priceCurrency": "INR"
+                    "priceCurrency": "INR",
+                    "availability": "https://schema.org/InStock"
                   }
                 }
               }))
@@ -531,7 +631,7 @@ const StoreDetail = () => {
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="bg-white dark:bg-[#202020] w-full max-w-sm rounded-[2.5rem] p-8 relative shadow-2xl border border-white/10"
+              className="bg-white dark:bg-[#202020] w-full max-w-sm rounded-3xl p-8 relative shadow-2xl border border-white/10"
             >
               <button
                 onClick={() => setShowShareModal(false)}
@@ -546,7 +646,7 @@ const StoreDetail = () => {
                   <p className="text-sm text-muted-foreground font-medium">{t('store.scan_to_visit')} {store.name}</p>
                 </div>
 
-                <div className="bg-gradient-to-br from-primary/5 to-secondary/5 p-8 rounded-[2rem] border border-primary/10 flex flex-col items-center justify-center gap-4">
+                <div className="bg-gradient-to-br from-primary/5 to-secondary/5 p-8 rounded-2xl border border-primary/10 flex flex-col items-center justify-center gap-4">
                   <QRCodeWithLogo value={storeUrl} size={180} logoSize={40} />
                   <div className="flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary rounded-full text-xs font-black uppercase tracking-widest">
                     <Sparkles className="w-3.5 h-3.5" />
@@ -583,7 +683,7 @@ const StoreDetail = () => {
           </motion.div>
         )}
       </AnimatePresence>
-      <div className="pt-20 pb-32 lg:pb-8 px-4 max-w-4xl mx-auto">
+      <div className="pt-20 pb-32 lg:pb-8 px-4 max-w-6xl mx-auto">
         {/* Back */}
         <button
           onClick={() => {
@@ -713,39 +813,62 @@ const StoreDetail = () => {
                 </div>
               )}
 
-              <div className="flex flex-row gap-3 w-full md:w-auto mt-2 md:mt-0">
+              <div className="flex flex-row gap-2 sm:gap-3 w-full md:w-auto mt-2 md:mt-0">
                 <button
                   onClick={() => setShowReviews(true)}
-                  className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-white font-bold transition-all relative border border-primary/20 shadow-sm"
+                  className="flex-1 md:flex-none flex items-center justify-center gap-2 px-3 md:px-6 py-3 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-white font-bold transition-all relative border border-primary/20 shadow-sm min-w-0"
                 >
-                  <MessageSquare className="w-4 h-4" />
-                  <span>{t('common.reviews')}</span>
+                  <MessageSquare className="w-4 h-4 shrink-0" />
+                  <span className="hidden md:inline whitespace-nowrap">{t('common.reviews')}</span>
                   {store.reviews && store.reviews.length > 0 && (
                     <span
-                      className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full text-[10px] font-black text-white bg-primary flex items-center justify-center shadow-md animate-in zoom-in"
+                      className="absolute -top-1.5 -right-1.5 w-4 h-4 md:w-5 md:h-5 rounded-full text-[8px] md:text-[10px] font-black text-black bg-primary flex items-center justify-center shadow-md animate-in zoom-in"
                     >
                       {store.reviews.length}
                     </span>
                   )}
                 </button>
-
+ 
                 {store.phone && (
                   <button
                     onClick={() => setShowCallModal(true)}
-                    className="flex-none flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-primary text-white hover:bg-primary/90 font-bold transition-all shadow-md"
+                    className="flex-1 md:flex-none flex items-center justify-center gap-2 px-3 md:px-6 py-3 rounded-xl bg-primary text-white hover:bg-primary/90 font-bold transition-all shadow-md min-w-0"
                   >
-                    <Phone className="w-4 h-4" />
-                    <span className="hidden md:inline">{t('common.call')}</span>
+                    <Phone className="w-4 h-4 shrink-0" />
+                    <span className="hidden md:inline whitespace-nowrap">{t('common.call')}</span>
                   </button>
                 )}
 
+                {store.website && (
+                  <button
+                    onClick={() => window.open(store.website?.startsWith('http') ? store.website : `https://${store.website}`, '_blank')}
+                    className="flex-1 md:flex-none flex items-center justify-center gap-2 px-3 md:px-6 py-3 rounded-xl bg-blue-500 text-white hover:bg-blue-600 font-bold transition-all shadow-md min-w-0"
+                  >
+                    <Globe className="w-4 h-4 shrink-0" />
+                    <span className="hidden md:inline whitespace-nowrap">Website</span>
+                  </button>
+                )}
+ 
                 <button
                   onClick={handleShareStore}
-                  className="flex-none flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-secondary/80 text-foreground hover:bg-secondary font-bold transition-all shadow-sm border border-border/40"
+                  className="flex-1 md:flex-none flex items-center justify-center gap-2 px-3 md:px-6 py-3 rounded-xl bg-secondary/80 text-foreground hover:bg-secondary font-bold transition-all shadow-sm border border-border/40 min-w-0"
                   aria-label="Share Store"
                 >
-                  <Share2 className="w-4 h-4" />
-                  <span className="hidden md:inline">{t('common.share')}</span>
+                  <Share2 className="w-4 h-4 shrink-0" />
+                  <span className="hidden md:inline whitespace-nowrap">{t('common.share')}</span>
+                </button>
+ 
+                <button
+                  onClick={() => toggleSaveStore(store.id)}
+                  className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-3 md:px-6 py-3 rounded-xl font-bold transition-all shadow-sm border min-w-0 ${
+                    isStoreSaved(store.id)
+                      ? 'bg-pink-500/10 text-pink-600 border-pink-500/20'
+                      : 'bg-secondary/80 text-foreground hover:bg-secondary border-border/40'
+                  }`}
+                  aria-label={isStoreSaved(store.id) ? "Unsave Store" : "Save Store"}
+                >
+                  <Heart className={`w-4 h-4 shrink-0 ${isStoreSaved(store.id) ? 'fill-current' : ''}`} />
+                  <span className="hidden md:inline whitespace-nowrap">{isStoreSaved(store.id) ? t('common.saved') : t('common.save')}</span>
                 </button>
               </div>
             </div>
@@ -850,7 +973,16 @@ const StoreDetail = () => {
                 </>
               )}
             </button>
-            <SortOptions priceSort={priceSort} onPriceSortChange={setPriceSort} compact={true} className="py-3 rounded-2xl px-4 md:px-5" />
+            <SortOptions 
+              priceSort={priceSort} 
+              onPriceSortChange={setPriceSort} 
+              ratingSort={ratingSort}
+              onRatingSortChange={setRatingSort}
+              showRating={true}
+              ratingLabel="Best Deals"
+              compact={true} 
+              className="py-3 rounded-2xl px-4 md:px-5" 
+            />
           </div>
         </div>
           
@@ -929,15 +1061,28 @@ const StoreDetail = () => {
                     <span className="text-sm text-muted-foreground font-bold">{filteredProducts.length} {t('common.items')} found</span>
                   </div>
                 )}
-                {(() => {
-                  const groupedMap: Record<string, Product[]> = {};
-                  filteredProducts.forEach(p => {
-                    const cat = p.category || 'Other Items';
-                    if (!groupedMap[cat]) groupedMap[cat] = [];
-                    groupedMap[cat].push(p);
-                  });
-                  
-                  return Object.entries(groupedMap).map(([category, items], ci) => (
+                  {(() => {
+                    const groupedMap: Record<string, Product[]> = {};
+                    const deals: Product[] = [];
+
+                    filteredProducts.forEach(p => {
+                      // Check for deal: MUST be part of an active deal with valid end time
+                      const hasActiveDeal = p.deal && new Date(p.deal.endTime) > new Date();
+                      
+                      if (hasActiveDeal) {
+                        deals.push(p);
+                      }
+
+                      const cat = p.category || 'Other Items';
+                      if (!groupedMap[cat]) groupedMap[cat] = [];
+                      groupedMap[cat].push(p);
+                    });
+
+                    // Synthesize categories list starting with Deals if they exist
+                    const entries = Object.entries(groupedMap);
+                    const finalEntries: [string, Product[]][] = entries;
+                    
+                    return finalEntries.map(([category, items], ci) => (
                     <motion.div
                       key={category}
                       initial={{ opacity: 0, x: -20 }}
@@ -945,7 +1090,7 @@ const StoreDetail = () => {
                       transition={{ delay: ci * 0.1 }}
                       className="space-y-4"
                     >
-                      <div className="flex items-center gap-4 px-1">
+                      <div className="flex items-center gap-4 px-0">
                         {CATEGORY_METADATA[category] && (
                           <div className={`w-12 h-12 rounded-2xl flex items-center justify-center bg-gradient-to-br ${CATEGORY_METADATA[category].gradient} text-white shadow-md`}>
                             {(() => {
@@ -976,7 +1121,7 @@ const StoreDetail = () => {
 
                         <div
                           id={`scroll-${category}`}
-                          className="flex overflow-x-auto snap-x snap-mandatory gap-3 md:gap-4 pb-4 pt-2 -mx-4 px-4 md:px-2 md:-mx-2 scroll-smooth scrollbar-hide"
+                          className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-4 pt-2 scroll-smooth scrollbar-hide"
                         >
                           {items.map((product, pi) => {
                             const variantInCart = cart.find(c => c.product.id === product.id && c.selectedVariant)?.selectedVariant;
@@ -986,9 +1131,12 @@ const StoreDetail = () => {
                             const variantHasDiscount = variantInCart ? (!!variantInCart.discountedPrice && variantInCart.discountedPrice < variantInCart.price) : false;
                             
                             const hasDiscount = variantInCart ? variantHasDiscount : baseHasDiscount;
+                            const lowestVariantPrice = (!variantInCart && product.hasVariants && product.variants?.length)
+                              ? Math.min(...product.variants.map(v => v.discountedPrice || v.price))
+                              : null;
                             const discountedPrice = variantInCart 
                               ? (variantHasDiscount ? variantInCart.discountedPrice : variantInCart.price)
-                              : (baseHasDiscount ? Number(product.discountedPrice) : product.price);
+                              : (lowestVariantPrice || (baseHasDiscount ? Number(product.discountedPrice) : product.price));
                             const discountPercent = hasDiscount 
                               ? Math.round((( (variantInCart ? variantInCart.price : product.price) - discountedPrice) / (variantInCart ? variantInCart.price : product.price)) * 100) 
                               : 0;
@@ -1036,15 +1184,27 @@ const StoreDetail = () => {
                                   )}
                                   <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent" />
                                   {!product.inStock && (
-                                    <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px] z-20 flex items-center justify-center">
-                                      <span className="text-white text-[9px] font-black uppercase tracking-widest bg-red-500/90 px-2.5 py-1 rounded-full shadow">
-                                        {t('common.out_of_stock', { defaultValue: 'OOS' })}
-                                      </span>
+                                    <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] z-20 flex items-center justify-center pointer-events-none">
+                                      <div className="bg-red-600/80 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-white/20 shadow-2xl flex items-center gap-2 animate-in fade-in zoom-in duration-300">
+                                        <PackageX className="w-3.5 h-3.5 text-white" />
+                                        <span className="text-[10px] font-black text-white uppercase tracking-widest leading-none">{t('common.out_of_stock')}</span>
+                                      </div>
                                     </div>
                                   )}
                                   {hasDiscount && (
-                                    <div className="absolute top-2 left-2 z-20 bg-green-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded-md shadow uppercase tracking-tight">
+                                    <div className="absolute top-2 left-2 z-20 bg-primary text-black text-[8px] font-black px-1.5 py-0.5 rounded-md shadow uppercase tracking-tight">
                                       {discountPercent}% OFF
+                                    </div>
+                                  )}
+                                  {product.deal && (
+                                    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-20 bg-primary text-black px-2 py-0.5 rounded-full shadow-lg flex items-center gap-1 font-mono text-[8px] font-black whitespace-nowrap">
+                                      <Clock className="w-2.5 h-2.5" />
+                                      <CountdownTimer endTime={product.deal.endTime} />
+                                    </div>
+                                  )}
+                                  {product.hasVariants && (
+                                    <div className="absolute top-2 right-2 z-20 bg-secondary/80 backdrop-blur-md text-secondary-foreground text-[8px] font-black px-1.5 py-0.5 rounded-md shadow uppercase tracking-tight border border-white/10">
+                                      {product.variants?.length ? `${product.variants.length} Variants` : 'Variants'}
                                     </div>
                                   )}
                                   <div className="absolute bottom-2 right-2 flex flex-col items-end gap-1.5 z-20">
@@ -1085,7 +1245,7 @@ const StoreDetail = () => {
                                           >
                                             Book Now
                                           </button>
-                                        ) : (qty === 0 || product.hasVariants) ? (
+                                        ) : (qty === 0) ? (
                                           <button
                                             onClick={e => {
                                               e.stopPropagation();
@@ -1098,19 +1258,19 @@ const StoreDetail = () => {
                                             }}
                                             className="w-full h-8 rounded-xl bg-primary text-primary-foreground text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5"
                                           >
-                                            <Plus className="w-3.5 h-3.5" /> Add
+                                            {product.hasVariants ? 'Select' : <><Plus className="w-3.5 h-3.5" /> Add</>}
                                           </button>
                                         ) : (
                                           <div className="w-full flex items-center justify-between bg-primary rounded-xl px-2 py-1.5">
                                             <button
-                                              onClick={e => { e.stopPropagation(); updateQuantity(product.id, qty - 1); }}
+                                              onClick={e => { e.stopPropagation(); updateQuantity(product.id, qty - 1, variantInCart?.id); }}
                                               className="w-6 h-6 rounded-lg flex items-center justify-center text-primary-foreground"
                                             >
                                               <Minus className="w-3.5 h-3.5" />
                                             </button>
                                             <span className="text-[12px] font-black text-primary-foreground">{qty}</span>
                                             <button
-                                              onClick={e => { e.stopPropagation(); updateQuantity(product.id, qty + 1); }}
+                                              onClick={e => { e.stopPropagation(); updateQuantity(product.id, qty + 1, variantInCart?.id); }}
                                               className="w-6 h-6 rounded-lg flex items-center justify-center text-primary-foreground"
                                             >
                                               <Plus className="w-3.5 h-3.5" />
@@ -1119,8 +1279,8 @@ const StoreDetail = () => {
                                         )}
                                       </div>
                                     ) : (
-                                      <div className="w-full h-8 rounded-xl bg-secondary/60 flex items-center justify-center">
-                                        <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">OOS</span>
+                                      <div className="w-full h-8 rounded-xl bg-secondary/60 flex items-center justify-center border border-border/10">
+                                        <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest opacity-60">{t('common.out_of_stock', { defaultValue: 'OUT OF STOCK' })}</span>
                                       </div>
                                     )}
                                   </div>
@@ -1205,9 +1365,9 @@ const StoreDetail = () => {
                 {/* Close */}
                 <button
                   onClick={() => { setSelectedProduct(null); setActiveComboItemIndex(-1); }}
-                  className="absolute top-4 right-4 z-[60] w-8 h-8 rounded-full bg-black/10 dark:bg-white/10 flex items-center justify-center hover:bg-black/20 transition-all"
+                  className="absolute top-4 right-4 z-[60] w-10 h-10 rounded-full bg-white flex items-center justify-center text-black shadow-lg hover:bg-white/90 active:scale-90 transition-all"
                 >
-                  <X className="w-4 h-4 text-foreground" />
+                  <X className="w-5 h-5" strokeWidth={3} />
                 </button>
 
                 {/* Navigation Buttons for Combo */}
@@ -1281,9 +1441,10 @@ const StoreDetail = () => {
                     </div>
                   )}
                   {!currentDisplayProduct.inStock && (
-                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-40">
-                      <div className="bg-[#cc2d4a] px-2.5 py-1 rounded-full shadow-2xl border border-white/10">
-                        <span className="text-[9px] font-black text-white lowercase leading-none">oos</span>
+                    <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] z-40 flex items-center justify-center pointer-events-none">
+                      <div className="bg-red-600/80 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-white/20 shadow-2xl flex items-center gap-2.5 animate-in fade-in zoom-in duration-300">
+                        <PackageX className="w-4 h-4 text-white" />
+                        <span className="text-[12px] font-black text-white uppercase tracking-widest leading-none">{t('common.out_of_stock')}</span>
                       </div>
                     </div>
                   )}
@@ -1306,8 +1467,71 @@ const StoreDetail = () => {
                     </p>
                   )}
 
+                  {/* Variants Section */}
+                  {currentDisplayProduct.hasVariants && currentDisplayProduct.variants && currentDisplayProduct.variants.length > 0 && (
+                    <div className="mb-6 space-y-3">
+                      <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 flex items-center gap-2">
+                        <Zap className="w-3.5 h-3.5 text-primary" /> {t('products.available_variants', { defaultValue: 'Available Variants' })}
+                      </h3>
+                      <div className="space-y-2 max-h-[30vh] overflow-y-auto pr-1 custom-scrollbar">
+                        {currentDisplayProduct.variants.map((v) => {
+                          const hasVDisc = v.discountedPrice && v.discountedPrice < v.price;
+                          const vPrice = hasVDisc ? v.discountedPrice : v.price;
+                          const vInCart = cart.find(c => c.product.id === currentDisplayProduct.id && c.selectedVariant?.id === v.id);
+                          const vQty = vInCart ? vInCart.quantity : 0;
+
+                          return (
+                            <div key={v.id} className="bg-muted/30 border border-border/50 p-3 rounded-2xl flex items-center justify-between transition-all hover:bg-muted/50">
+                              <div className="flex flex-col gap-0.5">
+                                <span className="text-[10px] font-black text-muted-foreground uppercase tracking-wider">{v.quantity}</span>
+                                <div className="flex items-baseline gap-1.5">
+                                  <span className="text-sm font-black text-foreground">₹{vPrice}</span>
+                                  {hasVDisc && <span className="text-[10px] text-muted-foreground line-through font-bold">₹{v.price}</span>}
+                                </div>
+                              </div>
+                              
+                              {vQty === 0 ? (
+                                <button
+                                  disabled={!currentDisplayProduct.inStock}
+                                  onClick={() => addToCart({ 
+                                    product: hasVDisc ? { ...currentDisplayProduct, price: vPrice } : currentDisplayProduct, 
+                                    selectedVariant: v,
+                                    storeId: store.id, 
+                                    storeName: store.name, 
+                                    storePhone: store.phone, 
+                                    quantity: 1 
+                                  })}
+                                  className={`h-8 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${!currentDisplayProduct.inStock ? 'bg-secondary/40 text-muted-foreground cursor-not-allowed' : 'gradient-primary text-primary-foreground hover:opacity-90 active:scale-95 shadow-lg shadow-primary/10'}`}
+                                >
+                                  {!currentDisplayProduct.inStock ? 'OOS' : t('common.add', { defaultValue: 'Add' })}
+                                </button>
+                              ) : (
+                                <div className="flex items-center bg-primary rounded-xl p-0.5 gap-1 shadow-md">
+                                  <button
+                                    onClick={() => updateQuantity(currentDisplayProduct.id, vQty - 1, v.id)}
+                                    className="w-7 h-7 flex items-center justify-center hover:bg-white/10 text-primary-foreground rounded-lg transition-all"
+                                  >
+                                    <Minus className="w-3.5 h-3.5" />
+                                  </button>
+                                  <span className="text-xs font-black text-primary-foreground min-w-[1.2rem] text-center">{vQty}</span>
+                                  <button
+                                    onClick={() => updateQuantity(currentDisplayProduct.id, vQty + 1, v.id)}
+                                    className="w-7 h-7 flex items-center justify-center hover:bg-white/10 text-primary-foreground rounded-lg transition-all"
+                                  >
+                                    <Plus className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Price & Add */}
-                  <div className="flex items-center justify-between mt-2">
+                  {!currentDisplayProduct.hasVariants && (
+                    <div className="flex items-center justify-between mt-2">
                     <div>
                       <span className="text-2xl font-black text-foreground">₹{finalPrice}</span>
                       {hasDisc && (
@@ -1318,7 +1542,7 @@ const StoreDetail = () => {
                       </p>
                     </div>
 
-                    {currentDisplayProduct.inStock && (
+                    {currentDisplayProduct.inStock ? (
                       isServiceStore ? (
                         <motion.button
                           whileTap={{ scale: 0.92 }}
@@ -1369,8 +1593,13 @@ const StoreDetail = () => {
                           </motion.button>
                         </div>
                       )
+                    ) : (
+                      <div className="h-11 px-8 rounded-xl bg-secondary/60 flex items-center justify-center border border-border/10">
+                        <span className="text-xs font-black text-muted-foreground uppercase tracking-widest opacity-60">Out of Stock</span>
+                      </div>
                     )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               </motion.div>
             </motion.div>
@@ -1385,158 +1614,176 @@ const StoreDetail = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4 overflow-y-auto"
+            className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-end justify-center pointer-events-auto"
+            onClick={handleCloseBooking}
           >
             <motion.div
-              initial={{ y: 50, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 50, opacity: 0 }}
-              className="relative w-full max-w-md bg-white dark:bg-[#202020] rounded-[2rem] p-6 shadow-2xl my-8"
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="w-full max-w-md bg-white dark:bg-[#202020] rounded-t-[2.5rem] shadow-2xl relative border-t border-white/5 max-h-[90vh] flex flex-col"
+              onClick={e => e.stopPropagation()}
             >
-              <button
-                onClick={() => setBookingService(null)}
-                className="absolute top-4 right-4 z-20 w-8 h-8 rounded-full bg-secondary text-foreground flex items-center justify-center hover:bg-secondary/80 transition-all"
-              >
-                <X className="w-4 h-4" />
-              </button>
-
-              <h2 className="text-xl font-black mb-4 pr-8">Book {bookingService.name}</h2>
-
-              <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Your Name *</label>
-                  <input
-                    type="text"
-                    required
-                    value={bookingData.name}
-                    onChange={e => setBookingData({ ...bookingData, name: e.target.value })}
-                    className="w-full bg-secondary/50 rounded-xl px-4 py-3 text-sm font-bold text-foreground outline-none focus:ring-2 focus:ring-primary/50"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Phone Number *</label>
-                  <input
-                    type="tel"
-                    required
-                    value={bookingData.phone}
-                    onChange={e => setBookingData({ ...bookingData, phone: e.target.value })}
-                    className="w-full bg-secondary/50 rounded-xl px-4 py-3 text-sm font-bold text-foreground outline-none focus:ring-2 focus:ring-primary/50"
-                  />
-                </div>
-                <div className="space-y-6">
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> Select Date *</label>
-                    <div className="flex gap-3 overflow-x-auto pb-4 pt-2 px-1 -mx-1 custom-scrollbar hide-scrollbar snap-x">
-                      {bookingDates.map((d, i) => {
-                        const dateStr = d.toISOString().split('T')[0];
-                        const isSelected = bookingData.date === dateStr;
-                        const isToday = i === 0;
-                        const isTomorrow = i === 1;
-                        return (
-                          <button
-                            key={i}
-                            type="button"
-                            onClick={() => setBookingData({ ...bookingData, date: dateStr })}
-                            className={`relative flex-shrink-0 w-[4.5rem] h-[5.5rem] rounded-[1.5rem] flex flex-col items-center justify-center gap-0.5 transition-all duration-300 snap-start
-                              ${isSelected
-                                ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/40 scale-110 z-10 -translate-y-1'
-                                : 'bg-secondary/60 text-muted-foreground hover:bg-secondary border border-border/50'
-                              }`}
-                          >
-                            <span className={`text-[9px] uppercase font-black tracking-widest ${isSelected ? 'text-primary-foreground/80' : 'text-muted-foreground/70'}`}>
-                              {isToday ? 'Today' : isTomorrow ? 'Tmrw' : d.toLocaleDateString('en-US', { weekday: 'short' })}
-                            </span>
-                            <span className="text-2xl font-black leading-none my-1">{d.getDate()}</span>
-                            <span className={`text-[10px] font-bold ${isSelected ? 'text-primary-foreground/90' : ''}`}>{d.toLocaleDateString('en-US', { month: 'short' })}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
+              <div className="absolute top-3 left-1/2 -translate-x-1/2 w-10 h-1 bg-border/20 rounded-full z-50" />
+              
+              {/* Header - Fixed */}
+              <div className="p-6 pb-4 border-b border-border/10">
+                <div className="flex items-center justify-between">
+                  <div className="min-w-0 pr-4">
+                    <h3 className="text-lg font-black text-foreground uppercase tracking-tight truncate">Book {bookingService.name}</h3>
+                    <p className="text-[9px] text-muted-foreground font-black uppercase tracking-[0.15em] mt-0.5">Please provide your details</p>
                   </div>
-                  <div className="space-y-3">
-                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> Time Slot *</label>
-                    {serviceTimeSlots && serviceTimeSlots.length > 0 ? (
-                      <div className="relative w-full h-[3.25rem] bg-secondary/50 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-primary/50 shadow-inner group">
-                        {/* Static left icon */}
-                        <div className="absolute left-4 top-0 bottom-0 flex items-center pointer-events-none z-10">
-                          <Clock className="w-4 h-4 text-primary/80" />
-                        </div>
-
-                        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-full bg-white/5 pointer-events-none z-0" />
-
-                        <div className="absolute inset-0 overflow-y-auto snap-y snap-mandatory hide-scrollbar z-20">
-                          {serviceTimeSlots.map((slot: string, i: number) => {
-                            const isSelected = bookingData.timeSlot === slot;
-                            return (
-                              <button
-                                key={i}
-                                type="button"
-                                onClick={(e) => {
-                                  e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                                  setBookingData({ ...bookingData, timeSlot: slot });
-                                }}
-                                className={`w-full h-[3.25rem] flex items-center pl-11 pr-10 snap-center text-sm font-black transition-all select-none
-                                  ${isSelected
-                                    ? 'text-foreground tracking-wide scale-[1.02]'
-                                    : 'text-muted-foreground/40 scale-100 hover:text-muted-foreground'
-                                  }`}
-                              >
-                                {slot}
-                              </button>
-                            );
-                          })}
-                        </div>
-
-                        {/* Static right indicators */}
-                        <div className="absolute right-4 top-0 bottom-0 flex flex-col justify-center gap-1.5 pointer-events-none z-10 text-muted-foreground/50 group-hover:text-primary transition-colors">
-                          <ChevronLeft className="w-3.5 h-3.5 rotate-90" strokeWidth={3} />
-                          <ChevronLeft className="w-3.5 h-3.5 -rotate-90" strokeWidth={3} />
-                        </div>
-
-                        {/* Top/Bottom fade to make it look like a dial */}
-                        <div className="absolute inset-x-0 top-0 h-3 bg-gradient-to-b from-secondary/80 to-transparent pointer-events-none z-30" />
-                        <div className="absolute inset-x-0 bottom-0 h-3 bg-gradient-to-t from-secondary/80 to-transparent pointer-events-none z-30" />
-                      </div>
-                    ) : (
-                      <input
-                        type="time"
-                        required
-                        value={bookingData.timeSlot}
-                        onChange={e => setBookingData({ ...bookingData, timeSlot: e.target.value })}
-                        className="w-full bg-secondary/50 rounded-xl px-4 py-3 text-sm font-bold text-foreground outline-none focus:ring-2 focus:ring-primary/50"
-                      />
-                    )}
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Location / Address *</label>
-                  <textarea
-                    required
-                    rows={2}
-                    value={bookingData.location}
-                    onChange={e => setBookingData({ ...bookingData, location: e.target.value })}
-                    className="w-full bg-secondary/50 rounded-xl px-4 py-3 text-sm font-bold text-foreground outline-none focus:ring-2 focus:ring-primary/50 resize-none"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Description (Optional)</label>
-                  <textarea
-                    rows={2}
-                    value={bookingData.description}
-                    onChange={e => setBookingData({ ...bookingData, description: e.target.value })}
-                    className="w-full bg-secondary/50 rounded-xl px-4 py-3 text-sm font-bold text-foreground outline-none focus:ring-2 focus:ring-primary/50 resize-none"
-                    placeholder="Any specific instructions..."
-                  />
+                  <button
+                    onClick={handleCloseBooking}
+                    className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-foreground hover:bg-secondary/80 transition-all border border-border/50 shrink-0"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
 
-              <button
-                onClick={handleBookService}
-                disabled={isBooking}
-                className="w-full mt-6 gradient-primary text-primary-foreground font-black uppercase tracking-widest text-sm py-4 rounded-xl shadow-lg hover:shadow-primary/30 active:scale-95 transition-all"
-              >
-                {isBooking ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Confirm Booking'}
-              </button>
+              {/* Middle Section - Scrollable */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Your Name *</label>
+                    <input
+                      type="text"
+                      required
+                      value={bookingData.name}
+                      onChange={e => setBookingData({ ...bookingData, name: e.target.value })}
+                      className="w-full bg-secondary/50 rounded-xl px-4 py-3 text-sm font-bold text-foreground outline-none focus:ring-2 focus:ring-primary/50"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Phone Number *</label>
+                    <input
+                      type="tel"
+                      required
+                      value={bookingData.phone}
+                      onChange={e => setBookingData({ ...bookingData, phone: e.target.value })}
+                      className="w-full bg-secondary/50 rounded-xl px-4 py-3 text-sm font-bold text-foreground outline-none focus:ring-2 focus:ring-primary/50"
+                    />
+                  </div>
+                  <div className="space-y-6">
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> Select Date *</label>
+                      <div className="flex gap-3 overflow-x-auto pb-4 pt-2 px-1 -mx-1 custom-scrollbar hide-scrollbar snap-x">
+                        {bookingDates.map((d, i) => {
+                          const dateStr = d.toISOString().split('T')[0];
+                          const isSelected = bookingData.date === dateStr;
+                          const isToday = i === 0;
+                          const isTomorrow = i === 1;
+                          return (
+                            <button
+                              key={i}
+                              type="button"
+                              onClick={() => setBookingData({ ...bookingData, date: dateStr })}
+                              className={`relative flex-shrink-0 w-[4.5rem] h-[5.5rem] rounded-[1.5rem] flex flex-col items-center justify-center gap-0.5 transition-all duration-300 snap-start
+                                ${isSelected
+                                  ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/40 scale-110 z-10 -translate-y-1'
+                                  : 'bg-secondary/60 text-muted-foreground hover:bg-secondary border border-border/50'
+                                }`}
+                            >
+                              <span className={`text-[9px] uppercase font-black tracking-widest ${isSelected ? 'text-primary-foreground/80' : 'text-muted-foreground/70'}`}>
+                                {isToday ? 'Today' : isTomorrow ? 'Tmrw' : d.toLocaleDateString('en-US', { weekday: 'short' })}
+                              </span>
+                              <span className="text-2xl font-black leading-none my-1">{d.getDate()}</span>
+                              <span className={`text-[10px] font-bold ${isSelected ? 'text-primary-foreground/90' : ''}`}>{d.toLocaleDateString('en-US', { month: 'short' })}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> Time Slot *</label>
+                      {serviceTimeSlots && serviceTimeSlots.length > 0 ? (
+                        <div className="relative w-full h-[3.25rem] bg-secondary/50 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-primary/50 shadow-inner group">
+                          {/* Static left icon */}
+                          <div className="absolute left-4 top-0 bottom-0 flex items-center pointer-events-none z-10">
+                            <Clock className="w-4 h-4 text-primary/80" />
+                          </div>
+
+                          <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-full bg-white/5 pointer-events-none z-0" />
+
+                          <div className="absolute inset-0 overflow-y-auto snap-y snap-mandatory hide-scrollbar z-20">
+                            {serviceTimeSlots.map((slot: string, i: number) => {
+                              const isSelected = bookingData.timeSlot === slot;
+                              return (
+                                <button
+                                  key={i}
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                                    setBookingData({ ...bookingData, timeSlot: slot });
+                                  }}
+                                  className={`w-full h-[3.25rem] flex items-center pl-11 pr-10 snap-center text-sm font-black transition-all select-none
+                                    ${isSelected
+                                      ? 'text-foreground tracking-wide scale-[1.02]'
+                                      : 'text-muted-foreground/40 scale-100 hover:text-muted-foreground'
+                                    }`}
+                                >
+                                  {slot}
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          {/* Static right indicators */}
+                          <div className="absolute right-4 top-0 bottom-0 flex flex-col justify-center gap-1.5 pointer-events-none z-10 text-muted-foreground/50 group-hover:text-primary transition-colors">
+                            <ChevronLeft className="w-3.5 h-3.5 rotate-90" strokeWidth={3} />
+                            <ChevronLeft className="w-3.5 h-3.5 -rotate-90" strokeWidth={3} />
+                          </div>
+
+                          {/* Top/Bottom fade to make it look like a dial */}
+                          <div className="absolute inset-x-0 top-0 h-3 bg-gradient-to-b from-secondary/80 to-transparent pointer-events-none z-30" />
+                          <div className="absolute inset-x-0 bottom-0 h-3 bg-gradient-to-t from-secondary/80 to-transparent pointer-events-none z-30" />
+                        </div>
+                      ) : (
+                        <input
+                          type="time"
+                          required
+                          value={bookingData.timeSlot}
+                          onChange={e => setBookingData({ ...bookingData, timeSlot: e.target.value })}
+                          className="w-full bg-secondary/50 rounded-xl px-4 py-3 text-sm font-bold text-foreground outline-none focus:ring-2 focus:ring-primary/50"
+                        />
+                      )}
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Location / Address *</label>
+                    <textarea
+                      required
+                      rows={2}
+                      value={bookingData.location}
+                      onChange={e => setBookingData({ ...bookingData, location: e.target.value })}
+                      className="w-full bg-secondary/50 rounded-xl px-4 py-3 text-sm font-bold text-foreground outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Description (Optional)</label>
+                    <textarea
+                      rows={2}
+                      value={bookingData.description}
+                      onChange={e => setBookingData({ ...bookingData, description: e.target.value })}
+                      className="w-full bg-secondary/50 rounded-xl px-4 py-3 text-sm font-bold text-foreground outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+                      placeholder="Any specific instructions..."
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer - Fixed */}
+              <div className="p-6 pt-4 border-t border-border/10 bg-white/50 dark:bg-black/20 backdrop-blur-sm">
+                <button
+                  onClick={handleBookService}
+                  disabled={isBooking}
+                  className="w-full gradient-primary text-primary-foreground font-black uppercase tracking-widest text-sm py-4 rounded-xl active:scale-95 transition-all"
+                >
+                  {isBooking ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Confirm Booking'}
+                </button>
+              </div>
             </motion.div>
           </motion.div>
         )}
@@ -1596,6 +1843,55 @@ const StoreDetail = () => {
           </motion.div>
         )}
       </AnimatePresence>
+      {/* ── Booking Discard Confirmation Modal ── */}
+      <AnimatePresence>
+        {showBookingDiscardConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="bg-white dark:bg-[#202020] w-full max-w-xs rounded-[2.5rem] p-8 relative shadow-2xl border border-white/10 text-center"
+            >
+              <div className="space-y-6 pt-2">
+                <div className="w-20 h-20 rounded-[2rem] bg-red-500/10 flex items-center justify-center mx-auto text-red-500">
+                  <AlertCircle className="w-10 h-10" />
+                </div>
+                
+                <div className="space-y-2">
+                  <h3 className="text-xl font-black text-foreground">Discard Booking?</h3>
+                  <p className="text-sm text-muted-foreground font-medium leading-relaxed px-2">You have unsaved changes. Are you sure you want to discard this booking?</p>
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  <button 
+                    onClick={() => {
+                      setShowBookingDiscardConfirm(false);
+                      setBookingService(null);
+                      setBookingData({ name: '', phone: '', location: '', description: '', date: '', timeSlot: '' });
+                    }}
+                    className="w-full py-4 rounded-2xl bg-red-500 text-white font-black text-xs uppercase tracking-widest shadow-lg shadow-red-500/20 hover:opacity-90 transition-all"
+                  >
+                    Discard Changes
+                  </button>
+                  <button 
+                    onClick={() => setShowBookingDiscardConfirm(false)}
+                    className="w-full py-4 rounded-2xl bg-secondary text-foreground font-bold text-xs uppercase tracking-widest transition-all"
+                  >
+                    Keep Booking
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* ── Product Request Modal ── */}
       <AnimatePresence>
         {showRequestModal && (

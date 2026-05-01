@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 
 const Cart = () => {
-  const { user, loading, cart, updateQuantity, removeFromCart, placeOrder, stores, cartSubtotal } = useApp();
+  const { user, loading, cart, updateQuantity, removeFromCart, placeOrder, stores, cartSubtotal, setIsAnyModalOpen } = useApp();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [showConfirm, setShowConfirm] = useState(false);
@@ -58,6 +58,12 @@ const Cart = () => {
       setSelectedDelivery('pickup');
     }
   }, [allStoresOfferDelivery, selectedDelivery]);
+
+  // Use global modal state to hide nav elements
+  useEffect(() => {
+    setIsAnyModalOpen(!!(showConfirm || showSuccess || showDeliveryModal));
+    return () => setIsAnyModalOpen(false);
+  }, [showConfirm, showSuccess, showDeliveryModal, setIsAnyModalOpen]);
 
   const startOrder = (method: 'online' | 'pickup' | 'delivery') => {
     if (!user) {

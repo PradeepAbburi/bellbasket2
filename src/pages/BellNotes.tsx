@@ -90,6 +90,7 @@ const BellNotes = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
+  const [showRequestDeleteConfirm, setShowRequestDeleteConfirm] = useState(false);
   
   const [formData, setFormData] = useState({
     itemName: '',
@@ -663,22 +664,12 @@ const BellNotes = () => {
                                </div>
                            )}
 
-                           <button 
-                            onClick={async () => {
-                              if (!window.confirm("Are you sure you want to delete this request?")) return;
-                              const toastId = toast.loading("Deleting request...");
-                              try {
-                                await deleteDoc(doc(db, 'product_requests', selectedRequest.id));
-                                toast.success("Request deleted", { id: toastId });
-                                setSelectedRequest(null);
-                              } catch (e) {
-                                toast.error("Deletion failed", { id: toastId });
-                              }
-                            }}
-                            className="w-14 h-14 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center shrink-0 shadow-lg shadow-rose-500/5"
-                           >
-                             <Trash2 className="w-5 h-5" />
-                           </button>
+                            <button 
+                                onClick={() => setShowRequestDeleteConfirm(true)}
+                                className="w-14 h-14 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center shrink-0 shadow-lg shadow-rose-500/5"
+                            >
+                                <Trash2 className="w-5 h-5" />
+                            </button>
                        </div>
                     </div>
                   </div>
@@ -686,6 +677,63 @@ const BellNotes = () => {
               </motion.div>
             </motion.div>
           )}
+        </AnimatePresence>
+
+        {/* Request Delete Confirm */}
+        <AnimatePresence>
+            {showRequestDeleteConfirm && selectedRequest && (
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+                    onClick={() => setShowRequestDeleteConfirm(false)}
+                >
+                    <motion.div
+                        initial={{ scale: 0.95, y: 20 }}
+                        animate={{ scale: 1, y: 0 }}
+                        exit={{ scale: 0.95, y: 20 }}
+                        onClick={e => e.stopPropagation()}
+                        className="bg-[#1A1A1A] w-full max-w-sm rounded-[2.5rem] p-8 border border-white/10 shadow-2xl text-center"
+                    >
+                        <div className="w-16 h-16 bg-rose-500/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                            <Trash2 className="w-8 h-8 text-rose-500" />
+                        </div>
+                        <h2 className="text-xl font-black text-white mb-2 uppercase tracking-tight">Delete Request?</h2>
+                        <p className="text-white/30 text-[10px] font-black uppercase tracking-widest leading-relaxed mb-8 px-4">
+                            This action cannot be undone. The request for "{selectedRequest.productName}" will be permanently removed.
+                        </p>
+                        
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setShowRequestDeleteConfirm(false)}
+                                className="flex-1 py-4 rounded-xl bg-white/5 text-white/40 font-black text-[10px] uppercase tracking-widest"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={async () => {
+                                    const toastId = toast.loading("Removing request...");
+                                    try {
+                                        await updateDoc(doc(db, 'product_requests', selectedRequest.id), { 
+                                            deletedByVendor: true 
+                                        });
+                                        toast.success("Removed", { id: toastId });
+                                        setShowRequestDeleteConfirm(false);
+                                        setSelectedRequest(null);
+                                    } catch (err) {
+                                        console.error("Soft delete failed:", err);
+                                        toast.error("Failed to remove", { id: toastId });
+                                    }
+                                }}
+                                className="flex-1 py-4 rounded-xl bg-rose-500 text-white font-black text-[10px] uppercase tracking-widest shadow-xl shadow-rose-500/20"
+                            >
+                                Delete
+                            </button>
+                        </div>
+                    </motion.div>
+                </motion.div>
+            )}
         </AnimatePresence>
       </div>
     </div>

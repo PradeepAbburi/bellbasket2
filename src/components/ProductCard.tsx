@@ -39,9 +39,12 @@ const ProductCard: React.FC<ProductCardProps> = ({
     const hasDiscount = selectedVariant 
         ? (!!selectedVariant.discountedPrice && selectedVariant.discountedPrice < selectedVariant.price)
         : (!!product.discountedPrice && product.discountedPrice < product.price);
+    const lowestVariantPrice = (!selectedVariant && product.hasVariants && product.variants?.length)
+        ? Math.min(...product.variants.map(v => (v.discountedPrice && v.discountedPrice < v.price) ? v.discountedPrice : v.price))
+        : null;
     const discountedPrice = selectedVariant
         ? (hasDiscount ? selectedVariant.discountedPrice : selectedVariant.price)
-        : (hasDiscount ? product.discountedPrice : product.price);
+        : (lowestVariantPrice || (hasDiscount ? product.discountedPrice : product.price));
 
     return (
         <motion.div
@@ -86,16 +89,24 @@ const ProductCard: React.FC<ProductCardProps> = ({
                 </div>
                 {/* Stock Overlay */}
                 {!product.inStock && (
-                    <div className="absolute inset-2.5 rounded-[1.8rem] bg-black/50 backdrop-blur-[1px] z-20 flex flex-col items-center justify-center p-3 text-center">
-                        <span className="text-white text-[9px] font-black uppercase tracking-widest bg-red-500/80 px-2 py-1 rounded-full">
-                            {t('common.out_of_stock')}
-                        </span>
+                    <div className="absolute inset-2.5 rounded-[1.8rem] bg-black/40 backdrop-blur-[2px] z-20 flex items-center justify-center p-3 text-center pointer-events-none">
+                        <div className="bg-red-600/80 backdrop-blur-md px-3 py-1.5 rounded-2xl border border-white/20 shadow-2xl flex items-center gap-1.5 animate-in fade-in zoom-in duration-300">
+                            <PackageX className="w-3 h-3 text-white" />
+                            <span className="text-white text-[9px] font-black uppercase tracking-widest leading-none">
+                                {t('common.out_of_stock')}
+                            </span>
+                        </div>
                     </div>
                 )}
                 {/* Discount Badge */}
                 {hasDiscount && !product.isCombo && (
                     <div className="absolute top-3 left-3 z-20 bg-primary/90 backdrop-blur-md text-primary-foreground text-[8px] sm:text-[9px] font-black px-2 py-1 rounded-full flex items-center gap-1 shadow-lg border border-white/20 uppercase tracking-tighter">
                         {Math.round(((product.price - product.discountedPrice!) / product.price) * 100)}% {t('common.off')}
+                    </div>
+                )}
+                {product.hasVariants && (
+                    <div className="absolute top-3 right-3 z-20 bg-secondary/80 backdrop-blur-md text-secondary-foreground text-[7px] sm:text-[8px] font-black px-2 py-1 rounded-full flex items-center gap-1 shadow-lg border border-white/20 uppercase tracking-widest">
+                        {product.variants?.length ? `${product.variants.length} Variants` : 'Variants'}
                     </div>
                 )}
                 {product.isCombo && (

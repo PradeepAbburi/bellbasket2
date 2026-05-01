@@ -19,7 +19,13 @@ interface ReviewModalProps {
 
 const ReviewModal = ({ isOpen, onClose, reviews: allReviews = [], storeId, storeName }: ReviewModalProps) => {
     const { t } = useTranslation();
-    const { user } = useApp();
+    const { user, setIsAnyModalOpen } = useApp();
+
+    useEffect(() => {
+        setIsAnyModalOpen(isOpen);
+        return () => setIsAnyModalOpen(false);
+    }, [isOpen, setIsAnyModalOpen]);
+
     const [selectedStar, setSelectedStar] = useState<number | null>(null);
     const [showWriteReview, setShowWriteReview] = useState(false);
     

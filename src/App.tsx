@@ -67,6 +67,7 @@ const Profile = lazy(() => import("./pages/Profile"));
 const VendorDashboard = lazy(() => import("./pages/VendorDashboard"));
 const VendorProducts = lazy(() => import("./pages/VendorProducts"));
 const VendorOrders = lazy(() => import("./pages/VendorOrders"));
+const VendorCombos = lazy(() => import("./pages/VendorCombos"));
 const VendorStoreConfig = lazy(() => import("./pages/VendorStoreConfig"));
 const VendorBookings = lazy(() => import("./pages/VendorBookings"));
 const VendorSetup = lazy(() => import("./pages/VendorSetup"));
@@ -113,6 +114,7 @@ const CustomerDeals = lazy(() => import("./pages/CustomerDeals"));
 const BellNotes = lazy(() => import("./pages/BellNotes"));
 const VendorEditProduct = lazy(() => import("./pages/VendorEditProduct"));
 const FAQ = lazy(() => import("./pages/FAQ"));
+const SavedStores = lazy(() => import("./pages/SavedStores"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -220,12 +222,14 @@ const AppContent = () => {
             <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
             <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
             <Route path="/deals" element={<CustomerDeals />} />
+            <Route path="/saved-stores" element={<ProtectedRoute><SavedStores /></ProtectedRoute>} />
 
             <Route path="/vendor" element={<ErrorBoundary name="VendorDashboard"><VendorProtectedRoute><VendorDashboard /></VendorProtectedRoute></ErrorBoundary>} />
             <Route path="/vendor/products" element={<ErrorBoundary name="VendorProducts"><VendorProtectedRoute><VendorProducts /></VendorProtectedRoute></ErrorBoundary>} />
             <Route path="/vendor/products/new" element={<ErrorBoundary name="VendorNewProduct"><VendorProtectedRoute><VendorEditProduct /></VendorProtectedRoute></ErrorBoundary>} />
             <Route path="/vendor/products/edit/:id" element={<ErrorBoundary name="VendorEditProduct"><VendorProtectedRoute><VendorEditProduct /></VendorProtectedRoute></ErrorBoundary>} />
             <Route path="/vendor/orders" element={<ErrorBoundary name="VendorOrders"><VendorProtectedRoute><VendorOrders /></VendorProtectedRoute></ErrorBoundary>} />
+            <Route path="/vendor/combos" element={<ErrorBoundary name="VendorCombos"><VendorProtectedRoute><VendorCombos /></VendorProtectedRoute></ErrorBoundary>} />
             <Route path="/vendor/config" element={<ErrorBoundary name="VendorStoreConfig"><VendorProtectedRoute><VendorStoreConfig /></VendorProtectedRoute></ErrorBoundary>} />
             <Route path="/vendor/bookings" element={<ErrorBoundary name="VendorBookings"><VendorProtectedRoute><VendorBookings /></VendorProtectedRoute></ErrorBoundary>} />
             <Route path="/vendor/setup" element={<ProtectedRoute><VendorSetup /></ProtectedRoute>} />

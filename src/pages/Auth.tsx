@@ -204,6 +204,7 @@ const Auth = () => {
 
         await setDoc(doc(db, 'users', user.uid), newUser);
         login(newUser as any);
+        sessionStorage.setItem('allow_onboarding', 'true');
         toast.success('Account created with Google!');
 
         if (role === 'vendor') {
@@ -540,6 +541,8 @@ const Auth = () => {
             <div className="relative group">
               <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input
+                id="email"
+                name="email"
                 type="email"
                 inputMode="email"
                 autoComplete="email"
@@ -564,6 +567,8 @@ const Auth = () => {
                     <div className="relative group">
                       <UserCircle className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                       <input
+                        id="fullName"
+                        name="fullName"
                         value={name}
                         onChange={e => setName(e.target.value)}
                         placeholder="Full Name"
@@ -574,6 +579,8 @@ const Auth = () => {
                     <div className="relative group">
                       <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                       <input
+                        id="phone"
+                        name="phone"
                         type="tel"
                         value={phone}
                         onChange={e => setPhone(e.target.value)}
@@ -589,6 +596,8 @@ const Auth = () => {
                 <div className="relative group">
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <input
+                    id="password"
+                    name="password"
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={e => setPassword(e.target.value)}
@@ -609,6 +618,8 @@ const Auth = () => {
                   <div className="relative group">
                     <Zap className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
                     <input
+                      id="referralCode"
+                      name="referralCode"
                       value={referralCode}
                       onChange={e => setReferralCode(e.target.value)}
                       placeholder="Referral ID (Optional)"

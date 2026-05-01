@@ -18,7 +18,7 @@ const pickupFlow = ['pending', 'accepted', 'packed', 'completed'] as const;
 const deliveryFlow = ['pending', 'accepted', 'packed', 'out_for_delivery', 'completed'] as const;
 
 const VendorOrders = () => {
-    const { user, orders: allOrders, loading, refreshData } = useApp();
+    const { user, orders: allOrders, loading, refreshData, setIsAnyModalOpen } = useApp();
     const navigate = useNavigate();
     const { t } = useTranslation();
 
@@ -37,16 +37,11 @@ const VendorOrders = () => {
   const [isSubmittingRejection, setIsSubmittingRejection] = useState(false);
   const [rejectionsToHideInSession, setRejectionsToHideInSession] = useState<Set<string>>(new Set());
 
-  // Hide BottomNav when modal is open
+  // Use global modal state to hide nav elements
   useEffect(() => {
-    const nav = document.getElementById('bottom-nav');
-    if (selectedOrderId) {
-      nav?.style.setProperty('display', 'none', 'important');
-    } else {
-      nav?.style.removeProperty('display');
-    }
-    return () => { nav?.style.removeProperty('display'); };
-  }, [selectedOrderId]);
+    setIsAnyModalOpen(!!(selectedOrderId || orderToReject));
+    return () => setIsAnyModalOpen(false);
+  }, [selectedOrderId, orderToReject, setIsAnyModalOpen]);
 
   const handleRefresh = () => {
     setIsRefreshing(true);
@@ -475,7 +470,7 @@ const VendorOrders = () => {
                         <p className="text-xs font-bold text-foreground">
                           {order.userName || customerData[order.userId || '']?.name || t('common.anonymous_customer')}
                         </p>
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-medium">{t('vendor_orders.customer')}</p>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-medium">{t('common.customer')}</p>
                       </div>
                     </div>
 
@@ -568,19 +563,39 @@ const VendorOrders = () => {
                 <div
                   className={`space-y-1 mb-3 ${['pending', 'accepted'].includes(order.status) ? 'p-3 bg-secondary/20 rounded-xl border border-border/50' : ''}`}
                 >
-                  {['pending', 'accepted'].includes(order.status) && (
-                    <div className="flex justify-between items-center mb-2 pb-2 border-b border-border/50">
-                      <span className="text-xs font-bold text-foreground">Products ({order.items.length})</span>
-                      <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-bold">Tap to view</span>
-                    </div>
-                  )}
-                  {order.items.map(item => (
-                    <p key={item.product.id} className="text-xs text-muted-foreground">
-                      {t(`products.${item.product.name}`, { defaultValue: item.product.name })}
-                      {item.product.quantity && <span className="ml-1 opacity-70">({item.product.quantity.includes(' - ') ? item.product.quantity : item.product.quantity.replace(/([0-9.]+)([a-zA-Z]+)/, '$1 - $2')})</span>}
-                      {" "}× {item.quantity}
-                    </p>
-                  ))}
+                  <div 
+                    className="flex justify-between items-center mb-2 pb-2 border-b border-border/50 cursor-pointer group/view"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedOrderId(order.id);
+                    }}
+                  >
+                    <span className="text-xs font-bold text-foreground">Products ({order.items.length})</span>
+                    <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-black uppercase tracking-widest group-hover/view:scale-105 transition-transform">Tap to view</span>
+                  </div>
+                  <div 
+                    className="space-y-1 cursor-pointer hover:bg-primary/5 p-2 -m-2 rounded-lg transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedOrderId(order.id);
+                    }}
+                  >
+                    {order.items.slice(0, 2).map(item => (
+                      <p key={item.product.id} className="text-xs text-muted-foreground flex justify-between">
+                        <span>
+                          {t(`products.${item.product.name}`, { defaultValue: item.product.name })}
+                          {item.product.quantity && <span className="ml-1 opacity-70">({item.product.quantity.includes(' - ') ? item.product.quantity : item.product.quantity.replace(/([0-9.]+)([a-zA-Z]+)/, '$1 - $2')})</span>}
+                        </span>
+                        <span className="font-bold text-foreground">× {item.quantity}</span>
+                      </p>
+                    ))}
+                    {order.items.length > 2 && (
+                      <p className="text-[10px] font-black text-primary/60 uppercase tracking-widest mt-2 border-t border-primary/5 pt-2 flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary/40 animate-pulse" />
+                        + {order.items.length - 2} More {order.items.length - 2 === 1 ? 'Product' : 'Products'}
+                      </p>
+                    )}
+                  </div>
                 </div>
 
           {order.status === 'completed' || order.status === 'rejected' ? null : (
@@ -624,21 +639,25 @@ const VendorOrders = () => {
           )}
         </div>
 
-      {/* Products Modal */}
+      {/* Order Details Modal */}
       <AnimatePresence>
         {selectedOrder && (
-          <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40 backdrop-blur-3xl" onClick={() => setSelectedOrderId(null)}>
             <motion.div
-              initial={{ y: "100%" }}
-              animate={{ y: 0 }}
-              exit={{ y: "100%" }}
-              className="bg-[#202020] w-full max-w-lg rounded-t-[2.5rem] sm:rounded-[2.5rem] flex flex-col max-h-[90vh] shadow-2xl overflow-hidden border-t sm:border border-border/50"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-card dark:bg-[#1A1A1A] w-full max-w-lg rounded-[2.5rem] flex flex-col max-h-[90vh] shadow-2xl overflow-hidden border border-border/50"
             >
-              <div className="p-6 border-b border-border/50 flex items-center justify-between bg-card/50">
-                <div className="space-y-1">
-                  <h2 className="text-xl font-black text-foreground tracking-tight uppercase">Review Order</h2>
+              {/* Modal Header - Fixed Compact Height */}
+              <div className="h-[70px] px-6 flex items-center justify-between bg-secondary/20 border-b border-border/10 shrink-0">
+                <div className="space-y-0.5">
+                  <h2 className="text-lg font-black text-foreground tracking-tight uppercase">
+                    {['completed', 'rejected'].includes(selectedOrder.status) ? 'Order Items' : 'Review Order'}
+                  </h2>
                   <div className="flex items-center gap-2">
-                    <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest bg-secondary/50 px-2 py-0.5 rounded-md w-fit">#{selectedOrder.id.slice(-8).toUpperCase()}</p>
+                    <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest bg-background/50 px-2 py-0.5 rounded-md w-fit">#{selectedOrder.id.slice(-6).toUpperCase()}</p>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -653,24 +672,80 @@ const VendorOrders = () => {
                 </div>
                 <button
                   onClick={() => setSelectedOrderId(null)}
-                  className="p-2.5 rounded-full bg-secondary text-muted-foreground hover:text-foreground transition-all active:scale-90"
+                  className="p-2 rounded-full bg-white text-black shadow-lg hover:bg-white/90 transition-all active:scale-90 border border-black/5 flex items-center justify-center"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4" strokeWidth={3} />
                 </button>
               </div>
 
-              <div className="p-6 overflow-y-auto flex-1 space-y-6">
-                {/* Product Review List */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Package className="w-5 h-5 text-primary" />
-                    <h3 className="font-black text-xs text-foreground uppercase tracking-widest">Order Products ({selectedOrder.items.length})</h3>
+              {/* Scrollable Content Area */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-5 custom-scrollbar">
+                {/* Customer Details */}
+                {(selectedOrder.userId || selectedOrder.userName) && (
+                  <div className="p-3 rounded-xl bg-primary/5 border border-primary/10 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">
+                        {(selectedOrder.userName || customerData[selectedOrder.userId || '']?.name || 'C').charAt(0)}
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-foreground">
+                          {selectedOrder.userName || customerData[selectedOrder.userId || '']?.name || t('common.anonymous_customer')}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-medium">{t('common.customer')}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col items-end gap-2">
+                      <div className="flex items-center gap-2">
+                        <a
+                          href={`tel:${selectedOrder.customerPhone || selectedOrder.userPhone || customerData[selectedOrder.userId || '']?.phone}`}
+                          className="p-2 rounded-lg bg-white shadow-sm text-primary hover:scale-110 transition-transform"
+                        >
+                          <Phone className="w-3.5 h-3.5" />
+                        </a>
+                        <span className="text-xs font-mono font-bold text-foreground">
+                          {selectedOrder.customerPhone || selectedOrder.userPhone || customerData[selectedOrder.userId || '']?.phone || t('common.no_phone')}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="space-y-3">
+                )}
+
+                {/* Delivery Information Box */}
+                {(selectedOrder.customerAddress || selectedOrder.deliveryMethod === 'delivery') && (
+                  <div className="p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/20 shadow-sm">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600">
+                        <Package className="w-4 h-4" />
+                      </div>
+                      <h4 className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Delivery Details</h4>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 gap-3">
+                       <div className="space-y-1">
+                          <p className="text-[9px] text-muted-foreground uppercase tracking-widest font-bold">Delivery Address</p>
+                          <div className="text-left group">
+                             <p className="text-xs font-bold text-foreground transition-colors flex items-start gap-1.5">
+                                <MapPin className="w-3 h-3 text-primary mt-0.5 shrink-0" />
+                                <span className="">{selectedOrder.customerAddress || customerData[selectedOrder.userId || '']?.address}</span>
+                             </p>
+                          </div>
+                       </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Product Review List */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Package className="w-4 h-4 text-primary" />
+                    <h3 className="font-black text-[10px] text-foreground uppercase tracking-[0.2em]">Order Products ({selectedOrder.items.length})</h3>
+                  </div>
+                  <div className="space-y-2">
                     {selectedOrder.items.map(item => (
-                      <div key={item.product.id} className="flex justify-between items-center p-3.5 bg-secondary/30 rounded-2xl border border-border/40 shadow-sm transition-all hover:bg-secondary/40">
-                        <div className="flex items-center gap-4">
-                          <div className="w-14 h-14 bg-white dark:bg-black rounded-xl flex items-center justify-center overflow-hidden border border-border/50 shadow-sm p-1.5 shrink-0">
+                      <div key={item.product.id} className="flex justify-between items-center p-3 rounded-[1.5rem] bg-secondary/5 border border-border/20 shadow-sm transition-all hover:bg-secondary/10">
+                        <div className="flex items-center gap-3">
+                          <div className="w-14 h-14 bg-white dark:bg-[#1A1A1A] rounded-xl flex items-center justify-center overflow-hidden border border-border/20 shadow-sm p-1 shrink-0">
                             {item.product.image ? (
                               <img src={item.product.image} alt={item.product.name} className="w-full h-full object-contain rounded-lg" />
                             ) : (
@@ -678,17 +753,17 @@ const VendorOrders = () => {
                             )}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className="font-bold text-sm text-foreground leading-tight break-words">{t(`products.${item.product.name}`, { defaultValue: item.product.name })}</p>
+                            <p className="font-bold text-xs text-foreground leading-tight break-words">{t(`products.${item.product.name}`, { defaultValue: item.product.name })}</p>
                             {item.product.quantity && (
-                              <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mt-1 opacity-80">{item.product.quantity}</p>
+                              <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest mt-1 opacity-80">{item.product.quantity}</p>
                             )}
-                             <p className="text-[10px] font-black text-primary mt-1.5 opacity-90">
+                             <p className="text-[9px] font-black text-primary mt-1.5 opacity-90">
                                ₹{item.product.price} / unit
                              </p>
                            </div>
                          </div>
-                         <div className="flex flex-col items-end gap-1 shrink-0 ml-4">
-                            <div className="font-mono font-black text-xl text-primary bg-primary/5 px-3 py-1.5 rounded-xl border border-primary/10">
+                         <div className="flex flex-col items-end gap-0.5 shrink-0 ml-4">
+                            <div className="font-mono font-black text-sm text-primary bg-primary/5 px-2 py-1 rounded-lg border border-primary/10">
                              x{item.quantity}
                            </div>
                            <p className="text-[10px] font-bold text-muted-foreground">
@@ -697,62 +772,66 @@ const VendorOrders = () => {
                          </div>
                       </div>
                     ))}
-                   {/* Summary Info */}
-                <div className="p-4 rounded-2xl bg-primary/5 border border-primary/10 space-y-2">
-                   {(() => {
-                     const itemsTotal = selectedOrder.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
-                     const deliveryFee = selectedOrder.deliveryFee || 0;
-                     return (
-                       <>
-                         <div className="flex justify-between items-center text-xs font-bold">
-                           <span className="text-muted-foreground uppercase tracking-widest">Subtotal</span>
-                           <span className="text-foreground">₹{itemsTotal}</span>
-                         </div>
-                         {deliveryFee > 0 && (
-                           <div className="flex justify-between items-center text-xs font-bold">
-                             <span className="text-muted-foreground uppercase tracking-widest">Delivery Fee</span>
-                             <span className="text-foreground">+ ₹{deliveryFee}</span>
-                           </div>
-                         )}
-                         <div className="flex justify-between items-center text-sm font-black pt-2 border-t border-primary/20">
-                           <span className="text-primary uppercase tracking-widest">Order Total</span>
-                           <span className="text-primary text-lg">₹{itemsTotal + deliveryFee}</span>
-                         </div>
-                       </>
-                     );
-                   })()}
-                </div>
+                  </div>
+
+                   {/* Summary Info - In Scroll View */}
+                   <div className="p-4 rounded-[1.5rem] bg-primary/5 border border-primary/10 space-y-2 mt-4 mb-6">
+                      {(() => {
+                        const itemsTotal = selectedOrder.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+                        const deliveryFee = selectedOrder.deliveryFee || 0;
+                        return (
+                          <>
+                            <div className="flex justify-between items-center text-[10px] font-bold">
+                              <span className="text-muted-foreground uppercase tracking-[0.2em]">Subtotal</span>
+                              <span className="text-foreground">₹{itemsTotal}</span>
+                            </div>
+                            {deliveryFee > 0 && (
+                              <div className="flex justify-between items-center text-[10px] font-bold">
+                                <span className="text-muted-foreground uppercase tracking-[0.2em]">Delivery Fee</span>
+                                <span className="text-foreground">+ ₹{deliveryFee}</span>
+                              </div>
+                            )}
+                            <div className="flex justify-between items-center text-xs font-black pt-2 border-t border-primary/10">
+                              <span className="text-primary uppercase tracking-[0.2em]">Order Total</span>
+                              <span className="text-primary text-base">₹{itemsTotal + deliveryFee}</span>
+                            </div>
+                          </>
+                        );
+                      })()}
                    </div>
                 </div>
               </div>
 
-              <div className="p-6 border-t border-border/50 bg-card/50">
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => {
-                      if (selectedOrder.status === 'pending') {
-                        rejectOrder(selectedOrder.id);
-                      } else {
-                        cancelOrderWithPin(selectedOrder.id, selectedOrder.pickupCode || '');
-                      }
-                    }}
-                    className="flex-1 bg-destructive/10 text-destructive font-bold py-4 rounded-2xl hover:bg-destructive/20 transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-widest border border-destructive/20 shadow-sm active:scale-95"
-                  >
-                    <X className="w-5 h-5" />
-                    Reject
-                  </button>
-                  <button
-                    onClick={() => advanceStatus(selectedOrder.id)}
-                    className="flex-[2] bg-primary text-primary-foreground font-black py-4 rounded-2xl hover:opacity-90 transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-widest active:scale-[0.98]"
-                  >
-                    <Check className="w-5 h-5" />
-                    {selectedOrder.status === 'pending' ? 'Accept' : 
-                     selectedOrder.status === 'accepted' ? 'Pack Order' :
-                     selectedOrder.status === 'packed' ? (selectedOrder.deliveryMethod === 'delivery' ? 'Dispatch' : 'Complete Order') :
-                     'Proceed'}
-                  </button>
+              {/* Modal Footer - Compact Sticky Action Bar */}
+              {!['completed', 'rejected'].includes(selectedOrder.status) && (
+                <div className="p-4 border-t border-border/10 bg-card/50 shrink-0">
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => {
+                        if (selectedOrder.status === 'pending') {
+                          rejectOrder(selectedOrder.id);
+                        } else {
+                          cancelOrderWithPin(selectedOrder.id, selectedOrder.pickupCode || '');
+                        }
+                      }}
+                      className="flex-1 bg-destructive/10 text-destructive font-bold py-4 rounded-2xl hover:bg-destructive/20 transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-widest border border-destructive/20 shadow-sm active:scale-95"
+                    >
+                      <X className="w-5 h-5" />
+                      Reject
+                    </button>
+                    <button
+                      onClick={() => advanceStatus(selectedOrder.id)}
+                      className="flex-[2] bg-primary text-primary-foreground font-black py-4 rounded-2xl hover:opacity-90 transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-widest active:scale-[0.98]"
+                    >
+                      <Check className="w-5 h-5" />
+                      {selectedOrder.status === 'pending' ? 'Accept' : 
+                       selectedOrder.status === 'accepted' ? 'Pack Order' :
+                       selectedOrder.status === 'packed' ? (selectedOrder.deliveryMethod === 'delivery' ? 'Dispatch' : 'Complete Order') :
+                       'Proceed'}
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
             </motion.div>
           </div>
         )}
