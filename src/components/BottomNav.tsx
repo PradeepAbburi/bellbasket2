@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const BottomNav = () => {
-    const { user, cart, orders, serviceBookings, stores, cartSubtotal, isAnyModalOpen } = useApp();
+    const { user, cart, orders, serviceBookings, stores, cartSubtotal, isAnyModalOpen, cartConflictItem } = useApp();
     const { t } = useTranslation();
     const location = useLocation();
     const navigate = useNavigate();

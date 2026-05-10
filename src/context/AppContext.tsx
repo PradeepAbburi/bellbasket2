@@ -24,7 +24,7 @@ interface AppState {
   login: (user: User) => void;
   logout: () => void;
   refreshUser: () => Promise<void>;
-  addToCart: (item: CartItem) => boolean;
+  addToCart: (item: CartItem, force?: boolean) => boolean;
   removeFromCart: (productId: string, variantId?: string) => void;
   updateQuantity: (productId: string, quantity: number, variantId?: string) => void;
   clearCart: () => void;
