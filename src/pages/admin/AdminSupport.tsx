@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot, doc, updateDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
 import { toast } from 'sonner';
+import PageLoading from '@/components/PageLoading';
 
 const AdminSupport = () => {
     const [tickets, setTickets] = useState<any[]>([]);
@@ -26,6 +27,8 @@ const AdminSupport = () => {
         });
         return () => unsub();
     }, []);
+
+    if (loading) return <PageLoading />;
 
     const filteredTickets = tickets.filter(t => {
         const matchesSearch = (t.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -96,9 +99,7 @@ const AdminSupport = () => {
                     </div>
                     
                     <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 pr-2 pb-10">
-                        {loading ? (
-                            Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-32 bg-slate-50 rounded-3xl animate-pulse" />)
-                        ) : filteredTickets.length === 0 ? (
+                        {filteredTickets.length === 0 ? (
                             <div className="p-10 text-center glass rounded-3xl border-dashed border-2 border-indigo-100 mt-10">
                                 <LifeBuoy className="w-10 h-10 text-indigo-200 mx-auto mb-4" />
                                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-300">No active support threads</p>

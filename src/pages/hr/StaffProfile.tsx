@@ -12,6 +12,7 @@ import { db } from '@/lib/firebase';
 import { doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { Staff } from '@/types';
 import { toast } from 'sonner';
+import PageLoading from '@/components/PageLoading';
 
 const EditableField = ({ label, icon: Icon, value, onChange, type = "text", placeholder, isDropdown = false, options = [], disabled = false }: any) => (
     <div className="space-y-3 group">
@@ -122,14 +123,7 @@ const StaffProfile = () => {
         }
     };
 
-    if (loading) {
-        return (
-            <div className="min-h-[60vh] flex flex-col items-center justify-center space-y-4">
-                <Loader2 className="w-10 h-10 text-primary animate-spin" />
-                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Accessing Records...</p>
-            </div>
-        );
-    }
+    if (loading) return <PageLoading />;
 
     const tabs = [
         { id: 'identity', label: 'Primary Identity', icon: UserCircle },

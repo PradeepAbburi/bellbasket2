@@ -12,7 +12,7 @@ import { db } from '@/lib/firebase';
 import { doc, updateDoc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { useTranslation } from 'react-i18next';
 import { sendInAppNotification, playBellSound } from '@/utils/notifications';
-import { OrderListSkeleton } from '@/components/SkeletonLoader';
+import PageLoading from '@/components/PageLoading';
 
 const pickupFlow = ['pending', 'accepted', 'packed', 'completed'] as const;
 const deliveryFlow = ['pending', 'accepted', 'packed', 'out_for_delivery', 'completed'] as const;
@@ -22,7 +22,7 @@ const VendorOrders = () => {
     const navigate = useNavigate();
     const { t } = useTranslation();
 
-    if (loading) return <OrderListSkeleton />;
+    if (loading) return <PageLoading />;
   const [customerData, setCustomerData] = useState<Record<string, any>>({});
   const [view, setView] = useState<'active' | 'past'>('active');
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
@@ -52,9 +52,16 @@ const VendorOrders = () => {
   // Memoize filtered orders from global state for live updates
   const orders = useMemo(() => {
     const filtered = allOrders.filter(o => o.storeId === user?.id);
+    
+    const getTime = (d: any) => {
+      if (!d) return 0;
+      const time = new Date(d).getTime();
+      return isNaN(time) ? 0 : time;
+    };
+
     return filtered.sort((a, b) => {
-      const dateA = a.date ? new Date(a.date).getTime() : 0;
-      const dateB = b.date ? new Date(b.date).getTime() : 0;
+      const dateA = getTime(a.date);
+      const dateB = getTime(b.date);
       return dateB - dateA;
     });
   }, [allOrders, user?.id]);

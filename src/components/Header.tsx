@@ -1,7 +1,7 @@
 import { useApp } from '@/context/AppContext';
 import { getAvatarUrl } from '@/utils/avatars';
 import { NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
-import { ShoppingCart, Bell, User, LogOut, Store, Menu, X, Search, ShoppingBag, Package, TrendingUp, Crown, Shield, BellRing, FileText, Zap, Settings } from 'lucide-react';
+import { ShoppingCart, Bell, User, LogOut, Store, Menu, X, Search, ShoppingBag, Package, TrendingUp, Crown, Shield, BellRing, FileText, Zap, Settings, Users } from 'lucide-react';
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -11,7 +11,7 @@ import DesktopBackground from './DesktopBackground';
 import { getAudioStatus, onAudioStatusChange, initAudio, playBellSound } from '@/utils/notifications';
 
 const Header = ({ solid = false }: { solid?: boolean }) => {
-  const { user, cart, orders, serviceBookings, logout, notifications, markAllNotificationsRead, stores, requestPushNotifications, isAnyModalOpen } = useApp();
+  const { user, cart, orders, serviceBookings, logout, notifications, markAllNotificationsRead, stores, requestPushNotifications } = useApp();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
@@ -32,7 +32,7 @@ const Header = ({ solid = false }: { solid?: boolean }) => {
     return unsub;
   }, [audioStatus]);
 
-  if (isAnyModalOpen) return null;
+
 
   const unreadCount = notifications.filter((n: any) => !n.read && n.id !== 'welcome').length;
   
@@ -114,6 +114,14 @@ const Header = ({ solid = false }: { solid?: boolean }) => {
                   >
                     <Zap className="w-5 h-5" />
                     <span className="hidden lg:inline">{t('common.deals')}</span>
+                  </NavLink>
+
+                  <NavLink 
+                    to="/careers" 
+                    className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}
+                  >
+                    <Users className="w-5 h-5" />
+                    <span className="hidden lg:inline">Careers</span>
                   </NavLink>
 
                   <NavLink 
@@ -221,24 +229,24 @@ const Header = ({ solid = false }: { solid?: boolean }) => {
               {user ? (
                 <div className="flex items-center gap-1">
                   <div className="relative">
-                    {hasValidPlan && (
-                      <button
-                        onClick={() => {
-                          setShowNotifs(!showNotifs);
-                          if (!showNotifs) markAllNotificationsRead();
-                        }}
-                        onMouseEnter={() => {
-                          onHoverPrefetch('notifications');
-                          onHoverPrefetch('receipts');
-                        }}
-                        className={`p-2.5 rounded-xl transition-all relative ${showNotifs ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'}`}
-                      >
-                        <Bell className="w-5 h-5" />
-                        {unreadCount > 0 && (
-                          <span className="absolute top-2 right-2.5 w-2 h-2 rounded-full bg-primary ring-2 ring-white" />
-                        )}
-                      </button>
-                    )}
+                    <button
+                      onClick={() => {
+                        setShowNotifs(!showNotifs);
+                        if (!showNotifs) markAllNotificationsRead();
+                      }}
+                      onMouseEnter={() => {
+                        onHoverPrefetch('notifications');
+                        onHoverPrefetch('receipts');
+                      }}
+                      className={`p-2 rounded-xl transition-all relative ${showNotifs ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'}`}
+                    >
+                      <Bell className="w-5.5 h-5.5" />
+                      {unreadCount > 0 && (
+                        <span className="absolute top-2 right-2 w-4 h-4 flex items-center justify-center bg-primary text-white text-[8px] font-black rounded-full ring-2 ring-white shadow-sm">
+                          {unreadCount}
+                        </span>
+                      )}
+                    </button>
 
                     <AnimatePresence>
                       {showNotifs && (
@@ -382,6 +390,7 @@ const Header = ({ solid = false }: { solid?: boolean }) => {
             vendorBadgeCount={vendorBadgeCount}
             activeReceiptsCount={activeReceiptsCount}
             cartCount={cartCount}
+            unreadCount={unreadCount}
             onClose={() => setMenuOpen(false)}
             logout={logout}
             initAudio={initAudio}

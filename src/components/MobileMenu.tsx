@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Zap, ShoppingBag, ShoppingCart, LogOut, Shield, Store, FileText, Package, Crown, X, Settings, Home } from 'lucide-react';
+import { Search, Zap, ShoppingBag, ShoppingCart, LogOut, Shield, Store, FileText, Package, Crown, X, Settings, Home, Bell } from 'lucide-react';
 
 interface MobileMenuProps {
   isOpen: boolean;
@@ -12,6 +12,7 @@ interface MobileMenuProps {
   vendorBadgeCount: number;
   activeReceiptsCount: number;
   cartCount: number;
+  unreadCount: number;
   onClose: () => void;
   logout: () => void;
   initAudio: () => void;
@@ -27,6 +28,7 @@ const MobileMenu = ({
   vendorBadgeCount,
   activeReceiptsCount,
   cartCount,
+  unreadCount,
   onClose,
   logout,
   initAudio
@@ -171,6 +173,21 @@ const MobileMenu = ({
                     {cartCount > 0 && (
                       <span className="bg-primary text-white text-[10px] font-black px-2 py-0.5 rounded-full">
                         {cartCount}
+                      </span>
+                    )}
+                  </Link>
+                  <Link
+                    to="/notifications"
+                    onClick={() => { initAudio(); onClose(); }}
+                    className="flex items-center justify-between px-4 py-3 rounded-xl hover:bg-primary/5 text-foreground transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Bell className="w-5 h-5 text-primary" />
+                      <span className="font-bold text-sm">Notifications</span>
+                    </div>
+                    {unreadCount > 0 && (
+                      <span className="bg-primary text-white text-[10px] font-black px-2 py-0.5 rounded-full">
+                        {unreadCount}
                       </span>
                     )}
                   </Link>

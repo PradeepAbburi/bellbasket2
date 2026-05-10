@@ -60,6 +60,7 @@
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Plus Jakarta Sans', sans-serif;
     touch-action: manipulation;
+    overscroll-behavior-y: contain;
   }
 }
 

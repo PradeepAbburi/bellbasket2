@@ -3,14 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MapPin, Search, Loader2, Navigation, CheckCircle2, ArrowRight, Store, Upload, Camera, X, Ticket, Building, LandPlot, Globe } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
+import { useTranslation } from 'react-i18next';
 import { lazy, Suspense } from 'react';
 const MapView = lazy(() => import('@/components/MapView'));
 import { toast } from 'sonner';
 import { db } from '@/lib/firebase';
 import { doc, setDoc, updateDoc } from 'firebase/firestore';
 import { generateSlug } from '@/utils/seo';
-
 import { CATEGORY_METADATA } from '@/constants/categories';
+import PageLoading from '@/components/PageLoading';
 
 const PRODUCT_CATEGORIES = Object.keys(CATEGORY_METADATA).filter(
     cat => CATEGORY_METADATA[cat].type === 'product'
@@ -21,7 +22,9 @@ const SERVICE_CATEGORIES = Object.keys(CATEGORY_METADATA).filter(
 );
 
 const VendorSetup = () => {
+    const { t } = useTranslation();
     const { user, loading, login, refreshStores } = useApp();
+    console.log("VendorSetup: Render", { loading, hasUser: !!user, role: user?.role });
     const navigate = useNavigate();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -90,7 +93,9 @@ const VendorSetup = () => {
     // Redirect if not a vendor
     useEffect(() => {
         if (!loading) {
+            console.log("VendorSetup: Auth check", { user: !!user, role: user?.role });
             if (!user || user.role !== 'vendor') {
+                console.log("VendorSetup: Not a vendor, redirecting to /auth");
                 navigate('/auth');
             }
         }
@@ -195,11 +200,7 @@ const VendorSetup = () => {
     }, [showCamera]);
 
     if (loading) {
-        return (
-            <div className="min-h-screen gradient-warm flex items-center justify-center">
-                <div className="w-10 h-10 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
-            </div>
-        );
+        return <PageLoading />;
     }
 
     const [searching, setSearching] = useState(false);
@@ -217,12 +218,18 @@ const VendorSetup = () => {
         setSearching(true);
         searchTimeout.current = setTimeout(async () => {
             try {
-                const photonUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(val)}&lat=${storeLat}&lon=${storeLng}&limit=12`;
+                const query = val.toUpperCase() === 'HYD' ? 'Hyderabad, India' : val;
+                const photonUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&lat=${storeLat}&lon=${storeLng}&limit=12`;
                 const res = await fetch(photonUrl);
                 const data = await res.json();
 
-                const results = data.features.map((f: any) => {
-                    const p = f.properties;
+                const results = data.features
+                    .filter((f: any) => {
+                        const country = f.properties.countrycode?.toUpperCase();
+                        return country !== 'BD' && country !== 'PK';
+                    })
+                    .map((f: any) => {
+                        const p = f.properties;
 
                     // Simple distance calc for sorting/display
                     const dist = Math.sqrt(Math.pow(f.geometry.coordinates[1] - storeLat, 2) + Math.pow(f.geometry.coordinates[0] - storeLng, 2)) * 111.32; // Approx km
@@ -446,6 +453,7 @@ const VendorSetup = () => {
             setSaving(false);
         }
     };
+    if (loading) return <PageLoading />;
 
     return (
         <div className="min-h-screen gradient-warm flex flex-col pb-20">

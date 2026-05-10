@@ -12,7 +12,7 @@ import { db } from '@/lib/firebase';
 import { doc, getDoc, updateDoc, collection, query, where, getDocs, addDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
 import QRCodeWithLogo from '@/components/ui/qr-code-with-logo';
 import PullToRefresh from '@/components/ui/PullToRefresh';
-import { DashboardSkeleton } from '@/components/SkeletonLoader';
+import PageLoading from '@/components/PageLoading';
 import { StoreReview } from '@/types';
 
 const VendorDashboard = () => {
@@ -52,15 +52,6 @@ const VendorDashboard = () => {
   const [showSupportModal, setShowSupportModal] = useState(false);
   const [supportQuery, setSupportQuery] = useState('');
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
-  const [showOnboarding, setShowOnboarding] = useState(() => {
-    const justFinished = sessionStorage.getItem('just_finished_setup') === 'true';
-    if (justFinished) {
-      sessionStorage.removeItem('just_finished_setup');
-      return true;
-    }
-    return false;
-  });
-  const [onboardingStep, setOnboardingStep] = useState(0);
 
   useEffect(() => {
     if (user?.subscriptionExpiry && user.plan !== 'none') {
@@ -272,7 +263,7 @@ const VendorDashboard = () => {
   }, [user, loading, navigate]);
 
   if (loading) {
-    return <DashboardSkeleton />;
+    return <PageLoading />;
   }
 
   useEffect(() => {
@@ -434,9 +425,11 @@ const VendorDashboard = () => {
     { title: t('onboarding.vendor.handover_title'), desc: t('onboarding.vendor.handover_desc'), icon: Zap },
   ];
 
+  if (loading) return <PageLoading />;
+
   return (
     <>
-      <div className={`min-h-screen gradient-warm transition-all duration-500 ${showOnboarding ? 'blur-md pointer-events-none' : ''}`}>
+      <div className={`min-h-screen gradient-warm transition-all duration-500`}>
         <Header />
         
         {/* Share Modal */}
@@ -1369,62 +1362,6 @@ const VendorDashboard = () => {
         </PullToRefresh>
       </div>
 
-      {/* Onboarding Modal (Not blurred) */}
-      <AnimatePresence>
-        {showOnboarding && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 pointer-events-auto">
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              className="bg-white dark:bg-[#1A1A1A] w-full max-sm rounded-[2.5rem] p-8 relative shadow-2xl border border-border/10"
-            >
-              <div className="text-center space-y-6">
-                <div className="flex justify-center">
-                  <div className="w-20 h-20 rounded-3xl bg-primary/10 flex items-center justify-center text-primary">
-                    {(() => {
-                      const Icon = onboardingSteps[onboardingStep].icon;
-                      return <Icon className="w-10 h-10" />;
-                    })()}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <h2 className="text-2xl font-black text-foreground tracking-tight">
-                    {onboardingSteps[onboardingStep].title}
-                  </h2>
-                  <p className="text-sm text-muted-foreground font-medium leading-relaxed">
-                    {onboardingSteps[onboardingStep].desc}
-                  </p>
-                </div>
-
-                <div className="flex flex-col gap-3">
-                  <button
-                    onClick={() => {
-                      if (onboardingStep < onboardingSteps.length - 1) {
-                        setOnboardingStep(prev => prev + 1);
-                      } else {
-                        setShowOnboarding(false);
-                      }
-                    }}
-                    className="w-full py-4 rounded-2xl bg-primary text-white font-black text-sm uppercase tracking-widest shadow-lg hover:shadow-primary/25 active:scale-95 transition-all"
-                  >
-                    {onboardingStep === onboardingSteps.length - 1 ? t('common.finish') : t('common.next')}
-                  </button>
-                  
-                  <div className="flex justify-center gap-1.5 pt-2">
-                    {onboardingSteps.map((_, i) => (
-                      <div 
-                        key={i}
-                        className={`h-1.5 rounded-full transition-all duration-300 ${i === onboardingStep ? 'w-6 bg-primary' : 'w-1.5 bg-muted'}`}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
     </>
   );
 };

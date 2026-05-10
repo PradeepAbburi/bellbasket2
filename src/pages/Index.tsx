@@ -17,11 +17,11 @@ const Index = () => {
   return (
     <div className="min-h-screen gradient-warm">
       <Helmet>
-        <title>BellBasket - Neighborhood Shopping & Hyper-local Marketplace</title>
-        <meta name="description" content="BellBasket is your neighborhood's favorite local marketplace. Connect with neighborhood stores, support local vendors, and enjoy fast delivery or pickup for fresh groceries and essentials." />
-        <meta name="keywords" content="BellBasket, local shopping app, hyper-local grocery, neighborhood stores, support local vendors, pick it grab it, grocery delivery India" />
-        <meta property="og:title" content="BellBasket - Neighborhood Shopping & hyper-local Marketplace" />
-        <meta property="og:description" content="Pick It. Grab It. Find local vendors, grab fresh groceries, and get quick delivery from your neighborhood stores." />
+        <title>BellBasket - The Top Neighborhood Marketplace for Local Stores & Shops</title>
+        <meta name="description" content="BellBasket is the leading neighborhood marketplace connecting you with trusted local stores, near shops, and daily essentials. Discover the best neighborhood marketplace for fresh groceries and local shopping near you." />
+        <meta name="keywords" content="neighborhood marketplace, neighborhood stores, neighborhood shops, near stores, near shops, local marketplace, hyper-local commerce, support local shops, marketplace near me, neighborhood commerce platform" />
+        <meta property="og:title" content="BellBasket - Your Trusted Neighborhood Marketplace" />
+        <meta property="og:description" content="Shop from your favorite neighborhood stores on India's top neighborhood marketplace. Supporting local vendors with a premium digital experience." />
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://bellbasket.com/" />
         <meta property="og:image" content="https://bellbasket.com/og-image.jpg" />
@@ -64,7 +64,7 @@ const Index = () => {
                 "name": "What is BellBasket?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "BellBasket is a hyper-local marketplace that connects you with trusted stores in your neighborhood. We empower local vendors by giving them a digital storefront while providing customers with a convenient way to shop from nearby shops."
+                  "text": "BellBasket is the top local commerce platform for neighborhood stores. It is a hyper-local marketplace that connects you with trusted stores and near shops in your neighborhood. We empower local vendors by giving them a digital storefront while providing customers with a convenient way to shop from nearby local marketplaces."
                 }
               },
               {
@@ -110,7 +110,7 @@ const Index = () => {
                 <Link to="/about" className="text-sm font-bold text-foreground/80 hover:text-foreground transition-colors glass px-4 py-2 rounded-full border border-white/20">
                   About
                 </Link>
-                <Link to="/careers" className="text-sm font-bold text-primary hover:text-primary/80 transition-colors glass px-4 py-2 rounded-full border border-primary/20">
+                <Link to="/careers" className="text-sm font-bold text-foreground/80 hover:text-foreground transition-colors glass px-4 py-2 rounded-full border border-white/20">
                   Careers
                 </Link>
                 {user ? (
@@ -148,7 +148,7 @@ const Index = () => {
               >
                 <div className="p-2 flex flex-col">
                   <Link to="/about" className="px-4 py-2.5 rounded-xl hover:bg-white/5 font-bold text-sm text-foreground transition-colors">About</Link>
-                  <Link to="/careers" className="px-4 py-2.5 rounded-xl hover:bg-primary/5 font-bold text-sm text-foreground transition-colors">Careers</Link>
+                  <Link to="/careers" className="px-4 py-2.5 rounded-xl hover:bg-white/5 font-bold text-sm text-foreground transition-colors">Careers</Link>
                   {user ? (
                     <Link 
                       to={user.role === 'vendor' ? '/vendor' : '/browse'} 
@@ -181,11 +181,11 @@ const Index = () => {
               </Link>
             </div>
             <h1 className="text-5xl md:text-7xl font-extrabold text-foreground leading-tight mb-6">
-              Shop from<br />
-              <span className="text-gradient">your neighborhood</span>
+              Search <br />
+              <span className="text-gradient">neighborhood stores</span>
             </h1>
             <p className="text-lg text-muted-foreground mb-8 max-w-lg">
-              Discover local stores near you. Support your community vendors and get fresh products delivered or ready for pickup.
+              Find neighborhood shops and near stores on BellBasket, the top local commerce platform for neighborhood stores. Discover the best neighborhood marketplaces for fresh groceries and daily essentials directly from your local vendors.
             </p>
             <div className="flex flex-col sm:flex-row gap-3">
               {user ? (
@@ -256,9 +256,9 @@ const Index = () => {
           </motion.h2>
           <div className="grid md:grid-cols-3 gap-6">
             {[
-              { icon: MapPin, title: 'Set Location', desc: 'Pin your location and discover stores within your neighborhood' },
-              { icon: ShoppingCart, title: 'Fill Your Basket', desc: 'Browse products, add to cart and choose your payment method' },
-              { icon: Bell, title: 'Get Notified', desc: 'Track your order status and pick up when ready' },
+              { icon: MapPin, title: 'Set Location', desc: 'Pin your location and discover neighborhood stores & marketplaces within your reach.' },
+              { icon: ShoppingCart, title: 'Fill Your Basket', desc: 'Browse near shops, add to cart and choose your preferred local payment method.' },
+              { icon: Bell, title: 'Get Notified', desc: 'Track order status from neighborhood shops and pick up when fresh and ready.' },
             ].map((f, i) => (
               <motion.div
                 key={f.title}
@@ -575,7 +575,7 @@ const Index = () => {
           <div className="col-span-2 md:col-span-1 space-y-4">
             <span className="font-extrabold text-2xl text-foreground tracking-tighter">BellBasket</span>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Your neighborhood's favorite local marketplace. Shopping local has never been easier.
+              Your favorite neighborhood marketplace. Shopping local stores and near shops has never been easier.
             </p>
           </div>
           <div>
@@ -600,13 +600,23 @@ const Index = () => {
             <h3 className="font-bold text-foreground mb-4">Support</h3>
             <ul className="space-y-2">
               <li><Link to="/about" className="text-sm text-muted-foreground hover:text-primary transition-colors">About Us</Link></li>
-              <li><Link to="/leadership" className="text-sm text-muted-foreground hover:text-primary transition-colors">Leadership</Link></li>
               <li><Link to="/careers" className="text-sm text-muted-foreground hover:text-primary transition-colors">Careers</Link></li>
               <li><Link to="/privacy" className="text-sm text-muted-foreground hover:text-primary transition-colors">Privacy Policy</Link></li>
               <li><Link to="/terms" className="text-sm text-muted-foreground hover:text-primary transition-colors">Terms & Conditions</Link></li>
               <li><Link to="/auth" className="text-sm text-muted-foreground hover:text-primary transition-colors">Sign In</Link></li>
               <li><Link to="/auth?role=vendor" className="text-sm text-muted-foreground hover:text-primary transition-colors">Become a Vendor</Link></li>
               <li><Link to="/support" className="text-sm text-muted-foreground hover:text-primary transition-colors">Contact Us</Link></li>
+            </ul>
+          </div>
+          <div>
+            <h3 className="font-bold text-foreground mb-4">Popular Searches</h3>
+            <ul className="space-y-2">
+              <li><Link to="/browse" className="text-xs text-muted-foreground hover:text-primary transition-colors">Neighborhood Marketplace</Link></li>
+              <li><Link to="/browse" className="text-xs text-muted-foreground hover:text-primary transition-colors">Neighborhood Stores</Link></li>
+              <li><Link to="/browse" className="text-xs text-muted-foreground hover:text-primary transition-colors">Neighborhood Shops</Link></li>
+              <li><Link to="/browse" className="text-xs text-muted-foreground hover:text-primary transition-colors">Near Stores & Marketplaces</Link></li>
+              <li><Link to="/browse" className="text-xs text-muted-foreground hover:text-primary transition-colors">Local Markets Near Me</Link></li>
+              <li><Link to="/browse" className="text-xs text-muted-foreground hover:text-primary transition-colors">Kirana Stores Near Me</Link></li>
             </ul>
           </div>
           <div>
@@ -625,7 +635,7 @@ const Index = () => {
           </div>
         </div>
       </footer>
-    </div >
+    </div>
   );
 };
 

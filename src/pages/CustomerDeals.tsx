@@ -403,7 +403,7 @@ const CustomerDeals = () => {
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 onClick={() => setSelectedProductForDetail({ product, store, deal })}
-                                className="bg-[#f8f9fa] dark:bg-[#161616] p-2.5 rounded-3xl flex flex-col hover:shadow-2xl hover:shadow-primary/10 transition-all border border-slate-200 dark:border-white/5 group/product cursor-pointer relative overflow-hidden group h-full"
+                                className="bg-[#f8f9fa] dark:bg-[#161616] p-2 md:p-2.5 rounded-3xl flex flex-col hover:shadow-2xl hover:shadow-primary/10 transition-all border border-slate-200 dark:border-white/5 group/product cursor-pointer relative overflow-hidden group h-full"
                             >
                                 {/* Media Section */}
                                 <div className="relative aspect-square overflow-hidden bg-secondary/5 shrink-0 rounded-2xl">

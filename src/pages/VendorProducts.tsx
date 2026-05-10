@@ -9,7 +9,7 @@ import { CATEGORY_METADATA } from '@/constants/categories';
 import { toast } from 'sonner';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, updateDoc, deleteDoc, doc, addDoc } from 'firebase/firestore';
-import { ProductListSkeleton } from '@/components/SkeletonLoader';
+import PageLoading from '@/components/PageLoading';
 import { cleanObject } from '@/utils/firebase';
 
 const VendorProducts = () => {
@@ -122,7 +122,7 @@ const VendorProducts = () => {
   };
 
 
-  if (appLoading || loading) return <ProductListSkeleton />;
+  if (appLoading || loading) return <PageLoading />;
 
   return (
     <div className="min-h-screen bg-[#202020] pb-32">

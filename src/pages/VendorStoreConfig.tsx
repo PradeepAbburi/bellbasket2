@@ -32,7 +32,7 @@ import Header from '@/components/Header';
 import MapView from '@/components/MapView';
 import { CATEGORY_METADATA } from '@/constants/categories';
 import { generateSlug } from '@/utils/seo';
-import { DashboardSkeleton } from '@/components/SkeletonLoader';
+import PageLoading from '@/components/PageLoading';
 import { Helmet } from 'react-helmet';
 
 const VendorStoreConfig = () => {
@@ -170,12 +170,18 @@ const VendorStoreConfig = () => {
     setSearching(true);
     searchTimeout.current = setTimeout(async () => {
       try {
-        const photonUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(val)}&lat=${tempLat}&lon=${tempLng}&limit=12`;
+        const query = val.toUpperCase() === 'HYD' ? 'Hyderabad, India' : val;
+        const photonUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&lat=${tempLat}&lon=${tempLng}&limit=12`;
         const res = await fetch(photonUrl);
         const data = await res.json();
 
-        const results = data.features.map((f: any) => {
-          const p = f.properties;
+        const results = data.features
+          .filter((f: any) => {
+            const country = f.properties.countrycode?.toUpperCase();
+            return country !== 'BD' && country !== 'PK';
+          })
+          .map((f: any) => {
+            const p = f.properties;
           const dist = Math.sqrt(Math.pow(f.geometry.coordinates[1] - tempLat, 2) + Math.pow(f.geometry.coordinates[0] - tempLng, 2)) * 111.32;
 
           let namePart = p.name || p.street || p.district || p.city || '';
@@ -321,7 +327,7 @@ const VendorStoreConfig = () => {
     }
   };
   if (loading || fetching) {
-    return <DashboardSkeleton />;
+    return <PageLoading />;
   }
 
   if (error || !vendorStore) {

@@ -23,7 +23,7 @@ const BottomNav = () => {
         serviceBookings.filter(b => !['completed', 'rejected'].includes(b.status)).length,
     [orders, serviceBookings]);
 
-    if (isAnyModalOpen) return null;
+
     
     // Hide if not logged in, not verified, or on auth/setup pages, or for HR/Admin roles
     if (!user || !user.isVerified || user.role === 'hr' || user.role === 'admin' || location.pathname === '/' || location.pathname === '/auth' || location.pathname === '/vendor/setup') return null;
@@ -54,8 +54,6 @@ const BottomNav = () => {
 
 
             <div className="relative pointer-events-auto bg-white dark:bg-[#0D0D0D]">
-                {/* Background extension for overscroll/gaps */}
-                <div className="absolute top-0 left-0 right-0 h-[200px] bg-white dark:bg-[#0D0D0D] -z-10" />
                 
                 <nav className={`${(location.pathname.startsWith('/vendor')) ? '' : 'bg-white/95 dark:bg-[#0D0D0D]/95 backdrop-blur-md'} border-t border-border flex items-center justify-around pb-[max(env(safe-area-inset-bottom),6px)] pt-1 shadow-[0_-8px_30px_rgba(0,0,0,0.15)]`}>
                     {isVendor ? (

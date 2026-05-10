@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { toast } from 'sonner';
+import PageLoading from '@/components/PageLoading';
 import { User } from '@/types';
 
 const AdminUsers = () => {
@@ -55,6 +56,8 @@ const AdminUsers = () => {
             toast.error("Purge failed");
         }
     };
+
+    if (loading) return <PageLoading />;
 
     return (
         <div className="space-y-6 md:space-y-10 pb-20">

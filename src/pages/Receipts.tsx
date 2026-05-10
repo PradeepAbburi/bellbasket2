@@ -14,6 +14,7 @@ import { db } from '@/lib/firebase';
 import { toast } from 'sonner';
 import { sendInAppNotification } from '@/utils/notifications';
 import { RenderBookingCard, RenderOrderCard } from '@/components/ReceiptCards';
+import PageLoading from '@/components/PageLoading';
 
 const statusColors: Record<string, string> = {
   pending: 'bg-slate-50 dark:bg-slate-900/30 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-800',
@@ -41,6 +42,7 @@ const formatDate = (dateStr: string) => {
 
 const Receipts = () => {
   const { user, stores, orders, serviceBookings, refreshData, loading, cart, cartSubtotal } = useApp();
+  if (loading) return <PageLoading />;
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [view, setView] = useState<'active' | 'history'>('active');

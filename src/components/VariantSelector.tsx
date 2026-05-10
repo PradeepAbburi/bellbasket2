@@ -59,7 +59,7 @@ const VariantSelector: React.FC<VariantSelectorProps> = ({ product, cart, update
                             const variantQty = cart.find(c => c.product.id === product.id && c.selectedVariant?.id === v.id)?.quantity || 0;
                             
                             return (
-                                <button
+                                <div
                                     key={v.id}
                                     onClick={() => {
                                         if (variantQty === 0) onSelect(v);
@@ -67,7 +67,7 @@ const VariantSelector: React.FC<VariantSelectorProps> = ({ product, cart, update
                                     className={`w-full p-3 sm:p-4 rounded-2xl border transition-all active:scale-[0.98] flex items-center justify-between group ${
                                         variantQty > 0 
                                             ? 'bg-primary/5 dark:bg-white/5 border-primary/30' 
-                                            : 'bg-secondary/30 dark:bg-white/[0.03] border-border/50 hover:bg-primary/5 hover:border-primary/30'
+                                            : 'bg-secondary/30 dark:bg-white/[0.03] border-border/50 hover:bg-primary/5 hover:border-primary/30 cursor-pointer'
                                     }`}
                                 >
                                     <div className="flex flex-col items-start gap-1">
@@ -115,7 +115,7 @@ const VariantSelector: React.FC<VariantSelectorProps> = ({ product, cart, update
                                             </motion.button>
                                         </div>
                                     )}
-                                </button>
+                                </div>
                             );
                         })}
                     </div>

@@ -1,6 +1,6 @@
 import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Star, MapPin, Clock, Plus, Minus, Loader2, MessageSquare, Search, X, Tag, Phone, ChevronRight, ChevronLeft, Share2, Sparkles, Calendar, AlertCircle, ArrowUpDown, ChevronDown, XCircle, ImageIcon, PackageSearch, Heart, Zap, PackageX, Globe } from 'lucide-react';
+import { ArrowLeft, Star, MapPin, Clock, Plus, Minus, Loader2, MessageSquare, Search, X, Tag, Phone, ChevronRight, ChevronLeft, Share2, Sparkles, Calendar, AlertCircle, ArrowUpDown, ChevronDown, XCircle, ImageIcon, PackageSearch, Heart, Zap, PackageX, Globe, ShoppingCart } from 'lucide-react';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -30,7 +30,7 @@ import { smartSearchProducts } from '../utils/search';
 import PullToRefresh from '@/components/ui/PullToRefresh';
 import VariantSelector from '@/components/VariantSelector';
 import { Helmet } from 'react-helmet';
-import { StoreDetailSkeleton } from '@/components/SkeletonLoader';
+import PageLoading from '@/components/PageLoading';
 
 const CountdownTimer = ({ endTime }: { endTime: string }) => {
   const [timeLeft, setTimeLeft] = useState<{h:number, m:number, s:number} | null>(null);
@@ -69,7 +69,7 @@ const StoreDetail = () => {
   const productIdFromUrl = searchParams.get('productId');
   const searchQueryFromUrl = searchParams.get('search');
   const { t } = useTranslation();
-  const { cart, addToCart, updateQuantity, stores, allProducts, user, clearCart, toggleSaveStore, isStoreSaved, setIsAnyModalOpen } = useApp();
+  const { cart, addToCart, updateQuantity, stores, allProducts, user, clearCart, toggleSaveStore, isStoreSaved, setIsAnyModalOpen, cartSubtotal } = useApp();
   const location = useLocation();
   const [store, setStore] = useState<any>(() => location.state?.store || stores.find(s => s.id === id || (slug && s.slug === slug)));
   const [products, setProducts] = useState<Product[]>(() => {
@@ -98,6 +98,7 @@ const StoreDetail = () => {
   const [activeSearch, setActiveSearch] = useState(searchQueryFromUrl || '');
   const [highlightedProductId, setHighlightedProductId] = useState<string | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [notFound, setNotFound] = useState(false);
   const [variantSelectorProduct, setVariantSelectorProduct] = useState<Product | null>(null);
   const [bookingService, setBookingService] = useState<Product | null>(null);
   const [bookingData, setBookingData] = useState({ name: '', phone: '', location: '', description: '', date: '', timeSlot: '' });
@@ -107,11 +108,27 @@ const StoreDetail = () => {
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [requestData, setRequestData] = useState({ productName: '', description: '', image: '' });
   const [activeComboItemIndex, setActiveComboItemIndex] = useState(-1); // -1: main combo, 0+: sub-items
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const imageScrollRef = useRef<HTMLDivElement>(null);
   const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
   const [showCallModal, setShowCallModal] = useState(false);
   const [showBookingDiscardConfirm, setShowBookingDiscardConfirm] = useState(false);
   const [activeDeals, setActiveDeals] = useState<any[]>([]);
   const { requestProduct } = useApp();
+
+  // Cart banner: compute store-specific item count & total
+  const storeCartItems = useMemo(() => cart.filter(c => c.storeId === store?.id), [cart, store?.id]);
+  const storeCartCount = useMemo(() => storeCartItems.reduce((sum, c) => sum + c.quantity, 0), [storeCartItems]);
+  const storeCartTotal = useMemo(() => {
+    return storeCartItems.reduce((s, c) => {
+      const itemPrice = c.selectedVariant
+        ? (c.selectedVariant.discountedPrice || c.selectedVariant.price)
+        : ((c.product.discountedPrice && Number(c.product.discountedPrice) > 0 && Number(c.product.discountedPrice) < c.product.price)
+          ? Number(c.product.discountedPrice)
+          : c.product.price);
+      return s + (itemPrice * c.quantity);
+    }, 0);
+  }, [storeCartItems]);
   
   // 0. Immediate Visibility Check (for stores already in context)
   useEffect(() => {
@@ -183,6 +200,14 @@ const StoreDetail = () => {
     return Array.from(suggestions).map(s => JSON.parse(s)).slice(0, 10);
   }, [searchTerm, products, isSearching, activeSearch]);
 
+  // Reset image index when product or combo item changes
+  useEffect(() => {
+    setCurrentImageIndex(0);
+    if (imageScrollRef.current) {
+      imageScrollRef.current.scrollTo({ left: 0 });
+    }
+  }, [selectedProduct, activeComboItemIndex]);
+
   // 1. Setup Data Sync
   useEffect(() => {
     if (!id && !slug) return;
@@ -223,10 +248,16 @@ const StoreDetail = () => {
       if (!targetId && slug) {
         const q = query(collection(db, 'stores'), where('slug', '==', slug));
         const snap = await getDocs(q);
-        if (!snap.empty) {
-          targetId = snap.docs[0].id;
-          if (isMounted) setStore({ id: targetId, ...snap.docs[0].data() });
-        }
+          if (isMounted) {
+            if (!snap.empty) {
+              targetId = snap.docs[0].id;
+              setStore({ id: targetId, ...snap.docs[0].data() });
+            } else {
+              setNotFound(true);
+              setLoading(false);
+              return;
+            }
+          }
       }
 
       if (targetId && isMounted) {
@@ -300,7 +331,7 @@ const StoreDetail = () => {
       isMounted = false;
       if (unsubscribeStore) unsubscribeStore();
     };
-  }, [id, slug]); // Reduced dependencies to prevent infinite loops
+  }, [id, slug]);
 
   const filteredProducts = useMemo(() => {
     let result = smartSearchProducts(products, activeSearch) as Product[];
@@ -313,7 +344,7 @@ const StoreDetail = () => {
         return pB - pA;
       });
     } else if (ratingSort !== 'none') {
-      // Sort by discount percentage as a proxy for "popularity/deal quality" inside a store
+      // Sort by discount percentage as a proxy for \"popularity/deal quality\" inside a store
       result = [...result].sort((a, b) => {
         const getScore = (p: Product) => {
           if (p.discountedPrice && p.discountedPrice < p.price) {
@@ -505,25 +536,38 @@ const StoreDetail = () => {
     }
   };
 
-  if (!store) {
-    return <StoreDetailSkeleton />;
+  if (notFound) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
+        <div className="w-20 h-20 bg-primary/10 rounded-3xl flex items-center justify-center mb-6">
+          <XCircle className="w-10 h-10 text-primary" />
+        </div>
+        <h2 className="text-2xl font-black mb-2">Store Not Found</h2>
+        <p className="text-muted-foreground mb-8 text-center max-w-xs">The store you're looking for doesn't exist or has been removed.</p>
+        <button onClick={() => navigate('/')} className="px-8 py-3 bg-primary text-white rounded-2xl font-bold">Back to Home</button>
+      </div>
+    );
+  }
+
+  if (!store || loading) {
+    return <PageLoading />;
   }
 
   return (
     <div className="min-h-screen gradient-warm">
       <Helmet>
-        <title>{store.name} | {store.category} in {store.district || store.mandal || store.address.split(',')[0]} - BellBasket</title>
-        <meta name="description" content={`Order ${store.category} and daily essentials from ${store.name} in ${store.district || store.mandal || store.address.split(',')[0]}. Trusted local partner for quick pickup via BellBasket.`} />
-        <meta name="keywords" content={`${store.name}, ${store.category} in ${store.district}, ${store.mandal} stores, buy ${store.category} near me, ${store.address.split(',')[0]}, BellBasket, local shops`} />
+        <title>{store.name} | {store.category} in {store.district || store.mandal || (store.address ? store.address.split(',')[0] : 'Local')} - BellBasket</title>
+        <meta name="description" content={`Order ${store.category} and daily essentials from ${store.name} in ${store.district || store.mandal || (store.address ? store.address.split(',')[0] : 'Local')}. Trusted local partner for quick pickup via BellBasket.`} />
+        <meta name="keywords" content={`${store.name}, ${store.category} in ${store.district}, ${store.mandal} stores, buy ${store.category} near me, ${store.address ? store.address.split(',')[0] : 'Local'}, BellBasket, local shops`} />
 
-        <meta property="og:title" content={`${store.name} - ${store.category} in ${store.district || store.address.split(',')[0]}`} />
-        <meta property="og:description" content={`Shop from ${store.name} on BellBasket. Quality ${store.category} items in ${store.district || store.address.split(',')[0]}.`} />
+        <meta property="og:title" content={`${store.name} - ${store.category} in ${store.district || (store.address ? store.address.split(',')[0] : 'Local')}`} />
+        <meta property="og:description" content={`Shop from ${store.name} on BellBasket. Quality ${store.category} items in ${store.district || (store.address ? store.address.split(',')[0] : 'Local')}.`} />
         <meta property="og:image" content={store.image} />
         <meta property="og:url" content={window.location.href} />
 
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content={`${store.name} on BellBasket`} />
-        <meta name="twitter:description" content={`Quality ${store.category} items from ${store.name} in ${store.address.split(',')[0]}.`} />
+        <meta name="twitter:description" content={`Quality ${store.category} items from ${store.name} in ${store.address ? store.address.split(',')[0] : 'Local'}.`} />
         
         <link rel="canonical" href={store.slug ? `https://bellbasket.com/stores/${store.slug}` : `https://bellbasket.com/store/${store.id}`} />
 
@@ -538,11 +582,11 @@ const StoreDetail = () => {
               "@id": window.location.href,
               "url": window.location.href,
               "telephone": store.phone || "",
-              "description": `Shop from ${store.name} in ${store.address.split(',')[0]}. Quality ${store.category} items available for quick pickup via BellBasket.`,
+              "description": `Shop from ${store.name} in ${store.address ? store.address.split(',')[0] : 'Local'}. Quality ${store.category} items available for quick pickup via BellBasket.`,
               "address": {
                 "@type": "PostalAddress",
-                "streetAddress": store.address,
-                "addressLocality": store.address.split(',')[0] || "Local",
+                "streetAddress": store.address || "",
+                "addressLocality": (store.address ? store.address.split(',')[0] : "Local") || "Local",
                 "addressRegion": store.state || "Andhra Pradesh",
                 "addressCountry": "IN"
               },
@@ -1046,9 +1090,9 @@ const StoreDetail = () => {
                         <div className="w-12 h-12 rounded-2xl bg-muted shrink-0 animate-pulse" />
                         <div className="h-8 bg-muted rounded-full w-48 animate-pulse" />
                       </div>
-                      <div className="flex gap-4 overflow-hidden -mx-4 px-4">
+                      <div className="flex gap-3 md:gap-4 overflow-hidden -mx-4 px-4">
                         {Array.from({ length: 4 }).map((_, j) => (
-                          <div key={j} className="w-[148px] sm:w-[168px] md:w-[190px] h-[260px] bg-muted rounded-2xl shrink-0 animate-pulse" />
+                          <div key={j} className="w-[130px] sm:w-[168px] md:w-[190px] h-[240px] bg-muted rounded-2xl shrink-0 animate-pulse" />
                         ))}
                       </div>
                     </div>
@@ -1121,7 +1165,7 @@ const StoreDetail = () => {
 
                         <div
                           id={`scroll-${category}`}
-                          className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-4 pt-2 scroll-smooth scrollbar-hide"
+                          className="flex overflow-x-auto snap-x snap-mandatory gap-3 md:gap-4 pb-4 pt-2 scroll-smooth scrollbar-hide"
                         >
                           {items.map((product, pi) => {
                             const variantInCart = cart.find(c => c.product.id === product.id && c.selectedVariant)?.selectedVariant;
@@ -1156,24 +1200,47 @@ const StoreDetail = () => {
                                 transition={{ delay: pi * 0.04 }}
                                 whileHover={{ y: -4, scale: 1.02 }}
                                 onClick={() => setSelectedProduct(product)}
-                                className={`w-[148px] sm:w-[168px] md:w-[190px] shrink-0 snap-start cursor-pointer bg-white dark:bg-[#202020] rounded-2xl border shadow-sm hover:shadow-xl transition-all duration-300 group flex flex-col overflow-hidden relative ${highlightedProductId === product.id
+                                className={`w-[130px] sm:w-[168px] md:w-[190px] shrink-0 snap-start cursor-pointer bg-white dark:bg-[#202020] rounded-2xl border shadow-sm hover:shadow-xl transition-all duration-300 group flex flex-col overflow-hidden relative ${highlightedProductId === product.id
                                   ? 'border-primary ring-2 ring-primary/30 scale-105 z-10'
                                   : 'border-slate-200/80 dark:border-slate-700/60'
                                   } ${product.isCombo ? 'border-primary/40 bg-primary/[0.02]' : ''}`}
                               >
-                                <div className="relative h-[130px] sm:h-[148px] overflow-hidden bg-slate-50 dark:bg-slate-800">
+                                <div className="relative h-[115px] sm:h-[148px] overflow-hidden bg-slate-50 dark:bg-slate-800">
                                   {product.isCombo && product.comboItemsData && product.comboItemsData.length > 0 ? (
-                                    <div className="w-full h-full grid grid-cols-2 grid-rows-2 gap-[2px] bg-primary/20 relative">
-                                      {product.comboItemsData.slice(0, 4).map((c) => (
-                                        <img key={c.id} src={c.image} className="w-full h-full object-cover" alt="" />
-                                      ))}
-                                      {product.comboItemsData.length < 4 && Array.from({ length: 4 - product.comboItemsData.length }).map((_, i) => (
-                                        <div key={i} className="w-full h-full bg-zinc-900 flex items-center justify-center">
-                                          <PackageSearch className="w-4 h-4 text-primary/20" />
+                                    <div className="w-full h-full flex overflow-x-auto snap-x snap-mandatory scrollbar-hide group/card-gallery">
+                                      {/* Slide 1: The Grid View */}
+                                      <div className="min-w-full h-full snap-center relative">
+                                        <div className="w-full h-full grid grid-cols-2 grid-rows-2 gap-[1.5px] bg-primary/20 relative">
+                                          {product.comboItemsData.slice(0, 4).map((c) => (
+                                            <img key={c.id} src={c.image} className="w-full h-full object-cover" alt="" />
+                                          ))}
+                                          {product.comboItemsData.length < 4 && Array.from({ length: 4 - product.comboItemsData.length }).map((_, i) => (
+                                            <div key={i} className="w-full h-full bg-zinc-900 flex items-center justify-center">
+                                              <PackageSearch className="w-4 h-4 text-primary/20" />
+                                            </div>
+                                          ))}
+                                          <div className="absolute inset-0 bg-gradient-to-tr from-primary/10 to-transparent pointer-events-none" />
+                                          <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded-md bg-yellow-500 text-[6px] font-black uppercase text-white shadow-lg tracking-wider z-20">Bundle</div>
+                                        </div>
+                                      </div>
+
+                                      {/* Following Slides: Individual Item Images */}
+                                      {product.comboItemsData.map((item, idx) => (
+                                        <div key={`${item.id}-${idx}`} className="min-w-full h-full snap-center relative bg-slate-100 dark:bg-slate-800">
+                                          <img src={item.image} className="w-full h-full object-cover" alt={item.name} />
+                                          <div className="absolute bottom-2 left-2 right-2 bg-black/60 backdrop-blur-sm px-1.5 py-0.5 rounded-md">
+                                            <p className="text-[7px] font-bold text-white truncate uppercase tracking-tighter">{item.name}</p>
+                                          </div>
                                         </div>
                                       ))}
-                                      <div className="absolute inset-0 bg-gradient-to-tr from-primary/10 to-transparent pointer-events-none" />
-                                      <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded-md bg-yellow-500 text-[6px] font-black uppercase text-white shadow-lg tracking-wider z-20">Bundle</div>
+
+                                      {/* Gallery Indicators for Card */}
+                                      <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 flex gap-1 z-20 opacity-0 group-hover/card-gallery:opacity-100 transition-opacity">
+                                        <div className="w-1 h-1 rounded-full bg-primary shadow-sm" />
+                                        {product.comboItemsData.map((_, i) => (
+                                          <div key={i} className="w-1 h-1 rounded-full bg-white/40 shadow-sm" />
+                                        ))}
+                                      </div>
                                     </div>
                                   ) : (
                                     <img
@@ -1215,20 +1282,20 @@ const StoreDetail = () => {
                                     )}
                                   </div>
                                 </div>
-                                <div className="flex flex-col flex-1 p-2.5">
+                                <div className="flex flex-col flex-1 p-2 md:p-2.5">
                                   <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider line-clamp-1 mb-0.5">
                                     {product.category || ''}
                                   </p>
-                                  <h3 className={`text-[13px] font-bold line-clamp-1 leading-snug mb-0.5 ${product.isCombo ? 'text-primary' : 'text-foreground'}`}>
+                                  <h3 className={`text-[12px] md:text-[13px] font-bold line-clamp-1 leading-snug mb-0.5 ${product.isCombo ? 'text-primary' : 'text-foreground'}`}>
                                     {t(`products.${product.name}`, { defaultValue: product.name })}
                                   </h3>
                                   <div className="mt-auto pt-2">
                                     <div className="flex items-baseline gap-1.5 mb-2">
-                                      <span className="text-[15px] font-black text-foreground leading-none">
+                                      <span className="text-[14px] md:text-[15px] font-black text-foreground leading-none">
                                         ₹{discountedPrice}
                                       </span>
                                       {hasDiscount && (
-                                         <span className="text-[10px] text-muted-foreground line-through decoration-2">
+                                         <span className="text-[9px] md:text-[10px] text-muted-foreground line-through decoration-2">
                                            ₹{variantInCart ? variantInCart.price : product.price}
                                          </span>
                                       )}
@@ -1351,7 +1418,7 @@ const StoreDetail = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => { setSelectedProduct(null); setActiveComboItemIndex(-1); }}
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4"
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md px-4"
             >
               <motion.div
                 key="product-popup-card"
@@ -1394,39 +1461,120 @@ const StoreDetail = () => {
                 )}
 
                 {/* Image Gallery */}
-                <div className="relative h-56 sm:h-64 w-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                  <AnimatePresence mode="wait">
-                    <motion.div 
-                       key={currentDisplayProduct.id}
-                       initial={{ opacity: 0, x: 20 }}
-                       animate={{ opacity: 1, x: 0 }}
-                       exit={{ opacity: 0, x: -20 }}
-                       className="w-full h-full"
-                    >
-                      {activeComboItemIndex === -1 && p.isCombo && p.comboItemsData && p.comboItemsData.length > 0 ? (
-                        <div className="w-full h-full grid grid-cols-2 grid-rows-2 gap-[2px] bg-primary/20 relative">
-                          {p.comboItemsData.slice(0, 4).map((item) => (
-                            <img key={item.id} src={item.image} className="w-full h-full object-cover" alt="" />
-                          ))}
-                          {p.comboItemsData.length < 4 && Array.from({ length: 4 - p.comboItemsData.length }).map((_, i) => (
-                            <div key={i} className="w-full h-full bg-zinc-900 flex items-center justify-center">
-                              <PackageSearch className="w-6 h-6 text-primary/20" />
+                <div className="relative h-56 sm:h-64 w-full bg-slate-100 dark:bg-slate-800 overflow-hidden group/gallery">
+                  <div 
+                    ref={imageScrollRef}
+                    onScroll={(e) => {
+                      const target = e.currentTarget;
+                      const index = Math.round(target.scrollLeft / target.clientWidth);
+                      if (index !== currentImageIndex) setCurrentImageIndex(index);
+                    }}
+                    className="w-full h-full flex overflow-x-auto snap-x snap-mandatory scrollbar-hide"
+                  >
+                    {/* Flattened Combo Gallery Slider */}
+                    {(() => {
+                      const slides = [];
+
+                      // 1. Add Main Combo View (Grid + Main Images)
+                      if (p.isCombo && p.comboItemsData && p.comboItemsData.length > 0) {
+                        slides.push(
+                          <div key="combo-grid" className="min-w-full h-full snap-center relative">
+                            <div className="w-full h-full grid grid-cols-2 grid-rows-2 gap-[2px] bg-primary/20 relative">
+                              {p.comboItemsData.slice(0, 4).map((item) => (
+                                <img key={item.id} src={item.image} className="w-full h-full object-cover" alt="" />
+                              ))}
+                              {p.comboItemsData.length < 4 && Array.from({ length: 4 - p.comboItemsData.length }).map((_, i) => (
+                                <div key={i} className="w-full h-full bg-zinc-900 flex items-center justify-center">
+                                  <PackageSearch className="w-6 h-6 text-primary/20" />
+                                </div>
+                              ))}
+                              <div className="absolute inset-0 bg-gradient-to-tr from-primary/10 to-transparent pointer-events-none" />
                             </div>
-                          ))}
-                          <div className="absolute inset-0 bg-gradient-to-tr from-primary/10 to-transparent pointer-events-none" />
-                        </div>
-                      ) : (
-                        <img src={currentDisplayProduct.image} alt={currentDisplayProduct.name} className="w-full h-full object-cover" />
-                      )}
-                    </motion.div>
-                  </AnimatePresence>
+                          </div>
+                        );
+                      }
+
+                      // 2. Add Images from Main Product
+                      if (p.image) slides.push(<div key="main-img-1" className="min-w-full h-full snap-center"><img src={p.image} className="w-full h-full object-cover" alt="" /></div>);
+                      if (p.image2) slides.push(<div key="main-img-2" className="min-w-full h-full snap-center"><img src={p.image2} className="w-full h-full object-cover" alt="" /></div>);
+
+                      // 3. Add Images from all combo items
+                      if (p.isCombo && p.comboItemsData) {
+                        p.comboItemsData.forEach((item, idx) => {
+                          if (item.image) slides.push(
+                            <div key={`item-${idx}-img-1`} className="min-w-full h-full snap-center relative">
+                              <img src={item.image} className="w-full h-full object-cover" alt="" />
+                              <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full border border-white/10">
+                                <span className="text-[10px] font-black text-white uppercase tracking-widest">{item.name}</span>
+                              </div>
+                            </div>
+                          );
+                          if (item.image2) slides.push(
+                            <div key={`item-${idx}-img-2`} className="min-w-full h-full snap-center relative">
+                              <img src={item.image2} className="w-full h-full object-cover" alt="" />
+                              <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full border border-white/10">
+                                <span className="text-[10px] font-black text-white uppercase tracking-widest">{item.name}</span>
+                              </div>
+                            </div>
+                          );
+                        });
+                      } else if (!p.isCombo) {
+                        // Regular product images already handled above
+                      }
+
+                      return slides;
+                    })()}
+                  </div>
+
+                  {/* Side Navigation Buttons */}
+                  {(() => {
+                    const imagesCount = [currentDisplayProduct.image, currentDisplayProduct.image2].filter(Boolean).length + (activeComboItemIndex === -1 && p.isCombo ? 1 : 0);
+                    if (imagesCount <= 1) return null;
+                    
+                    return (
+                      <>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (imageScrollRef.current) {
+                              imageScrollRef.current.scrollBy({ left: -imageScrollRef.current.clientWidth, behavior: 'smooth' });
+                            }
+                          }}
+                          className={`absolute left-2 top-1/2 -translate-y-1/2 z-30 w-8 h-8 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white transition-all border border-white/10 ${currentImageIndex === 0 ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
+                        >
+                          <ChevronLeft className="w-5 h-5" />
+                        </button>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (imageScrollRef.current) {
+                              imageScrollRef.current.scrollBy({ left: imageScrollRef.current.clientWidth, behavior: 'smooth' });
+                            }
+                          }}
+                          className={`absolute right-2 top-1/2 -translate-y-1/2 z-30 w-8 h-8 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white transition-all border border-white/10 ${currentImageIndex >= imagesCount - 1 ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
+                        >
+                          <ChevronRight className="w-5 h-5" />
+                        </button>
+                      </>
+                    );
+                  })()}
                   
-                  {currentDisplayProduct.image2 && (
-                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-30">
-                      <div className="w-2 h-2 rounded-full bg-white shadow-md"></div>
-                      <div className="w-1.5 h-1.5 rounded-full bg-white/40 shadow-md"></div>
-                    </div>
-                  )}
+                  {/* Indicators */}
+                  {(() => {
+                    const totalSlides = [p.image, p.image2].filter(Boolean).length + (p.isCombo ? 1 + (p.comboItemsData?.length || 0) : 0);
+                    if (totalSlides <= 1) return null;
+
+                    return (
+                      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-30">
+                        {Array.from({ length: totalSlides }).map((_, i) => (
+                          <div 
+                            key={i} 
+                            className={`transition-all duration-300 rounded-full shadow-md ${i === currentImageIndex ? 'w-4 h-1.5 bg-primary' : 'w-1.5 h-1.5 bg-white/40'}`}
+                          />
+                        ))}
+                      </div>
+                    );
+                  })()}
 
                   <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
 
@@ -2015,6 +2163,38 @@ const StoreDetail = () => {
                 setVariantSelectorProduct(null);
             }}
           />
+        )}
+      </AnimatePresence>
+
+      {/* Sticky Cart Bar — fixed directly above bottom nav */}
+      <AnimatePresence>
+        {storeCartCount > 0 && (
+          <motion.div
+            initial={{ y: 48 }}
+            animate={{ y: 0 }}
+            exit={{ y: 48 }}
+            transition={{ type: 'tween', duration: 0.2 }}
+            onClick={() => navigate('/cart')}
+            className="fixed bottom-[56px] left-0 right-0 z-[45] cursor-pointer bg-amber-400 dark:bg-amber-500 border-t border-amber-500/30 lg:hidden"
+          >
+            <div className="flex items-center justify-between px-4 py-2.5 max-w-lg mx-auto">
+              <div className="flex items-center gap-2.5">
+                <ShoppingCart className="w-[17px] h-[17px] text-black" />
+                <div className="flex flex-col">
+                  <span className="text-[13px] font-extrabold text-black leading-tight">
+                    {storeCartCount} {storeCartCount === 1 ? 'Item' : 'Items'} &middot; ₹{storeCartTotal.toFixed(0)}
+                  </span>
+                  <span className="text-[10px] font-semibold text-black/50 leading-tight truncate max-w-[180px]">
+                    {store?.name}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-1 text-black text-[12px] font-black uppercase tracking-wide">
+                View Cart
+                <ChevronRight className="w-4 h-4" />
+              </div>
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

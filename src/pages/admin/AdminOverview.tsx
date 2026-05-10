@@ -10,6 +10,7 @@ import { db } from '@/lib/firebase';
 import { collection, onSnapshot, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { useApp } from '@/context/AppContext';
+import PageLoading from '@/components/PageLoading';
 
 const StatCard = ({ label, value, icon: Icon, color, trend, trendType }: any) => (
     <motion.div 
@@ -82,6 +83,8 @@ const AdminOverview = () => {
         { name: 'Sat', revenue: 7500 },
         { name: 'Sun', revenue: 6800 },
     ];
+
+    if (loading) return <PageLoading />;
 
     return (
         <div className="space-y-6 md:space-y-10 pb-20">

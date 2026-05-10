@@ -9,7 +9,7 @@ import { generateSlug } from "@/utils/seo";
 import { motion } from "framer-motion";
 import Header from "@/components/Header";
 import { toast } from "sonner";
-import Loader from "@/components/ui/loader-animation";
+import PageLoading from "@/components/PageLoading";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { CATEGORY_METADATA } from "@/constants/categories";
 
@@ -602,13 +602,7 @@ const AdminDashboard = () => {
         (item.phone?.toLowerCase() || "").includes(staffSearchQuery.toLowerCase())
     );
 
-    if (loading || isLoadingData) {
-        return (
-            <div className="min-h-screen gradient-warm flex items-center justify-center">
-                <Loader text="System Secure" subtext="Synchronizing Data..." />
-            </div>
-        );
-    }
+    if (loading || isLoadingData) return <PageLoading />;
 
     return (
         <div className="min-h-screen gradient-warm">

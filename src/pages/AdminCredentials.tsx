@@ -19,6 +19,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import Header from "@/components/Header";
 import { toast } from "sonner";
+import PageLoading from "@/components/PageLoading";
 
 interface AdminCred {
     id: string;
@@ -107,13 +108,7 @@ const AdminCredentials = () => {
         }
     };
 
-    if (loading) {
-        return (
-            <div className="min-h-screen gradient-warm flex items-center justify-center">
-                <div className="w-10 h-10 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
-            </div>
-        );
-    }
+    if (loading) return <PageLoading />;
 
     return (
         <div className="min-h-screen gradient-warm">

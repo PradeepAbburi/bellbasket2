@@ -6,6 +6,7 @@ import Loader from '@/components/ui/loader-animation';
 import { auth } from '@/lib/firebase';
 import { confirmPasswordReset, verifyPasswordResetCode } from 'firebase/auth';
 import { toast } from 'sonner';
+import PageLoading from '@/components/PageLoading';
 
 const ResetPassword = () => {
     const [searchParams] = useSearchParams();
@@ -76,13 +77,7 @@ const ResetPassword = () => {
         );
     }
 
-    if (isValidCode === null) {
-        return (
-            <div className="min-h-screen gradient-warm flex items-center justify-center px-4">
-                <Loader text="Verifying Link" subtext="Please wait a moment..." />
-            </div>
-        );
-    }
+    if (isValidCode === null) return <PageLoading />;
 
     return (
         <div className="min-h-screen gradient-warm flex items-center justify-center px-4 py-12">

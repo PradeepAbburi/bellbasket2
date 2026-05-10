@@ -10,6 +10,7 @@ import { db } from '@/lib/firebase';
 import { collection, onSnapshot, doc, updateDoc, arrayUnion, serverTimestamp } from 'firebase/firestore';
 import { Staff } from '@/types';
 import { toast } from 'sonner';
+import PageLoading from '@/components/PageLoading';
 
 const StaffPayments = () => {
     const [staffList, setStaffList] = useState<Staff[]>([]);
@@ -108,7 +109,7 @@ const StaffPayments = () => {
 
                         <div className="max-h-[400px] md:max-h-[500px] overflow-y-auto custom-scrollbar space-y-2 pr-2">
                             {loading ? (
-                                [1,2,3].map(n => <div key={n} className="h-16 md:h-20 glass animate-pulse rounded-2xl" />)
+                                <PageLoading />
                             ) : filteredStaff.length === 0 ? (
                                 <div className="p-10 text-center glass rounded-2xl border-dashed border-2 border-primary/20">
                                     <p className="text-[10px] font-black uppercase text-muted-foreground">No employees found</p>

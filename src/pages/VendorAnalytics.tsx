@@ -5,7 +5,7 @@ import { TrendingUp, Users, ShoppingBag, DollarSign, ArrowUpRight, ArrowDownRigh
 import { toast } from 'sonner';
 import Header from '@/components/Header';
 import { useApp } from '@/context/AppContext';
-import { DashboardSkeleton } from '@/components/SkeletonLoader';
+import PageLoading from '@/components/PageLoading';
 
 const VendorAnalytics = () => {
     const { user, orders: allOrders, loading } = useApp();
@@ -13,7 +13,7 @@ const VendorAnalytics = () => {
 
     const [timeRange, setTimeRange] = useState<'weekly' | 'monthly' | 'yearly'>('weekly');
 
-    if (loading) return <DashboardSkeleton />;
+    if (loading) return <PageLoading />;
 
     const vendorOrders = allOrders.filter(o => o.storeId === user?.id);
     const activeOrders = vendorOrders.filter(o => o.status !== 'pending' && o.status !== 'rejected');

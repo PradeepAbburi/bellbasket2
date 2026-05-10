@@ -13,7 +13,7 @@ const FAQ = () => {
             title: "General & Getting Started",
             id: "started",
             questions: [
-                { q: "What is BellBasket?", a: "BellBasket is a hyper-local marketplace designed to connect you with trusted stores and service providers in your neighborhood. We empower local vendors by giving them a digital storefront while providing customers with a convenient way to shop or book services from nearby shops." },
+                { q: "What is BellBasket?", a: "BellBasket is the top local commerce platform for neighborhood stores. It is a hyper-local marketplace designed to connect you with trusted stores and service providers in your neighborhood. We empower local vendors by giving them a digital storefront while providing customers with a convenient way to shop or book services from nearby shops." },
                 { q: "How do I create an account?", a: "Click on the 'Sign In' button on the landing page or home page. You can sign up using your email and a password, or through secure social login options like Google." },
                 { q: "Is BellBasket free for customers?", a: "Yes, browsing, searching, and placing orders or bookings through BellBasket is completely free for customers. You only pay the vendor directly for the products or services you receive." },
                 { q: "Which areas does BellBasket cover?", a: "We are currently expanding rapidly across various neighborhoods. Simply set your location on the home page to see verified stores and services available in your immediate vicinity." },
@@ -48,19 +48,18 @@ const FAQ = () => {
             questions: [
                 { q: "What payment methods are supported?", a: "We currently support 'Pay at Store/Site'. You can pay using Cash, UPI, or Cards directly to the vendor during pickup or after service delivery." },
                 { q: "Why can't I pay online through the app?", a: "We've disabled online payments to ensure maximum transparency. You only pay after you've personally verified the products or received the service, eliminating refund delays and payment failures." },
-                { q: "Will BellBasket support online payments in the future?", a: "Yes, we are working on a secure escrow payment system that will be rolled out in future phases of the platform." },
-                { q: "How do I get a receipt for my payment?", a: "A digital receipt is generated instantly for every order or booking on BellBasket. For a physical tax invoice, please request one directly from the vendor at the time of payment." }
+                { q: "What if a vendor charges me more than the app price?", a: "App prices are set by vendors. If there's a discrepancy, please show them the app price. You can always report price mismatches through our support chat." },
+                { q: "Do I get a receipt for my order?", a: "Yes, every order or booking generates a digital receipt in the 'My Orders' section of the app. This receipt serves as your proof of purchase." }
             ]
         },
         {
-            title: "For Vendors & Partners",
+            title: "Vendor & Partner Support",
             id: "vendors",
             questions: [
-                { q: "How can I register my business on BellBasket?", a: "Click on 'Become a Vendor' in the menu. Fill in your business details, upload a storefront image, and set your location. Your shop can be live and accepting orders in under 5 minutes!" },
-                { q: "Do I need a GST number to join?", a: "A GST number is optional for small home-based businesses but recommended for established retail stores. You can add your GST details in the Store Configuration settings." },
-                { q: "How do I manage my product/service catalog?", a: "Once logged into your Vendor Dashboard, use the 'Products' or 'Services' tab to add, edit, or delete listings. You can update prices and stock status instantly." },
-                { q: "What are the subscription charges for vendors?", a: "We offer multiple plans starting from a free 'Basic' tier to 'Pro' plans with advanced analytics. Check the 'Subscription' section in your dashboard for the latest pricing." },
-                { q: "How do customers find my store?", a: "Customers see your store based on their proximity. The closer they are to your physical location, the higher you appear in their search results." }
+                { q: "How do I list my store on BellBasket?", a: "Click on 'Become a Vendor' in the menu, complete your shop setup, and start adding products. Our team will verify your shop within 24 hours." },
+                { q: "What are the charges for vendors?", a: "BellBasket works on a simple subscription model. We don't take any commission on your sales, allowing you to keep 100% of your earnings." },
+                { q: "How do I manage my inventory?", a: "You can use the Vendor Dashboard to add, edit, or remove products, manage categories, and set stock levels in real-time." },
+                { q: "Who handles the delivery?", a: "Currently, BellBasket focuses on a 'Pickup' model where customers visit your store. This eliminates delivery logistics and ensures the freshest experience for the customer." }
             ]
         },
         {
@@ -85,9 +84,9 @@ const FAQ = () => {
     return (
         <div className="min-h-screen gradient-warm pb-20">
             <Helmet>
-                <title>FAQ | Help Center | BellBasket Hyper-Local Marketplace</title>
-                <meta name="description" content="Get answers to frequently asked questions about local product orders, service bookings, payments, and vendor registration on BellBasket. Your guide to neighborhood shopping." />
-                <meta name="keywords" content="BellBasket FAQ, local marketplace help, product orders, service bookings, local plumber, local salon, neighborhood shopping, cash on pickup, pay at store, BellBasket help center" />
+                <title>FAQ - BellBasket Neighborhood Marketplace</title>
+                <meta name="description" content="Find answers about the top neighborhood marketplace. Learn about ordering from local stores, booking near shops, and vendor setup on BellBasket." />
+                <meta name="keywords" content="neighborhood marketplace faq, local stores help, neighborhood shops support, how bellbasket works, local shopping questions" />
             </Helmet>
 
             <div className="max-w-4xl mx-auto px-4 pt-10 space-y-12">

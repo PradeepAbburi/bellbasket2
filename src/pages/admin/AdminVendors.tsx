@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot, doc, updateDoc, writeBatch, getDocs } from 'firebase/firestore';
 import { toast } from 'sonner';
+import PageLoading from '@/components/PageLoading';
 import { Store as StoreType } from '@/types';
 
 const AdminVendors = () => {
@@ -75,6 +76,8 @@ const AdminVendors = () => {
             setIsSyncing(false);
         }
     };
+
+    if (loading) return <PageLoading />;
 
     return (
         <div className="space-y-6 md:space-y-10 pb-20">

@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Star, ArrowLeft, Send, MessageSquare, Crown, Store as StoreIcon, Search, Filter, TrendingUp, Users, ThumbsUp } from 'lucide-react';
 import Header from '@/components/Header';
 import { useApp } from '@/context/AppContext';
-import { DashboardSkeleton } from '@/components/SkeletonLoader';
+import PageLoading from '@/components/PageLoading';
 import { toast } from 'sonner';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
@@ -26,7 +26,7 @@ const VendorReviews = () => {
     const { user, stores, loading } = useApp();
     const navigate = useNavigate();
 
-    if (loading) return <DashboardSkeleton />;
+    if (loading) return <PageLoading />;
     const vendorStore = stores.find(s => s.id === user?.id);
     const reviews: StoreReview[] = (vendorStore?.reviews || []).filter((r: StoreReview) => r.comment && r.comment.trim() !== "");
 

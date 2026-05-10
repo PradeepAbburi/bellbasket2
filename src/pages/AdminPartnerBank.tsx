@@ -6,7 +6,7 @@ import { collection, onSnapshot, doc, updateDoc, deleteDoc } from "firebase/fire
 import { ArrowLeft, TrendingUp, Trash2, Check, Edit, Calendar } from "lucide-react";
 import Header from "@/components/Header";
 import { toast } from "sonner";
-import Loader from "@/components/ui/loader-animation";
+import PageLoading from "@/components/PageLoading";
 
 // Admin Partner Bank & Payment Management Page
 const AdminPartnerBank = () => {
@@ -112,13 +112,7 @@ const AdminPartnerBank = () => {
         }
     };
 
-    if (loading || isLoading) {
-        return (
-            <div className="min-h-screen gradient-warm flex items-center justify-center">
-                <Loader text="Loading" subtext="Fetching partner data..." />
-            </div>
-        );
-    }
+    if (loading || isLoading) return <PageLoading />;
 
     return (
         <div className="min-h-screen gradient-warm">

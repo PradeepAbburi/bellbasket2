@@ -6,9 +6,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
+import PageLoading from '@/components/PageLoading';
 
 const NotificationsPage = () => {
-    const { notifications, markAllNotificationsRead, user, requestPushNotifications } = useApp();
+    const { notifications, markAllNotificationsRead, user, requestPushNotifications, loading } = useApp();
+    if (loading) return <PageLoading />;
     const navigate = useNavigate();
     const { t } = useTranslation();
 

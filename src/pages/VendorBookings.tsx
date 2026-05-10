@@ -10,7 +10,7 @@ import { doc, updateDoc, collection, query, where, getDocs, onSnapshot } from 'f
 import { useTranslation } from 'react-i18next';
 import { sendInAppNotification, playBellSound } from '@/utils/notifications';
 import { ServiceBooking } from '@/types';
-import { OrderListSkeleton } from '@/components/SkeletonLoader';
+import PageLoading from '@/components/PageLoading';
 
 const statusFlow = ['pending', 'accepted', 'completed'] as const;
 
@@ -21,7 +21,8 @@ const VendorBookings = () => {
     const [view, setView] = useState<'active' | 'past'>('active');
     const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
     
-    // Selection Mode Statex
+    if (loading) return <PageLoading />;
+
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [isSelectionMode, setIsSelectionMode] = useState(false);
     const [longPressTimer, setLongPressTimer] = useState<any>(null);
@@ -183,7 +184,7 @@ const VendorBookings = () => {
     };
 
     if (loading) {
-        return <OrderListSkeleton />;
+        return <PageLoading />;
     }
 
     return (

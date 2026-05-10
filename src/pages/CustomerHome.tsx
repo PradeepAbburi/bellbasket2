@@ -23,6 +23,7 @@ import { CATEGORY_METADATA } from '@/constants/categories';
 import { toast } from 'sonner';
 import { useApp } from '@/context/AppContext';
 const MapView = lazy(() => import('@/components/MapView'));
+import PageLoading from '@/components/PageLoading';
 import { Helmet } from 'react-helmet';
 import VariantSelector from '@/components/VariantSelector';
 import { useTranslation } from 'react-i18next';
@@ -49,30 +50,6 @@ function getDistanceKm(lat1: number, lng1: number, lat2: number, lng2: number): 
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-
-const SkeletonStoreCard = () => (
-  <div className="bg-card rounded-3xl p-4 flex gap-4 border border-border/50 animate-pulse">
-    <div className="w-24 h-24 rounded-2xl bg-muted shrink-0" />
-    <div className="flex-1 space-y-3 py-1">
-      <div className="h-4 bg-muted rounded-full w-3/4" />
-      <div className="h-3 bg-muted rounded-full w-1/2" />
-      <div className="flex gap-2">
-        <div className="h-4 bg-muted rounded-full w-16" />
-        <div className="h-4 bg-muted rounded-full w-12" />
-      </div>
-    </div>
-  </div>
-);
-
-const SkeletonProductCard = () => (
-  <div className="bg-card rounded-3xl p-3 border border-border/50 animate-pulse">
-    <div className="aspect-square rounded-2xl bg-muted mb-3" />
-    <div className="space-y-2">
-      <div className="h-3 bg-muted rounded-full w-3/4" />
-      <div className="h-3 bg-muted rounded-full w-1/2" />
-    </div>
-  </div>
-);
 
 // Memoized Store Card with Prefetching
 const StoreCard = memo(({ store, onClick, t }: { store: Store & { distance?: number; effectiveRating?: number }, onClick: () => void, t: any }) => {
@@ -180,7 +157,7 @@ const ProductCard = memo(({ p, count, onAdd, onUpdate, onRemove, onClick, t, mod
       onClick={onClick}
       onMouseEnter={prefetch}
       onTouchStart={prefetch}
-      className="bg-[#f8f9fa] dark:bg-[#161616] p-3 rounded-3xl flex flex-col gap-3 hover:shadow-2xl hover:shadow-primary/10 transition-all border border-slate-200 dark:border-white/5 group/product cursor-pointer relative will-change-transform"
+      className="bg-[#f8f9fa] dark:bg-[#161616] p-2.5 md:p-3 rounded-3xl flex flex-col gap-2 md:gap-3 hover:shadow-2xl hover:shadow-primary/10 transition-all border border-slate-200 dark:border-white/5 group/product cursor-pointer relative will-change-transform"
     >
       <div className="aspect-square rounded-2xl overflow-hidden bg-secondary/10 relative">
         {p.isCombo && p.comboItemsData && p.comboItemsData.length > 0 ? (
@@ -218,11 +195,11 @@ const ProductCard = memo(({ p, count, onAdd, onUpdate, onRemove, onClick, t, mod
       </div>
 
       <div className="flex flex-col gap-1.5 px-0.5">
-        <h4 className="text-[13px] font-bold text-foreground line-clamp-2 leading-snug min-h-[2.5em] group-hover/product:text-primary transition-colors">{p.name}</h4>
+        <h4 className="text-[12px] md:text-[13px] font-bold text-foreground line-clamp-2 leading-snug min-h-[2.5em] group-hover/product:text-primary transition-colors">{p.name}</h4>
         <div className="flex items-center justify-between">
           <div className="flex items-baseline gap-1.5">
-            <span className="text-sm font-black text-foreground">₹{discountedPrice}</span>
-            {hasDiscount && <span className="text-[9px] text-muted-foreground line-through opacity-50 font-medium">₹{selectedVariant ? selectedVariant.price : p.price}</span>}
+            <span className="text-[13px] md:text-sm font-black text-foreground">₹{discountedPrice}</span>
+            {hasDiscount && <span className="text-[8px] md:text-[9px] text-muted-foreground line-through opacity-50 font-medium">₹{selectedVariant ? selectedVariant.price : p.price}</span>}
           </div>
         </div>
         
@@ -613,12 +590,18 @@ const CustomerHome = () => {
     setIsSearchingLocation(true);
     locationSearchTimeout.current = setTimeout(async () => {
       try {
-        const photonUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(val)}&lat=${userLat}&lon=${userLng}&limit=12`;
+        const query = val.toUpperCase() === 'HYD' ? 'Hyderabad, India' : val;
+        const photonUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&lat=${userLat}&lon=${userLng}&limit=12`;
         const res = await fetch(photonUrl);
         const data = await res.json();
 
-        const results = data.features.map((f: any) => {
-          const p = f.properties;
+        const results = data.features
+          .filter((f: any) => {
+            const country = f.properties.countrycode?.toUpperCase();
+            return country !== 'BD' && country !== 'PK';
+          })
+          .map((f: any) => {
+            const p = f.properties;
           const dist = getDistanceKm(userLat, userLng, f.geometry.coordinates[1], f.geometry.coordinates[0]);
 
           const addressParts = [];
@@ -973,40 +956,17 @@ const CustomerHome = () => {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen gradient-warm">
-        <Header />
-        <div className="pt-24 pb-32 px-4 max-w-6xl mx-auto space-y-8">
-           <div className="glass rounded-2xl p-4 flex items-center justify-between gap-4 animate-pulse">
-              <div className="w-10 h-10 rounded-xl bg-muted shrink-0" />
-              <div className="flex-1 space-y-2">
-                <div className="h-2 bg-muted rounded-full w-24" />
-                <div className="h-3 bg-muted rounded-full w-40" />
-              </div>
-           </div>
-           <div className="space-y-4">
-              <div className="flex gap-4 overflow-hidden">
-                {[1, 2, 3, 4].map(i => (
-                  <div key={i} className="w-16 h-16 rounded-2xl bg-muted shrink-0 animate-pulse" />
-                ))}
-              </div>
-           </div>
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {[1, 2, 3, 4, 5, 6].map(i => <SkeletonStoreCard key={i} />)}
-           </div>
-        </div>
-      </div>
-    );
+    return <PageLoading />;
   }
 
   return (
     <div className="min-h-screen gradient-warm">
       <Helmet>
-        <title>BellBasket | Local Grocery & Daily Essentials - Pick It. Grab It.</title>
-        <meta name="description" content="Shop fresh groceries, daily essentials, and local services from neighborhood stores in Kakinada, Vizag, and across India. Pick It. Grab It. supporting your community stores with fast delivery." />
-        <meta name="keywords" content="local shopping India, grocery delivery Kakinada, neighborhood market Vizag, buy local fresh vegetables, Kirana store online delivery, daily essentials home delivery, BellBasket app" />
-        <meta property="og:title" content="BellBasket | Shop Local Grocery & Essentials" />
-        <meta property="og:description" content="Support your neighborhood stores. Pick It. Grab It. Fresh produce and daily needs delivered from local vendors." />
+        <title>BellBasket - Top Local Commerce Platform for Neighborhood Stores & Shops</title>
+        <meta name="description" content="BellBasket is India's top local commerce platform for neighborhood stores. Shop fresh groceries, daily essentials, and local services from neighborhood stores, near shops, and local marketplaces." />
+        <meta name="keywords" content="neighborhood stores, neighborhood shops, near stores, near shops, neighbourhood marketplaces, local shopping India, grocery delivery, buy local fresh vegetables, Kirana store online delivery, daily essentials home delivery, BellBasket app" />
+        <meta property="og:title" content="BellBasket | Neighborhood Stores & Shops Near You" />
+        <meta property="og:description" content="Support your neighborhood stores and find near shops. Pick It. Grab It. Fresh produce and daily needs delivered from local vendors." />
         <meta property="og:url" content="https://bellbasket.com/browse" />
         <meta property="og:type" content="website" />
         <link rel="canonical" href="https://bellbasket.com/browse" />
@@ -1036,8 +996,8 @@ const CustomerHome = () => {
       </Helmet>
       <Header />
       <PullToRefresh onRefresh={refreshData} className="pt-16 sm:pt-18 pb-32 px-4 max-w-6xl mx-auto space-y-6">
-        {/* Main Content Area - Hidden while searching */}
-        {!isSearching && (
+        {/* Main Content Area - Hidden while searching or search active */}
+        {!isSearching && !activeSearch && (
           <div className="space-y-6">
             {/* Location bar */}
             <div className="glass rounded-2xl p-3.5 flex items-center justify-between gap-3">
@@ -1208,7 +1168,7 @@ const CustomerHome = () => {
         )}
 
         {/* Search */}
-        <div className="sticky top-16 z-30 py-2 -mx-4 px-4 bg-white/95 dark:bg-[#202020]/95 backdrop-blur-md border-b border-border/10 shadow-sm mt-3">
+        <div className="sticky top-16 z-30 py-2 -mx-4 px-4 bg-white/95 dark:bg-[#202020]/95 backdrop-blur-md border-b border-border/10 shadow-sm">
           <div className="relative flex gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />

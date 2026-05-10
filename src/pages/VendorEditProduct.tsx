@@ -9,15 +9,25 @@ import { toast } from 'sonner';
 import { db, auth } from '@/lib/firebase';
 import { collection, addDoc, updateDoc, doc, getDoc, query, where, getDocs } from 'firebase/firestore';
 import { cleanObject } from '@/utils/firebase';
+import PageLoading from '@/components/PageLoading';
 
 const CropModal = ({ src, onCancel, onComplete }: { src: string, onCancel: () => void, onComplete: (base64: string) => void }) => {
   const [zoom, setZoom] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [aspectRatio, setAspectRatio] = useState(1);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
+
+  useEffect(() => {
+    const img = new Image();
+    img.src = src;
+    img.onload = () => {
+      setAspectRatio(img.naturalWidth / img.naturalHeight);
+    };
+  }, [src]);
 
   const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
     setIsDragging(true);
@@ -46,9 +56,14 @@ const CropModal = ({ src, onCancel, onComplete }: { src: string, onCancel: () =>
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const SIZE = 1200;
-    canvas.width = SIZE;
-    canvas.height = SIZE;
+    const BASE_SIZE = 1200;
+    if (aspectRatio > 1) {
+        canvas.width = BASE_SIZE;
+        canvas.height = BASE_SIZE / aspectRatio;
+    } else {
+        canvas.width = BASE_SIZE * aspectRatio;
+        canvas.height = BASE_SIZE;
+    }
 
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -56,17 +71,21 @@ const CropModal = ({ src, onCancel, onComplete }: { src: string, onCancel: () =>
     const scaleX = img.naturalWidth / (img.width * zoom);
     const scaleY = img.naturalHeight / (img.height * zoom);
 
-    const windowSize = 280;
-    const scrollX = (img.width * zoom - windowSize) / 2 - position.x;
-    const scrollY = (img.height * zoom - windowSize) / 2 - position.y;
+    // Calculate crop window based on UI scale
+    const windowWidth = 280;
+    const windowHeight = 280 / aspectRatio;
+
+    const scrollX = (img.width * zoom - windowWidth) / 2 - position.x;
+    const scrollY = (img.height * zoom - windowHeight) / 2 - position.y;
 
     const sourceX = scrollX * scaleX;
     const sourceY = scrollY * scaleY;
-    const sourceSize = windowSize * scaleX;
+    const sourceWidth = windowWidth * scaleX;
+    const sourceHeight = windowHeight * scaleY;
 
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(img, sourceX, sourceY, sourceSize, sourceSize, 0, 0, SIZE, SIZE);
+    ctx.drawImage(img, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, canvas.width, canvas.height);
     
     onComplete(canvas.toDataURL('image/jpeg', 0.95));
   };
@@ -82,8 +101,11 @@ const CropModal = ({ src, onCancel, onComplete }: { src: string, onCancel: () =>
         <div className="flex items-center justify-between px-2">
             <div>
                 <h3 className="text-white font-black uppercase tracking-widest text-xs">Crop Image</h3>
-                <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-tight">Focus on your product</p>
+                <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-tight">Original Ratio Maintained</p>
             </div>
+            <button onClick={() => onComplete(src)} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 text-white text-[10px] font-black uppercase tracking-widest hover:bg-white/20 transition-all border border-white/10">
+                Skip Crop
+            </button>
             <button onClick={onCancel} className="w-9 h-9 rounded-full bg-white/5 flex items-center justify-center text-white ring-1 ring-white/10"><X className="w-5 h-5" /></button>
         </div>
 
@@ -99,8 +121,14 @@ const CropModal = ({ src, onCancel, onComplete }: { src: string, onCancel: () =>
           onTouchEnd={handleMouseUp}
         >
           <div className="absolute inset-0 z-20 pointer-events-none">
-            <div className="absolute inset-0 bg-black/40" style={{ clipPath: 'evenodd, polygon(0 0, 100% 0, 100% 100%, 0 100%, 0 0, 10px 10px, 10px calc(100% - 10px), calc(100% - 10px) calc(100% - 10px), calc(100% - 10px) 10px, 10px 10px)' }} />
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[280px] h-[280px] border-2 border-primary shadow-[0_0_0_1000px_rgba(0,0,0,0.6)] rounded-2xl" />
+            <div 
+                className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 border-2 border-primary shadow-[0_0_0_1000px_rgba(0,0,0,0.6)] rounded-2xl"
+                style={{ 
+                    width: '280px', 
+                    height: `${280 / aspectRatio}px`,
+                    maxHeight: '340px' 
+                }} 
+            />
           </div>
 
           <motion.img
@@ -108,6 +136,10 @@ const CropModal = ({ src, onCancel, onComplete }: { src: string, onCancel: () =>
             src={src}
             alt="To crop"
             className="max-w-none select-none pointer-events-none"
+            style={{ 
+                width: aspectRatio > 1 ? 'auto' : '280px',
+                height: aspectRatio > 1 ? '280px' : 'auto'
+            }}
             initial={false}
             animate={{ scale: zoom, x: position.x, y: position.y }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
@@ -131,18 +163,26 @@ const CropModal = ({ src, onCancel, onComplete }: { src: string, onCancel: () =>
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <button 
-              onClick={onCancel}
-              className="py-4 rounded-2xl bg-white/5 text-white text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all active:scale-95 border border-white/5"
-            >
-              Cancel
-            </button>
+          <div className="flex flex-col gap-3 pt-2">
             <button 
               onClick={handleCrop}
-              className="py-4 rounded-2xl bg-primary text-white text-[10px] font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2"
+              className="w-full py-4 rounded-2xl bg-primary text-white text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
             >
-              <Check className="w-4 h-4" /> Save Crop
+              <Check className="w-4 h-4" /> Apply Crop (Ratio Maintained)
+            </button>
+            
+            <button 
+              onClick={() => onComplete(src)}
+              className="w-full py-3.5 rounded-2xl bg-white/5 text-white text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all active:scale-95 border border-white/5"
+            >
+              Skip Crop & Use Original
+            </button>
+
+            <button 
+              onClick={onCancel}
+              className="w-full py-3 text-white/40 text-[9px] font-bold uppercase tracking-widest hover:text-white transition-all"
+            >
+              Cancel
             </button>
           </div>
         </div>
@@ -193,6 +233,7 @@ const VendorEditProduct = () => {
   const [newCat, setNewCat] = useState('');
   const [initialFormState, setInitialFormState] = useState<any>(null);
   const [showDiscardModal, setShowDiscardModal] = useState(false);
+  const [autoCrop, setAutoCrop] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setMinLoadingTimePassed(true), 1500);
@@ -272,7 +313,37 @@ const VendorEditProduct = () => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
     reader.onload = (event) => {
-        setCropModal({ show: true, src: event.target?.result as string, field });
+        const base64 = event.target?.result as string;
+        if (autoCrop) {
+            setCropModal({ show: true, src: base64, field });
+        } else {
+            const img = new Image();
+            img.src = base64;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const MAX_SIZE = 1200;
+                let width = img.width;
+                let height = img.height;
+                if (width > height) {
+                    if (width > MAX_SIZE) {
+                        height *= MAX_SIZE / width;
+                        width = MAX_SIZE;
+                    }
+                } else {
+                    if (height > MAX_SIZE) {
+                        width *= MAX_SIZE / height;
+                        height = MAX_SIZE;
+                    }
+                }
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx?.drawImage(img, 0, 0, width, height);
+                const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
+                setForm(f => ({ ...f, [field]: compressedBase64 }));
+                toast.success("Image uploaded!");
+            };
+        }
     };
   };
 
@@ -314,12 +385,31 @@ const VendorEditProduct = () => {
     if (videoRef.current && videoRef.current.videoWidth > 0) {
         const video = videoRef.current;
         const canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
+        const MAX_SIZE = 1200;
+        let width = video.videoWidth;
+        let height = video.videoHeight;
+        if (width > height) {
+            if (width > MAX_SIZE) {
+                height *= MAX_SIZE / width;
+                width = MAX_SIZE;
+            }
+        } else {
+            if (height > MAX_SIZE) {
+                width *= MAX_SIZE / height;
+                height = MAX_SIZE;
+            }
+        }
+        canvas.width = width;
+        canvas.height = height;
         const ctx = canvas.getContext('2d');
-        ctx?.drawImage(video, 0, 0);
-        const base64 = canvas.toDataURL('image/jpeg', 0.95);
-        setCropModal({ show: true, src: base64, field: imageTarget });
+        ctx?.drawImage(video, 0, 0, width, height);
+        const base64 = canvas.toDataURL('image/jpeg', 0.8);
+        if (autoCrop) {
+            setCropModal({ show: true, src: base64, field: imageTarget });
+        } else {
+            setForm(f => ({ ...f, [imageTarget]: base64 }));
+            toast.success("Photo captured!");
+        }
         stopCamera();
     }
   };
@@ -384,23 +474,16 @@ const VendorEditProduct = () => {
         toast.success(`${entityName} added`, { id: toastId });
       }
       navigate('/vendor/products');
-    } catch (error) {
-      toast.error('Save failed', { id: toastId });
+    } catch (error: any) {
+      console.error('Save error:', error);
+      toast.error(`Save failed: ${error?.message || 'Unknown error'}`, { id: toastId });
     } finally {
       setLoading(false);
     }
   };
 
     if (initialLoading || !minLoadingTimePassed) {
-        return (
-          <div className="fixed inset-0 flex items-center justify-center bg-[#202020] z-[9999]">
-            <div className="animate-pulse">
-              <span className="text-2xl md:text-3xl font-black tracking-tighter text-foreground">
-                BellBasket
-              </span>
-            </div>
-          </div>
-        );
+        return <PageLoading />;
     }
 
   return (
@@ -459,9 +542,9 @@ const VendorEditProduct = () => {
                                   </div>
                                 </div>
                               )}
-                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 px-4">
-                                      <button type="button" onClick={() => { setImageTarget('image'); fileInputRef.current?.click(); }} className="w-10 h-10 rounded-xl bg-white text-primary flex items-center justify-center"><Upload className="w-4 h-4" /></button>
-                                      <button type="button" onClick={() => { setImageTarget('image'); startCamera(); }} className="w-10 h-10 rounded-xl bg-white text-primary flex items-center justify-center"><Camera className="w-4 h-4" /></button>
+                              <div className="absolute inset-0 bg-black/40 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 px-4">
+                                      <button type="button" onClick={() => { setImageTarget('image'); fileInputRef.current?.click(); }} className="w-10 h-10 rounded-xl bg-white text-primary flex items-center justify-center shadow-xl"><Upload className="w-4 h-4" /></button>
+                                      <button type="button" onClick={() => { setImageTarget('image'); startCamera(); }} className="w-10 h-10 rounded-xl bg-white text-primary flex items-center justify-center shadow-xl"><Camera className="w-4 h-4" /></button>
                               </div>
                           </>
                       ) : (
@@ -469,6 +552,16 @@ const VendorEditProduct = () => {
                               <div className="flex gap-2">
                                   <button type="button" onClick={() => { setImageTarget('image'); fileInputRef.current?.click(); }} className="w-12 h-12 rounded-2xl bg-primary text-white flex items-center justify-center"><Upload className="w-5 h-5" /></button>
                                   <button type="button" onClick={() => { setImageTarget('image'); startCamera(); }} className="w-12 h-12 rounded-2xl bg-white text-primary flex items-center justify-center ring-1 ring-border"><Camera className="w-5 h-5" /></button>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                  <button 
+                                    type="button"
+                                    onClick={() => setAutoCrop(!autoCrop)}
+                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all ${autoCrop ? 'bg-primary/20 border-primary text-primary' : 'bg-white/5 border-white/10 text-white/40'}`}
+                                  >
+                                    <Maximize className="w-3 h-3" />
+                                    <span className="text-[8px] font-black uppercase tracking-widest">{autoCrop ? 'Crop ON' : 'Crop OFF'}</span>
+                                  </button>
                               </div>
                           </div>
                       )}
@@ -489,7 +582,7 @@ const VendorEditProduct = () => {
                                       </div>
                                     </div>
                                   )}
-                                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 px-4">
+                                  <div className="absolute inset-0 bg-black/40 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 px-4">
                                       <button type="button" onClick={() => { setImageTarget('image2'); fileInputRef.current?.click(); }} className="w-10 h-10 rounded-xl bg-white text-primary flex items-center justify-center shadow-xl"><Upload className="w-4 h-4" /></button>
                                       <button type="button" onClick={() => { setImageTarget('image2'); startCamera(); }} className="w-10 h-10 rounded-xl bg-white text-primary flex items-center justify-center shadow-xl"><Camera className="w-4 h-4" /></button>
                                       <button type="button" onClick={() => setForm(f => ({ ...f, image2: '' }))} className="w-10 h-10 rounded-xl bg-rose-500 text-white flex items-center justify-center shadow-xl"><Trash2 className="w-4 h-4" /></button>
@@ -499,9 +592,19 @@ const VendorEditProduct = () => {
                               <div className="flex flex-col items-center gap-3">
                                   <div className="flex gap-2">
                                       <button type="button" onClick={() => { setImageTarget('image2'); fileInputRef.current?.click(); }} className="w-12 h-12 rounded-2xl bg-primary text-white flex items-center justify-center shadow-xl"><Upload className="w-5 h-5" /></button>
-                                      <button type="button" onClick={() => { setImageTarget('image2'); startCamera(); }} className="w-12 h-12 rounded-2xl bg-white text-primary flex items-center justify-center shadow-xl ring-1 ring-border"><Camera className="w-5 h-5" /></button>
-                                  </div>
+                                  <button type="button" onClick={() => { setImageTarget('image2'); startCamera(); }} className="w-12 h-12 rounded-2xl bg-white text-primary flex items-center justify-center shadow-xl ring-1 ring-border"><Camera className="w-5 h-5" /></button>
                               </div>
+                              <div className="flex items-center gap-2">
+                                  <button 
+                                    type="button"
+                                    onClick={() => setAutoCrop(!autoCrop)}
+                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all ${autoCrop ? 'bg-primary/20 border-primary text-primary' : 'bg-white/5 border-white/10 text-white/40'}`}
+                                  >
+                                    <Maximize className="w-3 h-3" />
+                                    <span className="text-[8px] font-black uppercase tracking-widest">{autoCrop ? 'Crop ON' : 'Crop OFF'}</span>
+                                  </button>
+                              </div>
+                          </div>
                           )}
                       </div>
                   </div>

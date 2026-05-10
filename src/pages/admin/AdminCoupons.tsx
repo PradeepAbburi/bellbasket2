@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot, doc, addDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { toast } from 'sonner';
+import PageLoading from '@/components/PageLoading';
 import { Coupon, PlanTier } from '@/types';
 
 const AdminCoupons = () => {
@@ -32,6 +33,8 @@ const AdminCoupons = () => {
         });
         return () => unsub();
     }, []);
+
+    if (loading) return <PageLoading />;
 
     const handleGenerateCoupon = async () => {
         setIsGenerating(true);
@@ -193,11 +196,7 @@ const AdminCoupons = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
-                                    {loading ? (
-                                        <tr className="animate-pulse">
-                                            <td colSpan={4} className="px-8 py-20 text-center"><div className="h-20 bg-slate-50 rounded-[2rem]" /></td>
-                                        </tr>
-                                    ) : coupons.length === 0 ? (
+                                {coupons.length === 0 ? (
                                         <tr>
                                             <td colSpan={4} className="px-8 py-32 text-center">
                                                 <div className="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center mx-auto mb-4">

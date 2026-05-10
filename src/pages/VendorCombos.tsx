@@ -9,7 +9,7 @@ import { CATEGORY_METADATA } from '@/constants/categories';
 import { toast } from 'sonner';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, updateDoc, deleteDoc, doc, addDoc } from 'firebase/firestore';
-import { ProductListSkeleton } from '@/components/SkeletonLoader';
+import PageLoading from '@/components/PageLoading';
 import { cleanObject } from '@/utils/firebase';
 import { useTranslation } from 'react-i18next';
 
@@ -186,6 +186,7 @@ const VendorCombos = () => {
       toast.error('Update failed');
     }
   };
+  if (appLoading || loading) return <PageLoading />;
 
   return (
     <div className="min-h-screen bg-[#151515] pb-32">
@@ -218,7 +219,7 @@ const VendorCombos = () => {
         </div>
 
         {loading ? (
-          <ProductListSkeleton />
+          <PageLoading />
         ) : combos.length === 0 ? (
           <div className="bg-white/5 border border-white/5 rounded-[3rem] p-20 flex flex-col items-center text-center gap-6">
             <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center text-primary/40"><Package2 className="w-10 h-10" /></div>

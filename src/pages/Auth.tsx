@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mail, UserCircle, Store, ArrowRight, ArrowLeft, CheckCircle2, Loader2, Lock, Phone, Zap, Shield, Eye, EyeOff, Sun, Moon } from 'lucide-react';
+import { Mail, UserCircle, Store, ArrowRight, ArrowLeft, CheckCircle2, Lock, Phone, Zap, Shield, Eye, EyeOff, Sun, Moon } from 'lucide-react';
 import { Helmet } from 'react-helmet';
 import { useApp } from '@/context/AppContext';
 import { toast } from 'sonner';
@@ -79,8 +79,12 @@ const Auth = () => {
                           user?.email?.trim().toLowerCase() === 'hr@bellbasket.com';
                           
       if (user && !user.emailVerified && !isAdminOrHr) {
+        console.log("Auth: User detected but email not verified:", user.email);
         setNeedsVerification(true);
         setEmail(user.email || '');
+      } else if (user && user.emailVerified) {
+        console.log("Auth: User detected and email is verified:", user.email);
+        setNeedsVerification(false);
       }
     });
     return () => unsubscribe();
@@ -113,7 +117,9 @@ const Auth = () => {
     setLoading(true);
     try {
       if (auth.currentUser) {
+        console.log("Auth: Checking verification status for", auth.currentUser.email);
         await auth.currentUser.reload();
+        console.log("Auth: After reload, emailVerified:", auth.currentUser.emailVerified);
         if (auth.currentUser.emailVerified) {
           const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
           if (userDoc.exists()) {
@@ -478,7 +484,7 @@ const Auth = () => {
                 disabled={loading}
                 className="w-full bg-primary text-primary-foreground py-4 rounded-2xl font-bold flex items-center justify-center gap-2"
               >
-                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'I have verified'}
+                {loading ? <span className="animate-pulse tracking-tighter">BellBasket</span> : 'I have verified'}
               </button>
               <button
                 onClick={handleResendLink}
@@ -703,7 +709,7 @@ const Auth = () => {
               disabled={loading}
               className="w-full bg-primary text-primary-foreground py-3.5 sm:py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-all shadow-md mt-2 active:scale-[0.98] disabled:opacity-50"
             >
-              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (showForgotPassword ? 'Send Reset Link' : (isLogin ? 'Sign In' : 'Sign Up'))}
+              {loading ? <span className="animate-pulse tracking-tighter">BellBasket</span> : (showForgotPassword ? 'Send Reset Link' : (isLogin ? 'Sign In' : 'Sign Up'))}
               {!loading && <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />}
             </button>
 

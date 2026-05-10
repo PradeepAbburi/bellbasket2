@@ -13,21 +13,13 @@ const ScrollToTop = () => {
   return null;
 };
 import { AppProvider, useApp } from "@/context/AppContext";
-
+import OnlineStatusProvider from "./components/OnlineStatusProvider";
+import PageLoading from "./components/PageLoading";
 import { registerPush, addListeners } from "@/utils/push";
 import { AlertCircle, MapPin as PinIcon, Bell as BellIcon, ChevronRight as RightIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { initAudio } from "@/utils/notifications";
 
-const PageLoading = () => (
-  <div className="fixed inset-0 flex items-center justify-center bg-[#202020] z-[9999]">
-    <div className="animate-pulse">
-      <span className="text-2xl md:text-3xl font-black tracking-tighter text-foreground">
-        BellBasket
-      </span>
-    </div>
-  </div>
-);
 
 class ErrorBoundary extends React.Component<{ children: React.ReactNode, name: string }, { hasError: boolean }> {
   constructor(props: any) {
@@ -93,7 +85,6 @@ const Sitemap = lazy(() => import("./pages/Sitemap"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const TeamLeadDashboard = lazy(() => import("./pages/TeamLeadDashboard"));
 const TeamLeadLogin = lazy(() => import("./pages/TeamLeadLogin"));
-const Leadership = lazy(() => import("./pages/Leadership"));
 const Careers = lazy(() => import("./pages/Careers"));
 const JobDetail = lazy(() => import("./pages/JobDetail"));
 const ApplyJob = lazy(() => import("./pages/ApplyJob"));
@@ -106,8 +97,6 @@ const StaffProfile = lazy(() => import("./pages/hr/StaffProfile"));
 const AdminPartnerPayments = lazy(() => import("./pages/AdminPartnerPayments"));
 const AdminPartnerBank = lazy(() => import("./pages/AdminPartnerBank"));
 const BottomNav = lazy(() => import("./components/BottomNav"));
-const OnlineStatusProvider = lazy(() => import("./components/OnlineStatusProvider"));
-const Onboarding = lazy(() => import("./components/Onboarding"));
 const NotificationPrompt = lazy(() => import("./components/NotificationPrompt"));
 const VendorDeals = lazy(() => import("./pages/VendorDeals"));
 const CustomerDeals = lazy(() => import("./pages/CustomerDeals"));
@@ -129,22 +118,33 @@ const queryClient = new QueryClient({
 
 const ProtectedRoute = ({ children, requiredRole }: { children: React.ReactNode, requiredRole?: string | string[] }) => {
   const { user, loading } = useApp();
+  const location = useLocation();
 
-  if (loading) return <PageLoading />;
-  if (!user) return <Navigate to="/auth" replace />;
+  if (loading) {
+    console.log("ProtectedRoute: Loading...");
+    return <PageLoading />;
+  }
+
+  if (!user) {
+    console.log("ProtectedRoute: No user, redirecting to /auth");
+    return <Navigate to="/auth" state={{ from: location }} replace />;
+  }
 
   const isInternal = user.role === 'admin' || user.role === 'hr';
   if (!user.isVerified && !isInternal) {
+    console.log("ProtectedRoute: User unverified, redirecting to /auth");
     return <Navigate to="/auth" replace />;
   }
 
   if (requiredRole) {
     const roles = Array.isArray(requiredRole) ? requiredRole : [requiredRole];
     if (!roles.includes(user.role)) {
+      console.log("ProtectedRoute: Unauthorized role, redirecting to /");
       return <Navigate to="/" replace />;
     }
   }
 
+  console.log("ProtectedRoute: Access granted for", user.role);
   return <>{children}</>;
 };
 
@@ -193,36 +193,37 @@ const TeamLeadProtectedRoute = ({ children }: { children: React.ReactNode }) => 
 };
 
 const AppContent = () => {
-  const { user } = useApp();
+  const { user, loading } = useApp();
+  const location = useLocation();
+  console.log("AppContent: Path", location.pathname, { loading, hasUser: !!user, role: user?.role });
+  
+  if (loading) {
+    return <PageLoading />;
+  }
 
   return (
-    <BrowserRouter
-      future={{
-        v7_startTransition: true,
-        v7_relativeSplatPath: true,
-      }}
-    >
+    <>
       <ScrollToTop />
       <div className="flex flex-col min-h-screen">
         <Suspense fallback={<PageLoading />}>
           <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/about" element={<About />} />
+            <Route path="/" element={<ErrorBoundary name="Index"><Index /></ErrorBoundary>} />
+            <Route path="/about" element={<ErrorBoundary name="About"><About /></ErrorBoundary>} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/__/auth/action" element={<AuthAction />} />
             <Route path="/auth/action" element={<AuthAction />} />
 
-            <Route path="/browse" element={<CustomerHome />} />
-            <Route path="/store/:id" element={<StoreDetail />} />
-            <Route path="/stores/:slug" element={<StoreDetail />} />
-            <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
-            <Route path="/receipts" element={<ProtectedRoute><Receipts /></ProtectedRoute>} />
-            <Route path="/receipt/:id" element={<ReceiptDetail />} />
-            <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-            <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
-            <Route path="/deals" element={<CustomerDeals />} />
-            <Route path="/saved-stores" element={<ProtectedRoute><SavedStores /></ProtectedRoute>} />
+            <Route path="/browse" element={<ErrorBoundary name="CustomerHome"><CustomerHome /></ErrorBoundary>} />
+            <Route path="/store/:id" element={<ErrorBoundary name="StoreDetail"><StoreDetail /></ErrorBoundary>} />
+            <Route path="/stores/:slug" element={<ErrorBoundary name="StoreDetail"><StoreDetail /></ErrorBoundary>} />
+            <Route path="/cart" element={<ErrorBoundary name="Basket"><ProtectedRoute><Cart /></ProtectedRoute></ErrorBoundary>} />
+            <Route path="/receipts" element={<ErrorBoundary name="Receipts"><ProtectedRoute><Receipts /></ProtectedRoute></ErrorBoundary>} />
+            <Route path="/receipt/:id" element={<ErrorBoundary name="ReceiptDetail"><ReceiptDetail /></ErrorBoundary>} />
+            <Route path="/profile" element={<ErrorBoundary name="Profile"><ProtectedRoute><Profile /></ProtectedRoute></ErrorBoundary>} />
+            <Route path="/notifications" element={<ErrorBoundary name="Notifications"><ProtectedRoute><NotificationsPage /></ProtectedRoute></ErrorBoundary>} />
+            <Route path="/deals" element={<ErrorBoundary name="CustomerDeals"><CustomerDeals /></ErrorBoundary>} />
+            <Route path="/saved-stores" element={<ErrorBoundary name="SavedStores"><ProtectedRoute><SavedStores /></ProtectedRoute></ErrorBoundary>} />
 
             <Route path="/vendor" element={<ErrorBoundary name="VendorDashboard"><VendorProtectedRoute><VendorDashboard /></VendorProtectedRoute></ErrorBoundary>} />
             <Route path="/vendor/products" element={<ErrorBoundary name="VendorProducts"><VendorProtectedRoute><VendorProducts /></VendorProtectedRoute></ErrorBoundary>} />
@@ -258,7 +259,6 @@ const AppContent = () => {
             <Route path="/download" element={<Download />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/terms" element={<TermsAndConditions />} />
-            <Route path="/leadership" element={<Leadership />} />
             <Route path="/careers" element={<Careers />} />
             <Route path="/careers/job/:id" element={<JobDetail />} />
             <Route path="/careers/apply/:id" element={<ApplyJob />} />
@@ -272,15 +272,14 @@ const AppContent = () => {
             </Route>
 
             <Route path="/sitemap.xml" element={<Sitemap />} />
-            <Route path="/faq" element={<FAQ />} />
+            <Route path="/faq" element={<ErrorBoundary name="FAQ"><FAQ /></ErrorBoundary>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           <BottomNav />
-          {user && user.isVerified && user.role !== 'admin' && !user.hasCompletedOnboarding && sessionStorage.getItem('allow_onboarding') === 'true' && <Onboarding />}
           <NotificationPrompt />
         </Suspense>
       </div>
-    </BrowserRouter>
+    </>
   );
 };
 
@@ -306,9 +305,16 @@ const App = () => {
       <TooltipProvider>
         <AppProvider>
           <OnlineStatusProvider>
-            <Toaster />
-            <Sonner />
-            <AppContent />
+            <BrowserRouter
+              future={{
+                v7_startTransition: true,
+                v7_relativeSplatPath: true,
+              }}
+            >
+              <Toaster />
+              <Sonner />
+              <AppContent />
+            </BrowserRouter>
           </OnlineStatusProvider>
         </AppProvider>
       </TooltipProvider>

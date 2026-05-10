@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { Store, ShoppingCart, MapPin, Bell, ShieldCheck, ArrowRight, CheckCircle2, ArrowLeft, HeartHandshake, TrendingUp, Truck, Headphones, Sparkles } from 'lucide-react';
+import { Store, ShoppingCart, MapPin, Bell, ShieldCheck, ArrowRight, CheckCircle2, ArrowLeft, HeartHandshake, TrendingUp, Truck, Headphones, Sparkles, Clock, Lock, MessageSquare, ExternalLink } from 'lucide-react';
 import { Helmet } from 'react-helmet';
 
 const About = () => {
@@ -9,9 +9,9 @@ const About = () => {
     return (
         <div className="min-h-screen gradient-warm">
             <Helmet>
-                <title>About BellBasket | How it Works for Shoppers & Vendors</title>
-                <meta name="description" content="Discover how BellBasket works. We empower local neighborhood stores to sell online and enable customers to shop fresh groceries and daily essentials directly from kirana shops and local vendors." />
-                <meta name="keywords" content="BellBasket, how it works, local shopping app, grocery delivery, support local business, neighborhood kirana stores, become a vendor, sell groceries online" />
+                <title>About BellBasket | The Leading Neighborhood Marketplace</title>
+                <meta name="description" content="Discover BellBasket, the top neighborhood marketplace for local stores and near shops. We empower neighborhood vendors and enable customers to shop the best neighborhood marketplace directly." />
+                <meta name="keywords" content="neighborhood marketplace, neighborhood stores, neighborhood shops, near stores, near shops, neighbourhood marketplaces, local shopping app, grocery delivery, support local business, neighborhood kirana stores" />
                 <meta property="og:title" content="About BellBasket | How it Works" />
                 <meta property="og:description" content="Discover how BellBasket digitizes neighborhood kirana stores, empowering vendors and giving customers the convenience of local shopping." />
                 <meta property="og:url" content="https://bellbasket.com/about" />
@@ -80,7 +80,7 @@ const About = () => {
                         Connecting Bharat to its <span className="text-gradient">Neighborhood</span>
                     </h1>
                     <p className="text-xl text-muted-foreground leading-relaxed max-w-3xl mx-auto font-medium">
-                        BellBasket is India's premier hyper-local marketplace. We empower local neighborhood stores (Kiranas) to sell online, enabling customers to shop fresh groceries and daily essentials directly from their trusted community vendors with fast, reliable delivery.
+                        BellBasket is India's top local commerce platform for neighborhood stores. We empower local neighborhood stores (Kiranas) to sell online, enabling customers to shop fresh groceries and daily essentials directly from their trusted community vendors with fast, reliable delivery.
                     </p>
                 </div>
 
@@ -341,43 +341,6 @@ const About = () => {
                     </div>
                 </section>
 
-                {/* Section: Meet the Leadership */}
-                <section className="py-20 bg-foreground/5 dark:bg-foreground/[0.02] rounded-[4rem] mx-4">
-                    <div className="max-w-6xl mx-auto px-8 space-y-20">
-                        <div className="flex flex-col md:flex-row items-end justify-between gap-8">
-                            <div className="space-y-4">
-                                <h2 className="text-4xl md:text-5xl font-black text-foreground">The Minds Behind <br />the <span className="text-primary">Vision.</span></h2>
-                                <p className="text-muted-foreground max-w-sm">A diverse team of engineers, designers, and local business advocates.</p>
-                            </div>
-                            <button onClick={() => navigate('/careers')} className="px-8 py-4 bg-foreground text-background rounded-2xl font-black uppercase tracking-widest text-xs hover:scale-105 transition-all">Join the team</button>
-                        </div>
-                        
-                        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-12">
-                            {[
-                                { name: "Pradeep Abburi", role: "Founder & CEO", img: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&q=80", bio: "Serial entrepreneur with a heart for local commerce." },
-                                { name: "Sarah Chen", role: "CTO", img: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&q=80", bio: "Leading AI and distributed systems architecture." },
-                                { name: "Marcus Thorne", role: "Head of Operations", img: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&q=80", bio: "Streamlining logistics for 10,000+ local partners." }
-                            ].map((person, i) => (
-                                <motion.div 
-                                    key={i}
-                                    initial={{ opacity: 0, y: 20 }}
-                                    whileInView={{ opacity: 1, y: 0 }}
-                                    viewport={{ once: true }}
-                                    className="group"
-                                >
-                                    <div className="aspect-[4/5] rounded-[3rem] overflow-hidden mb-6 relative">
-                                        <img src={person.img} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt={person.name} />
-                                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-all flex items-end p-8">
-                                            <p className="text-white text-sm italic">"{person.bio}"</p>
-                                        </div>
-                                    </div>
-                                    <h3 className="text-2xl font-black text-foreground">{person.name}</h3>
-                                    <p className="text-primary font-black uppercase tracking-widest text-xs mt-1">{person.role}</p>
-                                </motion.div>
-                            ))}
-                        </div>
-                    </div>
-                </section>
 
 
                 {/* Call to Action for Vendors */}

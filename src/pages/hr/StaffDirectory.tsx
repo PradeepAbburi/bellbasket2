@@ -14,6 +14,7 @@ import { db } from '@/lib/firebase';
 import { collection, onSnapshot, doc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { Staff } from '@/types';
 import { toast } from 'sonner';
+import PageLoading from '@/components/PageLoading';
 
 const StaffCard = ({ staff, index, onClick, onDelete }: { staff: Staff; index: number; onClick: () => void; onDelete: (e: React.MouseEvent) => void }) => (
     <motion.div 
@@ -124,13 +125,7 @@ const HrStaffDirectory = () => {
         }
     };
 
-    if (loading) {
-        return (
-            <div className="min-h-[60vh] flex items-center justify-center">
-                <Loader2 className="w-10 h-10 text-primary animate-spin" />
-            </div>
-        );
-    }
+    if (loading) return <PageLoading />;
 
     return (
         <div className="space-y-6 md:space-y-10 animate-in fade-in duration-700 px-4 md:px-0">

@@ -4,7 +4,7 @@ import { Crown, Check, ArrowRight, Star, ShieldCheck, Zap, Sparkles, Building2, 
 import Header from '@/components/Header';
 import { useApp } from '@/context/AppContext';
 import { toast } from 'sonner';
-import { DashboardSkeleton } from '@/components/SkeletonLoader';
+import PageLoading from '@/components/PageLoading';
 import { db, auth } from '@/lib/firebase';
 import { collection, query, where, getDocs, doc, updateDoc, getDoc } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
@@ -20,6 +20,8 @@ const VendorPlans = () => {
     const [isClaiming, setIsClaiming] = useState(false);
     const [globalSettings, setGlobalSettings] = useState<{ disableCoupons?: boolean }>({});
     const couponRef = useRef<HTMLDivElement>(null);
+
+    if (loading) return <PageLoading />;
 
     useEffect(() => {
         const fetchGlobalSettings = async () => {
@@ -44,7 +46,7 @@ const VendorPlans = () => {
         }
     }, []);
 
-    if (loading) return <DashboardSkeleton />;
+    if (loading) return <PageLoading />;
     const isServiceStore = stores?.find(s => s.vendorId === user?.id)?.storeType === 'service';
 
     type PricingPlan = {
@@ -609,7 +611,7 @@ const VendorPlans = () => {
                                     disabled={isClaiming || !couponCode.trim() || globalSettings.disableCoupons}
                                     className="sm:px-8 py-4 px-6 rounded-2xl bg-primary text-white font-black text-sm uppercase tracking-widest transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                                 >
-                                    {isClaiming ? <Loader2 className="w-4 h-4 animate-spin" /> : "Claim Now"}
+                                    {isClaiming ? <span className="animate-pulse tracking-tighter">BellBasket</span> : "Claim Now"}
                                 </button>
                             </div>
                         </div>
@@ -687,7 +689,7 @@ const VendorPlans = () => {
                                 className="w-full py-4 rounded-xl bg-primary text-primary-foreground font-bold shadow-md flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-70"
                             >
                                 {processing ? (
-                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                    <span className="animate-pulse tracking-tighter">BellBasket</span>
                                 ) : (
                                     <>Pay {selectedPlan.price} & Upgrade <ArrowRight className="w-4 h-4" /></>
                                 )}

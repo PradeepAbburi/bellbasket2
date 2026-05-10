@@ -6,6 +6,8 @@ import Header from '@/components/Header';
 import { useApp } from '@/context/AppContext';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
+import PageLoading from '@/components/PageLoading';
+
 
 const Cart = () => {
   const { user, loading, cart, updateQuantity, removeFromCart, placeOrder, stores, cartSubtotal, setIsAnyModalOpen } = useApp();
@@ -21,13 +23,7 @@ const Cart = () => {
   const [deliveryPhone, setDeliveryPhone] = useState(user?.phone || '');
   const [deliveryAddress, setDeliveryAddress] = useState('');
 
-  if (loading) {
-    return (
-      <div className="min-h-screen gradient-warm flex items-center justify-center">
-        <div className="w-10 h-10 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
-      </div>
-    );
-  }
+  if (loading) return <PageLoading />;
 
   // Group cart items by store
   const cartGroups = cart.reduce((acc, item) => {
@@ -193,14 +189,14 @@ const Cart = () => {
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: (groupIdx * 0.1) + (i * 0.05) }}
-                        className="bg-white dark:bg-[#202020] rounded-[1.8rem] p-4 flex gap-4 border border-border/40 shadow-sm hover:shadow-md transition-all group"
+                        className="bg-white dark:bg-[#202020] rounded-[1.8rem] p-3 md:p-4 flex gap-3 md:gap-4 border border-border/40 shadow-sm hover:shadow-md transition-all group"
                       >
-                        <div className="relative w-20 h-20 shrink-0">
+                        <div className="relative w-16 h-16 md:w-20 md:h-20 shrink-0">
                           <img src={item.product.image} alt={item.product.name} className="w-full h-full rounded-2xl object-cover transition-transform group-hover:scale-110" />
                         </div>
                         <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
                           <div>
-                            <h3 className="font-extrabold text-foreground text-[15px] tracking-tight line-clamp-1">{t(`products.${item.product.name}`, { defaultValue: item.product.name })}</h3>
+                            <h3 className="font-extrabold text-foreground text-[14px] md:text-[15px] tracking-tight line-clamp-1">{t(`products.${item.product.name}`, { defaultValue: item.product.name })}</h3>
                             <div className="flex flex-col gap-1 items-start mt-0.5">
                               {item.selectedVariant ? (
                                 <span className="text-[9px] font-black text-amber-500 bg-amber-500/5 px-2 py-0.5 rounded-md border border-amber-500/10">

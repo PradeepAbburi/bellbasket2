@@ -37,6 +37,7 @@ import { PlanTier, Coupon } from "@/types";
 import { motion, AnimatePresence } from "framer-motion";
 import Header from "@/components/Header";
 import { toast } from "sonner";
+import PageLoading from "@/components/PageLoading";
 import {
     BarChart,
     Bar,
@@ -329,14 +330,7 @@ const AdminAnalytics = () => {
         (u.email?.toLowerCase() || '').includes(searchTerm.toLowerCase())
     );
 
-    if (loading || (isLoadingData && users.length === 0)) {
-        return (
-            <div className="min-h-screen gradient-warm flex flex-col items-center justify-center gap-4">
-                <div className="w-10 h-10 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
-                <p className="text-xs font-bold text-muted-foreground animate-pulse uppercase tracking-widest">Hydrating Analytics...</p>
-            </div>
-        );
-    }
+    if (loading || (isLoadingData && users.length === 0)) return <PageLoading />;
 
     return (
         <div className="min-h-screen gradient-warm">

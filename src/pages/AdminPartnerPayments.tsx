@@ -6,7 +6,7 @@ import { collection, getDocs, updateDoc, doc, addDoc, deleteDoc, onSnapshot } fr
 import { ArrowLeft, TrendingUp, AlertCircle, Trash2, Eye, EyeOff } from "lucide-react";
 import Header from "@/components/Header";
 import { toast } from "sonner";
-import Loader from "@/components/ui/loader-animation";
+import PageLoading from "@/components/PageLoading";
 
 const AdminPartnerPayments = () => {
     const { user, loading } = useApp();
@@ -159,13 +159,7 @@ const AdminPartnerPayments = () => {
 
     const unknownReferralsCount = userList.filter(u => u.role === 'vendor' && u.referralCode && !referralList.some(r => r.referralId === u.referralCode)).length;
 
-    if (loading || isLoadingData) {
-        return (
-            <div className="min-h-screen gradient-warm flex items-center justify-center">
-                <Loader text="System Secure" subtext="Synchronizing Data..." />
-            </div>
-        );
-    }
+    if (loading || isLoadingData) return <PageLoading />;
 
     return (
         <div className="min-h-screen gradient-warm">

@@ -12,6 +12,7 @@ import {
 } from 'recharts';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
+import PageLoading from '@/components/PageLoading';
 
 const DataMetric = ({ label, value, trend, icon: Icon, color }: any) => (
     <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm space-y-4">
@@ -52,6 +53,8 @@ const AdminAnalytics = () => {
     }, []);
 
     const COLORS = ['#4F46E5', '#10B981', '#F59E0B', '#F43F5E'];
+
+    if (loading) return <PageLoading />;
 
     return (
         <div className="space-y-10 pb-20">

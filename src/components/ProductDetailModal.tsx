@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ShoppingCart, Star, MapPin, Package2, ShieldCheck, Zap, ArrowRight, Plus, Minus, Info, Clock, Phone, Sparkles } from 'lucide-react';
+import { X, ShoppingCart, Star, MapPin, Package2, ShieldCheck, Zap, ArrowRight, Plus, Minus, Info, Clock, Phone, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Product, Store, Deal, CartItem, ProductVariant } from '@/types';
 import { useApp } from '@/context/AppContext';
 
@@ -59,6 +59,15 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 }) => {
   const { setIsAnyModalOpen } = useApp();
   const [showCallModal, setShowCallModal] = React.useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setCurrentImageIndex(0);
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({ left: 0 });
+    }
+  }, [product.id]);
 
   useEffect(() => {
     setIsAnyModalOpen(true);
@@ -96,27 +105,117 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
         </button>
 
         <div className="flex flex-col h-full max-h-[90vh] overflow-y-auto custom-scrollbar">
-          {/* Image Section - More Compact */}
-          <div className="w-full aspect-[4/3] bg-zinc-900 flex-shrink-0 relative overflow-hidden">
-            {product.isCombo && product.comboItemsData && product.comboItemsData.length > 0 ? (
-                <div className="w-full h-full grid grid-cols-2 grid-rows-2 gap-[1px] bg-primary/20 relative">
-                    {product.comboItemsData.slice(0, 4).map((c) => (
-                        <img key={c.id} src={c.image} className="w-full h-full object-cover" alt="" />
-                    ))}
-                    {product.comboItemsData.length < 4 && Array.from({ length: 4 - product.comboItemsData.length }).map((_, i) => (
-                        <div key={i} className="w-full h-full bg-zinc-950 flex items-center justify-center">
+          {/* Image Section - Scrollable Gallery */}
+          <div className="w-full aspect-[4/3] bg-zinc-900 flex-shrink-0 relative overflow-hidden group/gallery">
+            <div 
+              ref={scrollRef}
+              onScroll={(e) => {
+                const target = e.currentTarget;
+                const index = Math.round(target.scrollLeft / target.clientWidth);
+                if (index !== currentImageIndex) setCurrentImageIndex(index);
+              }}
+              className="w-full h-full flex overflow-x-auto snap-x snap-mandatory scrollbar-hide"
+            >
+              {(() => {
+                const slides = [];
+                // 1. Grid view for combos
+                if (product.isCombo && product.comboItemsData && product.comboItemsData.length > 0) {
+                  slides.push(
+                    <div key="combo-grid" className="min-w-full h-full snap-center relative">
+                      <div className="w-full h-full grid grid-cols-2 grid-rows-2 gap-[1px] bg-primary/20 relative">
+                        {product.comboItemsData.slice(0, 4).map((c) => (
+                          <img key={c.id} src={c.image} className="w-full h-full object-cover" alt="" />
+                        ))}
+                        {product.comboItemsData.length < 4 && Array.from({ length: 4 - product.comboItemsData.length }).map((_, i) => (
+                          <div key={i} className="w-full h-full bg-zinc-950 flex items-center justify-center">
                             <Package2 className="w-6 h-6 text-primary/20" />
+                          </div>
+                        ))}
+                        <div className="absolute inset-0 bg-gradient-to-tr from-primary/10 to-transparent pointer-events-none" />
+                      </div>
+                    </div>
+                  );
+                }
+
+                // 2. Main images
+                if (product.image) slides.push(<div key="main-1" className="min-w-full h-full snap-center"><img src={product.image} alt="" className="w-full h-full object-cover" /></div>);
+                if (product.image2) slides.push(<div key="main-2" className="min-w-full h-full snap-center"><img src={product.image2} alt="" className="w-full h-full object-cover" /></div>);
+
+                // 3. Item images
+                if (product.isCombo && product.comboItemsData) {
+                  product.comboItemsData.forEach((item, idx) => {
+                    if (item.image) slides.push(
+                      <div key={`item-${idx}-1`} className="min-w-full h-full snap-center relative">
+                        <img src={item.image} alt="" className="w-full h-full object-cover" />
+                        <div className="absolute bottom-6 left-6 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10">
+                          <span className="text-[10px] font-black text-white uppercase tracking-widest">{item.name}</span>
                         </div>
-                    ))}
-                    <div className="absolute inset-0 bg-gradient-to-tr from-primary/10 to-transparent pointer-events-none" />
+                      </div>
+                    );
+                    if (item.image2) slides.push(
+                      <div key={`item-${idx}-2`} className="min-w-full h-full snap-center relative">
+                        <img src={item.image2} alt="" className="w-full h-full object-cover" />
+                        <div className="absolute bottom-6 left-6 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10">
+                          <span className="text-[10px] font-black text-white uppercase tracking-widest">{item.name}</span>
+                        </div>
+                      </div>
+                    );
+                  });
+                }
+
+                return slides;
+              })()}
+            </div>
+
+            {/* Side Navigation Buttons */}
+            {(() => {
+              const imagesCount = [product.image, product.image2].filter(Boolean).length + (product.isCombo ? 1 : 0);
+              if (imagesCount <= 1) return null;
+              
+              return (
+                <>
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (scrollRef.current) {
+                        scrollRef.current.scrollBy({ left: -scrollRef.current.clientWidth, behavior: 'smooth' });
+                      }
+                    }}
+                    className={`absolute left-2 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white transition-all border border-white/10 ${currentImageIndex === 0 ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (scrollRef.current) {
+                        scrollRef.current.scrollBy({ left: scrollRef.current.clientWidth, behavior: 'smooth' });
+                      }
+                    }}
+                    className={`absolute right-2 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white transition-all border border-white/10 ${currentImageIndex >= imagesCount - 1 ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </>
+              );
+            })()}
+
+            {/* Indicators */}
+            {(() => {
+              const imagesCount = [product.image, product.image2].filter(Boolean).length + (product.isCombo ? 1 : 0);
+              if (imagesCount <= 1) return null;
+
+              return (
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-20">
+                  {Array.from({ length: imagesCount }).map((_, i) => (
+                    <div 
+                      key={i} 
+                      className={`transition-all duration-300 rounded-full shadow-md ${i === currentImageIndex ? 'w-4 h-1.5 bg-primary' : 'w-1.5 h-1.5 bg-white/40'}`}
+                    />
+                  ))}
                 </div>
-            ) : (
-                <img
-                    src={product.image}
-                    alt={product.name}
-                    className="w-full h-full object-cover"
-                />
-            )}
+              );
+            })()}
             
             {(discountPercent > 0) && (
               <div className="absolute top-4 left-4 inline-flex items-center gap-1.5 bg-primary text-black font-black text-[10px] px-3 py-1.5 rounded-xl shadow-xl uppercase tracking-tighter z-10">
@@ -126,9 +225,9 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             )}
 
             {deal && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 inline-flex items-center gap-1.5 bg-primary px-4 py-2 rounded-full shadow-2xl z-10 scale-110">
-                <div className="flex items-center gap-1.5 font-mono text-[11px] font-black text-black">
-                  <Clock className="w-3.5 h-3.5" />
+              <div className="absolute bottom-4 left-4 inline-flex items-center gap-1.5 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full shadow-2xl z-10">
+                <div className="flex items-center gap-1.5 font-mono text-[10px] font-black text-white">
+                  <Clock className="w-3 h-3" />
                   <CountdownTimer endTime={deal.endTime} />
                 </div>
               </div>

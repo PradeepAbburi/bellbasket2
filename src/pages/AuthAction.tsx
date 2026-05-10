@@ -24,15 +24,19 @@ const AuthAction = () => {
         const handleAction = async () => {
             try {
                 if (mode === 'verifyEmail') {
+                    console.log('Initiating email verification...');
                     setMessage('Verifying your email...');
                     await applyActionCode(auth, oobCode);
+                    console.log('Email verification successful.');
                     toast.success('Email verified successfully! You can now log in.');
                     navigate('/auth');
                 } else if (mode === 'resetPassword') {
                     navigate(`/reset-password?oobCode=${oobCode}`);
                 } else if (mode === 'recoverEmail') {
+                    console.log('Initiating email recovery...');
                     setMessage('Recovering your email...');
                     await applyActionCode(auth, oobCode);
+                    console.log('Email recovery successful.');
                     toast.success('Email recovered successfully.');
                     navigate('/auth');
                 } else {
