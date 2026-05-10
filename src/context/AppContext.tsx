@@ -50,6 +50,8 @@ interface AppState {
   isStoreSaved: (storeId: string) => boolean;
   isAnyModalOpen: boolean;
   setIsAnyModalOpen: (isOpen: boolean) => void;
+  cartConflictItem: CartItem | null;
+  setCartConflictItem: (item: CartItem | null) => void;
 }
 
 const AppContext = createContext<AppState | undefined>(undefined);
@@ -66,6 +68,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [isAnyModalOpen, setIsAnyModalOpen] = useState(false);
+  const [cartConflictItem, setCartConflictItem] = useState<CartItem | null>(null);
 
   // Theme auto-lock to dark
   useEffect(() => {
@@ -907,7 +910,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     sessionStorage.removeItem('bellbasket_hide_expiry');
   }, []);
 
-  const addToCart = React.useCallback((item: CartItem): boolean => {
+  const addToCart = React.useCallback((item: CartItem, force: boolean = false): boolean => {
     if (!user) {
       toast.info("Please login first", {
         description: "You need to be signed in to add items to your cart."
@@ -916,9 +919,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       return false;
     }
 
+    if (!force && cart.length > 0 && cart[0].storeId !== item.storeId) {
+      setCartConflictItem(item);
+      return false;
+    }
+
     setCart(prev => {
-      if (prev.length > 0 && prev[0].storeId !== item.storeId) {
-        toast.info(t('common.cart.single_store_note', { defaultValue: "You can only order from one store at a time. Your cart has been updated." }));
+      if (force || (prev.length > 0 && prev[0].storeId !== item.storeId)) {
         return [item];
       }
       const existing = prev.find(c => 
@@ -934,6 +941,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       }
       return [...prev, item];
     });
+    setCartConflictItem(null);
     return true;
   }, [user, cart]);
 
@@ -1162,8 +1170,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }, 0);
   }, [cart]);
 
-
-
   const value = React.useMemo(() => ({
     user, cart, orders, serviceBookings, stores, allProducts, loading,
     login, logout, refreshUser, addToCart, removeFromCart, updateQuantity,
@@ -1176,7 +1182,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     toggleSaveStore,
     isStoreSaved,
     isAnyModalOpen,
-    setIsAnyModalOpen
+    setIsAnyModalOpen,
+    cartConflictItem,
+    setCartConflictItem
   }), [
     user, cart, orders, serviceBookings, stores, allProducts, loading,
     login, logout, refreshUser, addToCart, removeFromCart, updateQuantity,
@@ -1189,8 +1197,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     toggleSaveStore,
     isStoreSaved,
     isAnyModalOpen,
-    setIsAnyModalOpen
+    setIsAnyModalOpen,
+    cartConflictItem,
+    setCartConflictItem
   ]);
+
 
   return (
     <AppContext.Provider value={value}>

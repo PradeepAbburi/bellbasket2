@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { useApp } from '@/context/AppContext';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { Search, ShoppingBag, ShoppingCart, User, ChevronRight, LayoutDashboard, Package, Home, Zap } from 'lucide-react';
 import { getAvatarUrl } from '@/utils/avatars';
 import { useTranslation } from 'react-i18next';
@@ -10,6 +10,7 @@ const BottomNav = () => {
     const { user, cart, orders, serviceBookings, stores, cartSubtotal, isAnyModalOpen } = useApp();
     const { t } = useTranslation();
     const location = useLocation();
+    const navigate = useNavigate();
 
     const cartCount = React.useMemo(() => cart.reduce((s, c) => s + c.quantity, 0), [cart]);
 
@@ -49,9 +50,40 @@ const BottomNav = () => {
     if (isVendor && !hasValidPlan) return null;
 
     return (
-        <div id="bottom-nav" className="fixed bottom-0 left-0 right-0 z-50 md:hidden pointer-events-none">
+        <div id="bottom-nav" className="fixed bottom-0 left-0 right-0 z-[110] md:hidden pointer-events-none">
             {/* View Cart Banner - Floating above the bottom nav */}
-
+            <AnimatePresence>
+                {!isVendor && cartCount > 0 && location.pathname !== '/cart' && (
+                    <motion.div
+                        initial={{ y: 100, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        exit={{ y: 100, opacity: 0 }}
+                        transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+                        onClick={() => navigate('/cart')}
+                        className="pointer-events-auto mx-4 mb-3 cursor-pointer bg-primary dark:bg-primary/90 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-primary/20 overflow-hidden"
+                    >
+                        <div className="flex items-center justify-between px-5 py-3.5">
+                            <div className="flex items-center gap-3">
+                                <div className="bg-white/20 p-2 rounded-xl">
+                                    <ShoppingCart className="w-4 h-4 text-primary-foreground" />
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className="text-[14px] font-black text-primary-foreground leading-tight">
+                                        {cartCount} {cartCount === 1 ? 'Item' : 'Items'} &middot; ₹{cartSubtotal.toFixed(0)}
+                                    </span>
+                                    <p className="text-[10px] font-bold text-primary-foreground/70 uppercase tracking-widest leading-tight mt-0.5">
+                                        In your basket
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 bg-white/20 px-3 py-1.5 rounded-xl text-primary-foreground text-[11px] font-black uppercase tracking-widest">
+                                View Cart
+                                <ChevronRight className="w-3.5 h-3.5" />
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             <div className="relative pointer-events-auto bg-white dark:bg-[#0D0D0D]">
                 
@@ -105,6 +137,74 @@ const BottomNav = () => {
                     />
                 </nav>
             </div>
+
+            <AnimatePresence>
+                {cartConflictItem && <CartConflictModal item={cartConflictItem} />}
+            </AnimatePresence>
+        </div>
+    );
+};
+
+const CartConflictModal = ({ item }: { item: any }) => {
+    const { setCartConflictItem, addToCart, cart } = useApp();
+    
+    const currentStoreName = cart[0]?.storeName || 'another store';
+    const newStoreName = item.storeName || 'this store';
+
+    return (
+        <div className="fixed inset-0 z-[200] flex items-end justify-center sm:items-center p-4 sm:p-6 pointer-events-none">
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setCartConflictItem(null)}
+                className="absolute inset-0 bg-black/60 backdrop-blur-sm pointer-events-auto"
+            />
+            <motion.div
+                initial={{ y: '100%' }}
+                animate={{ y: 0 }}
+                exit={{ y: '100%' }}
+                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                className="relative w-full max-w-md bg-white dark:bg-[#1A1A1A] rounded-t-[2rem] sm:rounded-[2rem] overflow-hidden shadow-2xl pointer-events-auto border-t sm:border border-border/50"
+            >
+                <div className="p-6 sm:p-8">
+                    <div className="flex items-center gap-4 mb-6">
+                        <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center shrink-0">
+                            <ShoppingCart className="w-6 h-6 text-amber-500" />
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-black text-foreground leading-tight uppercase tracking-tight">Replace Cart?</h3>
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Store Conflict Detected</p>
+                        </div>
+                    </div>
+
+                    <div className="space-y-4 mb-8">
+                        <div className="p-4 rounded-2xl bg-secondary/30 border border-border/50">
+                            <p className="text-xs text-muted-foreground leading-relaxed">
+                                You already have items from <span className="font-black text-foreground">{currentStoreName}</span> in your cart.
+                            </p>
+                            <p className="text-xs text-muted-foreground leading-relaxed mt-2">
+                                Would you like to clear your cart and add items from <span className="font-black text-primary">{newStoreName}</span> instead?
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col gap-3">
+                        <button
+                            onClick={() => addToCart(item, true)}
+                            className="w-full py-4 rounded-xl bg-primary text-primary-foreground font-black text-xs uppercase tracking-widest hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/20"
+                        >
+                            Continue with {newStoreName}
+                        </button>
+                        <button
+                            onClick={() => setCartConflictItem(null)}
+                            className="w-full py-4 rounded-xl bg-secondary text-foreground font-black text-xs uppercase tracking-widest hover:bg-secondary/80 active:scale-95 transition-all"
+                        >
+                            Discard & Keep Current
+                        </button>
+                    </div>
+                </div>
+            </motion.div>
         </div>
     );
 };

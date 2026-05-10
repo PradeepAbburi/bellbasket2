@@ -2166,37 +2166,7 @@ const StoreDetail = () => {
         )}
       </AnimatePresence>
 
-      {/* Sticky Cart Bar — fixed directly above bottom nav */}
-      <AnimatePresence>
-        {storeCartCount > 0 && (
-          <motion.div
-            initial={{ y: 48 }}
-            animate={{ y: 0 }}
-            exit={{ y: 48 }}
-            transition={{ type: 'tween', duration: 0.2 }}
-            onClick={() => navigate('/cart')}
-            className="fixed bottom-[56px] left-0 right-0 z-[45] cursor-pointer bg-amber-400 dark:bg-amber-500 border-t border-amber-500/30 lg:hidden"
-          >
-            <div className="flex items-center justify-between px-4 py-2.5 max-w-lg mx-auto">
-              <div className="flex items-center gap-2.5">
-                <ShoppingCart className="w-[17px] h-[17px] text-black" />
-                <div className="flex flex-col">
-                  <span className="text-[13px] font-extrabold text-black leading-tight">
-                    {storeCartCount} {storeCartCount === 1 ? 'Item' : 'Items'} &middot; ₹{storeCartTotal.toFixed(0)}
-                  </span>
-                  <span className="text-[10px] font-semibold text-black/50 leading-tight truncate max-w-[180px]">
-                    {store?.name}
-                  </span>
-                </div>
-              </div>
-              <div className="flex items-center gap-1 text-black text-[12px] font-black uppercase tracking-wide">
-                View Cart
-                <ChevronRight className="w-4 h-4" />
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+
     </div>
   );
 };
