@@ -12,7 +12,8 @@
         "back": "मागे",
         "next": "पुढील",
         "finish": "समजले!",
-        "save": "बदल सेव्ह करा",
+        "save": "जतन करा",
+        "saved": "जतन केले",
         "cancel": "रद्द करा",
         "edit": "संपादन",
         "delete": "हटवा",
@@ -149,7 +150,10 @@
         "permission_denied_firestore": "परवानगी नाकारली: कृपया तुमचे फायरबेस फायरस्टोर नियम तपासा",
         "store_document_not_found": "स्टोअर दस्तऐवज सापडला नाही",
         "feedback_not_saved_retry": "तुमचा अभिप्राय सेव्ह झाला नाही. कृपया थोड्या वेळाने पुन्हा प्रयत्न करा.",
-        "verify_at_pickup": "पिकअपवर तपासा"
+        "verify_at_pickup": "पिकअपवर तपासा",
+        "upload": "अपलोड",
+        "camera": "कॅमेरा",
+        "ask": "विचारा"
     },
     "onboarding": {
         "customer": {

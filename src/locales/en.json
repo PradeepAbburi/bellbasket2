@@ -12,7 +12,8 @@
         "back": "Back",
         "next": "Next",
         "finish": "Got it!",
-        "save": "Save Changes",
+        "save": "Save",
+        "saved": "Saved",
         "save_success": "Changes saved successfully",
         "full_name": "Full Name",
         "your_name": "Your Name",
@@ -195,7 +196,10 @@
         "and": "and",
         "coming_soon": "Coming Soon!",
         "sending": "Sending...",
-        "clear": "Clear"
+        "clear": "Clear",
+        "upload": "Upload",
+        "camera": "Camera",
+        "ask": "Ask"
     },
     "onboarding": {
         "customer": {

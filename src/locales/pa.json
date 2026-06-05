@@ -12,7 +12,8 @@
         "back": "ਪਿੱਛੇ",
         "next": "ਅੱਗੇ",
         "finish": "ਸਮਝ ਗਿਆ!",
-        "save": "ਸੇਵ ਕਰੋ",
+        "save": "ਸੰਭਾਲੋ",
+        "saved": "ਸੰਭਾਲਿਆ",
         "cancel": "ਰੱਦ ਕਰੋ",
         "edit": "ਸੰਪਾਦਿਤ ਕਰੋ",
         "delete": "ਮਿਟਾਓ",
@@ -149,7 +150,10 @@
         "permission_denied_firestore": "ਇਜਾਜ਼ਤ ਨਹੀਂ ਦਿੱਤੀ ਗਈ: ਕਿਰਪਾ ਕਰਕੇ ਆਪਣੇ Firebase Firestore ਨਿਯਮਾਂ ਦੀ ਜਾਂਚ ਕਰੋ",
         "store_document_not_found": "ਸਟੋਰ ਦਸਤਾਵੇਜ਼ ਨਹੀਂ ਮਿਲਿਆ",
         "feedback_not_saved_retry": "ਤੁਹਾਡਾ ਫੀਡਬੈਕ ਸੇਵ ਨਹੀਂ ਹੋਇਆ। ਕਿਰਪਾ ਕਰਕੇ ਬਾਅਦ ਵਿੱਚ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",
-        "verify_at_pickup": "ਪਿਕਅੱਪ 'ਤੇ ਤਸਦੀਕ ਕਰੋ"
+        "verify_at_pickup": "ਪਿਕਅੱਪ 'ਤੇ ਤਸਦੀਕ ਕਰੋ",
+        "upload": "ਅਪਲੋਡ",
+        "camera": "ਕੈਮਰਾ",
+        "ask": "ਪੁੱਛੋ"
     },
     "onboarding": {
         "customer": {

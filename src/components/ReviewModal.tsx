@@ -26,6 +26,10 @@ const ReviewModal = ({ isOpen, onClose, reviews: allReviews = [], storeId, store
         return () => setIsAnyModalOpen(false);
     }, [isOpen, setIsAnyModalOpen]);
 
+    const safeReviews = useMemo(() => {
+        return Array.isArray(allReviews) ? allReviews : [];
+    }, [allReviews]);
+
     const [selectedStar, setSelectedStar] = useState<number | null>(null);
     const [showWriteReview, setShowWriteReview] = useState(false);
     
@@ -37,9 +41,8 @@ const ReviewModal = ({ isOpen, onClose, reviews: allReviews = [], storeId, store
     const [userAvatars, setUserAvatars] = useState<Record<string, string>>({});
 
     const reviews = useMemo(() => {
-        if (!allReviews) return [];
-        return allReviews.filter(r => r.comment && r.comment.trim() !== '');
-    }, [allReviews]);
+        return safeReviews.filter(r => r && r.comment && r.comment.trim() !== '');
+    }, [safeReviews]);
 
     // Fetch avatars for reviewers
     useEffect(() => {
@@ -76,19 +79,20 @@ const ReviewModal = ({ isOpen, onClose, reviews: allReviews = [], storeId, store
     }, [reviews]);
 
     const hasReviewed = useMemo(() => {
-        if (!user?.id || !allReviews) return false;
-        return Array.isArray(allReviews) && allReviews.some((r: any) => r.userId === user.id);
-    }, [user, allReviews]);
+        if (!user?.id) return false;
+        return safeReviews.some((r: any) => r && r.userId === user.id);
+    }, [user, safeReviews]);
 
     const stats = useMemo(() => {
         const counts = [0, 0, 0, 0, 0, 0];
-        allReviews.forEach(r => {
+        safeReviews.forEach(r => {
+            if (!r) return;
             const rTag = Math.round(Number(r.rating) || 0);
             if (rTag >= 1 && rTag <= 5) {
                 counts[rTag]++;
             }
         });
-        const total = allReviews.length || 1;
+        const total = safeReviews.length || 1;
         return {
             5: { count: counts[5], pct: (counts[5] / total) * 100 },
             4: { count: counts[4], pct: (counts[4] / total) * 100 },
@@ -96,18 +100,18 @@ const ReviewModal = ({ isOpen, onClose, reviews: allReviews = [], storeId, store
             2: { count: counts[2], pct: (counts[2] / total) * 100 },
             1: { count: counts[1], pct: (counts[1] / total) * 100 },
         };
-    }, [allReviews]);
+    }, [safeReviews]);
 
     const filteredReviews = useMemo(() => {
         if (selectedStar === null) return reviews;
-        return reviews.filter(r => Math.round(Number(r.rating) || 0) === selectedStar);
+        return reviews.filter(r => r && Math.round(Number(r.rating) || 0) === selectedStar);
     }, [reviews, selectedStar]);
 
     const averageRating = useMemo(() => {
-        if (!Array.isArray(allReviews) || allReviews.length === 0) return "0.0";
-        const sum = allReviews.reduce((acc, r) => acc + (Number(r.rating) || 0), 0);
-        return (sum / allReviews.length).toFixed(1);
-    }, [allReviews]);
+        if (safeReviews.length === 0) return "0.0";
+        const sum = safeReviews.reduce((acc, r) => acc + (r ? (Number(r.rating) || 0) : 0), 0);
+        return (sum / safeReviews.length).toFixed(1);
+    }, [safeReviews]);
 
     const handleReviewSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -156,7 +160,7 @@ const ReviewModal = ({ isOpen, onClose, reviews: allReviews = [], storeId, store
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         onClick={onClose}
-                        className="absolute inset-0 bg-background/80 backdrop-blur-sm"
+                        className="absolute inset-0 bg-background/80"
                     />
                     <motion.div
                         initial={{ scale: 0.9, opacity: 0, y: 20 }}
@@ -173,7 +177,7 @@ const ReviewModal = ({ isOpen, onClose, reviews: allReviews = [], storeId, store
                                         <Star className="w-4 h-4 fill-current" />
                                     </div>
                                     <span className="text-sm font-bold text-foreground">{averageRating}</span>
-                                    <span className="text-xs text-muted-foreground">• {allReviews.length} {t('common.reviews')}</span>
+                                    <span className="text-xs text-muted-foreground">• {safeReviews.length} {t('common.reviews')}</span>
                                 </div>
                             </div>
                             <button onClick={onClose} className="p-2 hover:bg-secondary rounded-full transition-colors">

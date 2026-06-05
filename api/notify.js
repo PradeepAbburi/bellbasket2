@@ -81,14 +81,7 @@ export default async function handler(req, res) {
     console.log(`🔍 [OneSignal] Scanning tokens for ${vendorId}: Found ${tokens.length} total, ${validOneSignalIds.length} valid UUIDs.`);
 
     if (validOneSignalIds.length === 0) {
-      console.log(`ℹ️ [OneSignal] No valid UUIDs found for user ${vendorId}. Skipping push. Found ${tokens.length} total raw tokens.`);
-      return res.status(200).json({ 
-        success: true, 
-        message: 'No valid OneSignal IDs for user (Zero UUIDs found)',
-        recipientCount: 0,
-        debugTokens: tokens.length,
-        skipped: true 
-      });
+      console.log(`ℹ️ [OneSignal] No subscription UUIDs found in Firestore for user ${vendorId}. Proceeding with external user ID targeting.`);
     }
 
   const appId = (process.env.ONESIGNAL_APP_ID || "").trim();
@@ -120,9 +113,6 @@ export default async function handler(req, res) {
 
     const notificationPayload = {
       app_id: appId,
-      // Target by both specific subscription IDs and the user's unique Firestore ID (External ID)
-      // This provides a robust fallback if the subscription ID has changed in the browser.
-      include_subscription_ids: validOneSignalIds,
       include_external_user_ids: [vendorId], 
       headings: { 
         en: title || (notificationType === 'booking' ? 'New Booking!' : 'New Order!') 
@@ -142,6 +132,10 @@ export default async function handler(req, res) {
       ios_sound: 'default',
       android_sound: 'default'
     };
+
+    if (validOneSignalIds.length > 0) {
+      notificationPayload.include_subscription_ids = validOneSignalIds;
+    }
 
     console.log(`🚀 [OneSignal] Posting notification to user ${vendorId} (${validOneSignalIds.length} IDs)`);
 

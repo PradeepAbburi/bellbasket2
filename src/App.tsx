@@ -46,16 +46,18 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode, name: s
 }
 
 // Lazy Loaded Pages
-const Index = lazy(() => import("./pages/Index"));
+import Index from "./pages/Index";
+import CustomerHome from "./pages/CustomerHome";
+import StoreDetail from "./pages/StoreDetail";
+import Cart from "./pages/Basket";
+import Receipts from "./pages/Receipts";
+import Profile from "./pages/Profile";
+
 const NotificationsPage = lazy(() => import("./pages/Notifications"));
 const ReceiptDetail = lazy(() => import("./pages/ReceiptDetail"));
 const About = lazy(() => import("./pages/About"));
 const Auth = lazy(() => import("./pages/Auth"));
-const CustomerHome = lazy(() => import("./pages/CustomerHome"));
-const StoreDetail = lazy(() => import("./pages/StoreDetail"));
-const Cart = lazy(() => import("./pages/Basket"));
-const Receipts = lazy(() => import("./pages/Receipts"));
-const Profile = lazy(() => import("./pages/Profile"));
+const StoreReviews = lazy(() => import("./pages/StoreReviews"));
 const VendorDashboard = lazy(() => import("./pages/VendorDashboard"));
 const VendorProducts = lazy(() => import("./pages/VendorProducts"));
 const VendorOrders = lazy(() => import("./pages/VendorOrders"));
@@ -96,10 +98,12 @@ const HrStaffPayments = lazy(() => import("./pages/hr/StaffPayments"));
 const StaffProfile = lazy(() => import("./pages/hr/StaffProfile"));
 const AdminPartnerPayments = lazy(() => import("./pages/AdminPartnerPayments"));
 const AdminPartnerBank = lazy(() => import("./pages/AdminPartnerBank"));
-const BottomNav = lazy(() => import("./components/BottomNav"));
+import BottomNav from "./components/BottomNav";
+import CustomerDeals from "./pages/CustomerDeals";
+import Ask from "./pages/Ask";
+
 const NotificationPrompt = lazy(() => import("./components/NotificationPrompt"));
 const VendorDeals = lazy(() => import("./pages/VendorDeals"));
-const CustomerDeals = lazy(() => import("./pages/CustomerDeals"));
 const BellNotes = lazy(() => import("./pages/BellNotes"));
 const VendorEditProduct = lazy(() => import("./pages/VendorEditProduct"));
 const FAQ = lazy(() => import("./pages/FAQ"));
@@ -216,7 +220,9 @@ const AppContent = () => {
 
             <Route path="/browse" element={<ErrorBoundary name="CustomerHome"><CustomerHome /></ErrorBoundary>} />
             <Route path="/store/:id" element={<ErrorBoundary name="StoreDetail"><StoreDetail /></ErrorBoundary>} />
+            <Route path="/store/:id/reviews" element={<ErrorBoundary name="StoreReviews"><StoreReviews /></ErrorBoundary>} />
             <Route path="/stores/:slug" element={<ErrorBoundary name="StoreDetail"><StoreDetail /></ErrorBoundary>} />
+            <Route path="/stores/:slug/reviews" element={<ErrorBoundary name="StoreReviews"><StoreReviews /></ErrorBoundary>} />
             <Route path="/cart" element={<ErrorBoundary name="Basket"><ProtectedRoute><Cart /></ProtectedRoute></ErrorBoundary>} />
             <Route path="/receipts" element={<ErrorBoundary name="Receipts"><ProtectedRoute><Receipts /></ProtectedRoute></ErrorBoundary>} />
             <Route path="/receipt/:id" element={<ErrorBoundary name="ReceiptDetail"><ReceiptDetail /></ErrorBoundary>} />
@@ -224,6 +230,7 @@ const AppContent = () => {
             <Route path="/notifications" element={<ErrorBoundary name="Notifications"><ProtectedRoute><NotificationsPage /></ProtectedRoute></ErrorBoundary>} />
             <Route path="/deals" element={<ErrorBoundary name="CustomerDeals"><CustomerDeals /></ErrorBoundary>} />
             <Route path="/saved-stores" element={<ErrorBoundary name="SavedStores"><ProtectedRoute><SavedStores /></ProtectedRoute></ErrorBoundary>} />
+            <Route path="/ask" element={<ErrorBoundary name="Ask"><ProtectedRoute><Ask /></ProtectedRoute></ErrorBoundary>} />
 
             <Route path="/vendor" element={<ErrorBoundary name="VendorDashboard"><VendorProtectedRoute><VendorDashboard /></VendorProtectedRoute></ErrorBoundary>} />
             <Route path="/vendor/products" element={<ErrorBoundary name="VendorProducts"><VendorProtectedRoute><VendorProducts /></VendorProtectedRoute></ErrorBoundary>} />
@@ -287,13 +294,14 @@ const App = () => {
   useEffect(() => {
     const handleInteraction = () => {
       initAudio();
+      // Remove listeners after first interaction to completely eliminate click overhead
+      window.removeEventListener('click', handleInteraction);
+      window.removeEventListener('touchstart', handleInteraction);
     };
     
-    window.addEventListener('click', handleInteraction);
-    window.addEventListener('touchstart', handleInteraction);
+    window.addEventListener('click', handleInteraction, { passive: true });
+    window.addEventListener('touchstart', handleInteraction, { passive: true });
 
-    // Initialize Native Push - Disabled for Web-Only
-    
     return () => {
       window.removeEventListener('click', handleInteraction);
       window.removeEventListener('touchstart', handleInteraction);

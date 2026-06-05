@@ -47,7 +47,7 @@ import ProductDetailModal from '@/components/ProductDetailModal';
 const CustomerDeals = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const { user, cart, addToCart, updateQuantity } = useApp();
+  const { user, cart, addToCart, updateQuantity, setIsAnyModalOpen } = useApp();
   const [deals, setDeals] = useState<Deal[]>([]);
   const [products, setProducts] = useState<Record<string, Product>>({});
   const [storesMap, setStoresMap] = useState<Record<string, Store>>({});
@@ -180,6 +180,12 @@ const CustomerDeals = () => {
     localStorage.setItem('user_deals_distance', maxDistance.toString());
   }, [maxDistance]);
 
+  // Sync global modal state to hide bottom nav
+  useEffect(() => {
+    setIsAnyModalOpen(!!(selectedProductForDetail || variantSelectorProduct));
+    return () => setIsAnyModalOpen(false);
+  }, [selectedProductForDetail, variantSelectorProduct, setIsAnyModalOpen]);
+
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
     const R = 6371;
     const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -283,18 +289,14 @@ const CustomerDeals = () => {
                 <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="relative h-40 lg:h-44 rounded-3xl overflow-hidden bg-gradient-to-br from-yellow-400 to-amber-600 p-6 flex flex-col justify-center gap-1.5 shadow-2xl shadow-yellow-500/10"
+                className="relative h-28 lg:h-32 rounded-3xl overflow-hidden bg-gradient-to-br from-yellow-400 to-amber-600 p-5 flex flex-col justify-center gap-1 shadow-2xl shadow-yellow-500/10"
                 >
-                <div className="absolute top-0 right-0 p-8 opacity-20 transform translate-x-1/4 -translate-y-1/4">
-                    <Zap className="w-48 h-48 lg:w-64 lg:h-64 text-black" />
+                <div className="absolute top-0 right-0 p-4 opacity-20 transform translate-x-1/4 -translate-y-1/4">
+                    <Zap className="w-32 h-32 lg:w-44 lg:h-44 text-black" />
                 </div>
                 
-                <div className="inline-flex items-center gap-2 bg-black/20 backdrop-blur-md rounded-full px-4 py-1.5 w-fit border border-white/10">
-                    <Sparkles className="w-3.5 h-3.5 text-white animate-pulse" />
-                    <span className="text-[10px] font-black uppercase tracking-widest text-white">Flash Sales Active</span>
-                </div>
-                <h1 className="text-3xl lg:text-4xl font-black tracking-tighter uppercase leading-none text-black">Limited <br />Time Deals</h1>
-                <p className="text-[12px] lg:text-sm text-black/70 font-medium max-w-xs">Grab your favorites at unbeatable prices before the timer runs out!</p>
+                <h1 className="text-2xl lg:text-3xl font-black tracking-tighter uppercase leading-none text-black">Limited Time Deals</h1>
+                <p className="text-[10px] lg:text-xs text-black/70 font-medium max-w-xs">Grab your favorites at unbeatable prices!</p>
                 </motion.div>
             </div>
             )}

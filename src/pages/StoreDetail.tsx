@@ -1,6 +1,6 @@
 import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Star, MapPin, Clock, Plus, Minus, Loader2, MessageSquare, Search, X, Tag, Phone, ChevronRight, ChevronLeft, Share2, Sparkles, Calendar, AlertCircle, ArrowUpDown, ChevronDown, XCircle, ImageIcon, PackageSearch, Heart, Zap, PackageX, Globe, ShoppingCart } from 'lucide-react';
+import { ArrowLeft, Star, MapPin, Clock, Plus, Minus, Loader2, MessageSquare, Search, X, Tag, Phone, ChevronRight, ChevronLeft, Share2, Sparkles, Calendar, AlertCircle, ArrowUpDown, ChevronDown, XCircle, ImageIcon, PackageSearch, Heart, Zap, PackageX, Globe, ShoppingCart, Instagram, Download } from 'lucide-react';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -15,9 +15,10 @@ import SortOptions from '@/components/SortOptions';
 import Loader from '@/components/ui/loader-animation';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
 import QRCodeWithLogo from '@/components/ui/qr-code-with-logo';
 import Header from '@/components/Header';
-import ReviewModal from '@/components/ReviewModal';
+import { getCurrencySymbol } from '@/utils/currency';
 import { useApp } from '@/context/AppContext';
 import { toast } from 'sonner';
 import { db } from '@/lib/firebase';
@@ -90,9 +91,17 @@ const StoreDetail = () => {
     const targetId = (location.state?.store?.id) || stores.find(s => s.id === id || (slug && s.slug === slug))?.id || id;
     const hasStore = !!(location.state?.store || stores.find(s => s.id === id || (slug && s.slug === slug)));
     const hasProducts = allProducts.some(p => p.vendorId === targetId);
-    return !(hasStore && hasProducts);
+    return !hasStore || !hasProducts;
   });
-  const [showReviews, setShowReviews] = useState(false);
+
+  const navigateToReviews = () => {
+    if (!store) return;
+    if (store.slug) {
+      navigate(`/stores/${store.slug}/reviews`);
+    } else {
+      navigate(`/store/${store.id}/reviews`);
+    }
+  };
   const [searchTerm, setSearchTerm] = useState(searchQueryFromUrl || '');
   const [isSearching, setIsSearching] = useState(false);
   const [activeSearch, setActiveSearch] = useState(searchQueryFromUrl || '');
@@ -115,6 +124,10 @@ const StoreDetail = () => {
   const [showBookingDiscardConfirm, setShowBookingDiscardConfirm] = useState(false);
   const [activeDeals, setActiveDeals] = useState<any[]>([]);
   const { requestProduct } = useApp();
+
+  const currencySymbol = useMemo(() => {
+    return getCurrencySymbol(store?.country, store?.address);
+  }, [store?.country, store?.address]);
 
   // Cart banner: compute store-specific item count & total
   const storeCartItems = useMemo(() => cart.filter(c => c.storeId === store?.id), [cart, store?.id]);
@@ -386,7 +399,6 @@ const StoreDetail = () => {
   useEffect(() => {
     const isModalOpen = !!(
       bookingService || 
-      showReviews || 
       showShareModal || 
       showCallModal || 
       showRequestModal || 
@@ -396,10 +408,40 @@ const StoreDetail = () => {
     
     setIsAnyModalOpen(isModalOpen);
     return () => setIsAnyModalOpen(false);
-  }, [bookingService, showReviews, showShareModal, showCallModal, showRequestModal, selectedProduct, variantSelectorProduct, setIsAnyModalOpen]);
+  }, [bookingService, showShareModal, showCallModal, showRequestModal, selectedProduct, variantSelectorProduct, setIsAnyModalOpen]);
+
+  const isLocalModalOpen = !!(
+    bookingService || 
+    showShareModal || 
+    showCallModal || 
+    showRequestModal || 
+    selectedProduct || 
+    variantSelectorProduct
+  );
 
   const storeUrl = window.location.href;
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(storeUrl)}`;
+
+  const shareStore = async (platform: 'general') => {
+    const text = `🛍️ *${store.name}* on BellBasket\n\n${store.description || 'Quality local products available for quick pickup.'}\n\nBellBasket - Your Local Marketplace`;
+    
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: store.name,
+          text: text,
+          url: storeUrl
+        });
+      } else {
+        navigator.clipboard.writeText(storeUrl);
+        toast.success("Link copied to clipboard!");
+      }
+    } catch (error) {
+      console.warn("Share failed:", error);
+    }
+  };
+
+
 
   // Generate next 14 days for date selection
   const bookingDates = useMemo(() => {
@@ -690,36 +732,38 @@ const StoreDetail = () => {
                   <p className="text-sm text-muted-foreground font-medium">{t('store.scan_to_visit')} {store.name}</p>
                 </div>
 
-                <div className="bg-gradient-to-br from-primary/5 to-secondary/5 p-8 rounded-2xl border border-primary/10 flex flex-col items-center justify-center gap-4">
+                <div className="bg-gradient-to-br from-primary/5 to-secondary/5 p-6 rounded-3xl border border-primary/10 flex flex-col items-center justify-center gap-4 relative group">
                   <QRCodeWithLogo value={storeUrl} size={180} logoSize={40} />
-                  <div className="flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary rounded-full text-xs font-black uppercase tracking-widest">
-                    <Sparkles className="w-3.5 h-3.5" />
-                    {t('store.permanent_qr')}
+                  
+                  {/* Hidden Canvas for Download */}
+                  <div className="hidden">
+                    <QRCodeCanvas
+                      id="hidden-qr-canvas"
+                      value={storeUrl}
+                      size={1000}
+                      level="H"
+                      includeMargin={false}
+                    />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="flex gap-3 mt-4">
+                  <button
+                    onClick={() => shareStore('general')}
+                    className="flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl bg-primary text-white font-black text-sm transition-all hover:bg-primary/90 active:scale-95 group shadow-lg shadow-primary/20"
+                  >
+                    <Share2 className="w-4 h-4" /> 
+                    {t('common.share')}
+                  </button>
+
                   <button
                     onClick={() => {
                       navigator.clipboard.writeText(storeUrl);
                       toast.success("Link copied!");
                     }}
-                    className="flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-secondary hover:bg-secondary/80 text-foreground font-bold text-sm transition-all border border-border/40"
+                    className="flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl bg-secondary hover:bg-secondary/80 text-foreground font-bold text-sm transition-all border border-border/40"
                   >
                     {t('store.copy_link')}
-                  </button>
-                  <button
-                    className="flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-primary text-white font-bold text-sm transition-all shadow-md shadow-primary/20"
-                    onClick={() => {
-                      if (navigator.share) {
-                        navigator.share({
-                          title: store.name,
-                          url: storeUrl
-                        });
-                      }
-                    }}
-                  >
-                    <Share2 className="w-4 h-4" /> {t('store.share_directly')}
                   </button>
                 </div>
               </div>
@@ -727,7 +771,7 @@ const StoreDetail = () => {
           </motion.div>
         )}
       </AnimatePresence>
-      <div className="pt-20 pb-32 lg:pb-8 px-4 max-w-6xl mx-auto">
+      <div className={`pt-20 pb-32 lg:pb-8 px-4 max-w-6xl mx-auto transition-all duration-500 ${isLocalModalOpen ? 'blur-md opacity-40 scale-[0.98] pointer-events-none' : ''}`}>
         {/* Back */}
         <button
           onClick={() => {
@@ -735,7 +779,7 @@ const StoreDetail = () => {
               setSearchTerm('');
               setActiveSearch('');
             } else {
-              navigate(-1);
+              navigate('/browse');
             }
           }}
           className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors"
@@ -802,7 +846,7 @@ const StoreDetail = () => {
               <div className="grid grid-cols-2 md:flex items-center gap-x-6 gap-y-4 md:gap-8 w-full md:w-auto">
                 {Array.isArray(store.reviews) && store.reviews.length > 0 ? (
                   <div 
-                    onClick={() => setShowReviews(true)}
+                    onClick={navigateToReviews}
                     className="flex flex-col items-start md:items-center bg-secondary/30 px-4 py-2 rounded-xl cursor-pointer hover:bg-secondary/50 transition-colors"
                   >
                     <div className="flex items-center gap-1.5 text-primary">
@@ -815,7 +859,7 @@ const StoreDetail = () => {
                   </div>
                 ) : (
                   <div 
-                    onClick={() => setShowReviews(true)}
+                    onClick={navigateToReviews}
                     className="flex flex-col items-start md:items-center bg-secondary/30 px-4 py-2 rounded-xl cursor-pointer hover:bg-secondary/50 transition-colors"
                   >
                     <div className="flex items-center gap-1.5 text-primary">
@@ -859,7 +903,7 @@ const StoreDetail = () => {
 
               <div className="flex flex-row gap-2 sm:gap-3 w-full md:w-auto mt-2 md:mt-0">
                 <button
-                  onClick={() => setShowReviews(true)}
+                  onClick={navigateToReviews}
                   className="flex-1 md:flex-none flex items-center justify-center gap-2 px-3 md:px-6 py-3 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-white font-bold transition-all relative border border-primary/20 shadow-sm min-w-0"
                 >
                   <MessageSquare className="w-4 h-4 shrink-0" />
@@ -921,13 +965,7 @@ const StoreDetail = () => {
 
 
 
-        <ReviewModal
-          isOpen={showReviews}
-          onClose={() => setShowReviews(false)}
-          reviews={store.reviews || []}
-          storeId={store.id}
-          storeName={store.name}
-        />
+
 
         {/* Closed Store Banner */}
         {!store.isOpen && !activeSearch && !isSearching && (
@@ -1131,7 +1169,7 @@ const StoreDetail = () => {
                       key={category}
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: ci * 0.1 }}
+                      transition={{ delay: ci * 0.005 }}
                       className="space-y-4"
                     >
                       <div className="flex items-center gap-4 px-0">
@@ -1197,7 +1235,7 @@ const StoreDetail = () => {
                                 id={`product-${product.id}`}
                                 initial={{ opacity: 0, y: 16 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: pi * 0.04 }}
+                                transition={{ delay: pi * 0.002 }}
                                 whileHover={{ y: -4, scale: 1.02 }}
                                 onClick={() => setSelectedProduct(product)}
                                 className={`w-[130px] sm:w-[168px] md:w-[190px] shrink-0 snap-start cursor-pointer bg-white dark:bg-[#202020] rounded-2xl border shadow-sm hover:shadow-xl transition-all duration-300 group flex flex-col overflow-hidden relative ${highlightedProductId === product.id
@@ -1251,10 +1289,10 @@ const StoreDetail = () => {
                                   )}
                                   <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent" />
                                   {!product.inStock && (
-                                    <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] z-20 flex items-center justify-center pointer-events-none">
-                                      <div className="bg-red-600/80 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-white/20 shadow-2xl flex items-center gap-2 animate-in fade-in zoom-in duration-300">
-                                        <PackageX className="w-3.5 h-3.5 text-white" />
-                                        <span className="text-[10px] font-black text-white uppercase tracking-widest leading-none">{t('common.out_of_stock')}</span>
+                                    <div className="absolute inset-0 bg-black/60 backdrop-blur-[4px] z-20 flex items-center justify-center pointer-events-none">
+                                      <div className="flex flex-col items-center gap-3 animate-in fade-in zoom-in duration-300">
+                                        <PackageX className="w-8 h-8 text-white/90" strokeWidth={1.5} />
+                                        <span className="text-[10px] font-black text-white uppercase tracking-[0.2em] text-center drop-shadow-md">{t('common.out_of_stock')}</span>
                                       </div>
                                     </div>
                                   )}
@@ -1292,11 +1330,11 @@ const StoreDetail = () => {
                                   <div className="mt-auto pt-2">
                                     <div className="flex items-baseline gap-1.5 mb-2">
                                       <span className="text-[14px] md:text-[15px] font-black text-foreground leading-none">
-                                        ₹{discountedPrice}
+                                        {currencySymbol}{discountedPrice}
                                       </span>
                                       {hasDiscount && (
                                          <span className="text-[9px] md:text-[10px] text-muted-foreground line-through decoration-2">
-                                           ₹{variantInCart ? variantInCart.price : product.price}
+                                           {currencySymbol}{variantInCart ? variantInCart.price : product.price}
                                          </span>
                                       )}
                                     </div>
@@ -1437,29 +1475,6 @@ const StoreDetail = () => {
                   <X className="w-5 h-5" strokeWidth={3} />
                 </button>
 
-                {/* Navigation Buttons for Combo */}
-                {p.isCombo && comboItems.length > 0 && (
-                  <>
-                    <button 
-                      onClick={() => setActiveComboItemIndex(prev => prev > -1 ? prev - 1 : comboItems.length - 1)}
-                      className="absolute left-2 top-[35%] -translate-y-1/2 z-[60] w-10 h-10 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white hover:bg-black/60 active:scale-90 transition-all border border-white/10"
-                    >
-                      <ChevronLeft className="w-6 h-6" />
-                    </button>
-                    <button 
-                      onClick={() => setActiveComboItemIndex(prev => prev < comboItems.length - 1 ? prev + 1 : -1)}
-                      className="absolute right-2 top-[35%] -translate-y-1/2 z-[60] w-10 h-10 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white hover:bg-black/60 active:scale-90 transition-all border border-white/10"
-                    >
-                      <ChevronRight className="w-6 h-6" />
-                    </button>
-                    
-                    {/* Position Indicator */}
-                    <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[60] bg-black/50 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 text-white text-[10px] font-black uppercase tracking-widest">
-                       {activeComboItemIndex === -1 ? 'Main Combo' : `Item ${activeComboItemIndex + 1} of ${comboItems.length}`}
-                    </div>
-                  </>
-                )}
-
                 {/* Image Gallery */}
                 <div className="relative h-56 sm:h-64 w-full bg-slate-100 dark:bg-slate-800 overflow-hidden group/gallery">
                   <div 
@@ -1527,8 +1542,29 @@ const StoreDetail = () => {
                   </div>
 
                   {/* Side Navigation Buttons */}
-                  {(() => {
-                    const imagesCount = [currentDisplayProduct.image, currentDisplayProduct.image2].filter(Boolean).length + (activeComboItemIndex === -1 && p.isCombo ? 1 : 0);
+                  {p.isCombo && comboItems.length > 0 ? (
+                    <>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveComboItemIndex(prev => prev > -1 ? prev - 1 : comboItems.length - 1);
+                        }}
+                        className="absolute left-2 top-1/2 -translate-y-1/2 z-30 w-9 h-9 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white hover:bg-black/60 active:scale-90 transition-all border border-white/10"
+                      >
+                        <ChevronLeft className="w-5 h-5" />
+                      </button>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveComboItemIndex(prev => prev < comboItems.length - 1 ? prev + 1 : -1);
+                        }}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 z-30 w-9 h-9 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white hover:bg-black/60 active:scale-90 transition-all border border-white/10"
+                      >
+                        <ChevronRight className="w-5 h-5" />
+                      </button>
+                    </>
+                  ) : (() => {
+                    const imagesCount = [currentDisplayProduct.image, currentDisplayProduct.image2].filter(Boolean).length;
                     if (imagesCount <= 1) return null;
                     
                     return (
@@ -1589,10 +1625,10 @@ const StoreDetail = () => {
                     </div>
                   )}
                   {!currentDisplayProduct.inStock && (
-                    <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] z-40 flex items-center justify-center pointer-events-none">
-                      <div className="bg-red-600/80 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-white/20 shadow-2xl flex items-center gap-2.5 animate-in fade-in zoom-in duration-300">
-                        <PackageX className="w-4 h-4 text-white" />
-                        <span className="text-[12px] font-black text-white uppercase tracking-widest leading-none">{t('common.out_of_stock')}</span>
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-[6px] z-40 flex items-center justify-center pointer-events-none">
+                      <div className="flex flex-col items-center gap-4 animate-in fade-in zoom-in duration-300">
+                        <PackageX className="w-12 h-12 text-white/90" strokeWidth={1} />
+                        <span className="text-[14px] font-black text-white uppercase tracking-[0.3em] text-center drop-shadow-lg">{t('common.out_of_stock')}</span>
                       </div>
                     </div>
                   )}
@@ -1633,8 +1669,8 @@ const StoreDetail = () => {
                               <div className="flex flex-col gap-0.5">
                                 <span className="text-[10px] font-black text-muted-foreground uppercase tracking-wider">{v.quantity}</span>
                                 <div className="flex items-baseline gap-1.5">
-                                  <span className="text-sm font-black text-foreground">₹{vPrice}</span>
-                                  {hasVDisc && <span className="text-[10px] text-muted-foreground line-through font-bold">₹{v.price}</span>}
+                                  <span className="text-sm font-black text-foreground">{currencySymbol}{vPrice}</span>
+                                  {hasVDisc && <span className="text-[10px] text-muted-foreground line-through font-bold">{currencySymbol}{v.price}</span>}
                                 </div>
                               </div>
                               
@@ -1681,9 +1717,9 @@ const StoreDetail = () => {
                   {!currentDisplayProduct.hasVariants && (
                     <div className="flex items-center justify-between mt-2">
                     <div>
-                      <span className="text-2xl font-black text-foreground">₹{finalPrice}</span>
+                      <span className="text-2xl font-black text-foreground">{currencySymbol}{finalPrice}</span>
                       {hasDisc && (
-                        <span className="text-sm text-muted-foreground line-through ml-2">₹{currentDisplayProduct.price}</span>
+                        <span className="text-sm text-muted-foreground line-through ml-2">{currencySymbol}{currentDisplayProduct.price}</span>
                       )}
                       <p className="text-[10px] text-muted-foreground/60 font-medium mt-0.5">
                         {activeComboItemIndex === -1 ? 'Bundle Price' : 'Individual Item Info'}
@@ -2165,6 +2201,7 @@ const StoreDetail = () => {
           />
         )}
       </AnimatePresence>
+
 
 
     </div>

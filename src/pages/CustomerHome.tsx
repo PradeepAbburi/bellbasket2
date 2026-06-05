@@ -28,16 +28,17 @@ import { Helmet } from 'react-helmet';
 import VariantSelector from '@/components/VariantSelector';
 import { useTranslation } from 'react-i18next';
 import { smartSearchProducts, searchProductsOnServer } from '../utils/search';
+import { getCurrencySymbol } from '@/utils/currency';
 
 const LOCATION_PRESETS = [
-  { name: 'Connaught Place', lat: 28.6139, lng: 77.2090 },
-  { name: 'Karol Bagh', lat: 28.6514, lng: 77.1907 },
-  { name: 'Lajpat Nagar', lat: 28.5700, lng: 77.2373 },
-  { name: 'Rajouri Garden', lat: 28.6492, lng: 77.1219 },
-  { name: 'Saket', lat: 28.5244, lng: 77.2066 },
-  { name: 'Dwarka', lat: 28.5921, lng: 77.0460 },
-  { name: 'Rohini', lat: 28.7495, lng: 77.0565 },
-  { name: 'Vasant Kunj', lat: 28.5195, lng: 77.1570 },
+  { name: 'Kakinada', lat: 16.9891, lng: 82.2475 },
+  { name: 'Rajahmundry', lat: 17.0005, lng: 81.8040 },
+  { name: 'Samalkot', lat: 17.0563, lng: 82.1766 },
+  { name: 'Peddapuram', lat: 17.0768, lng: 82.1342 },
+  { name: 'Amalapuram', lat: 16.5790, lng: 82.0070 },
+  { name: 'Tuni', lat: 17.1580, lng: 82.5470 },
+  { name: 'Ramachandrapuram', lat: 16.8363, lng: 82.0274 },
+  { name: 'Mandapeta', lat: 16.8628, lng: 81.9286 },
 ];
 
 function getDistanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -149,6 +150,8 @@ const ProductCard = memo(({ p, count, onAdd, onUpdate, onRemove, onClick, t, mod
     : (lowestVariantPrice || (hasDiscount ? Number(p.discountedPrice) : p.price));
   const discountPercent = hasDiscount ? Math.round((( (selectedVariant ? selectedVariant.price : p.price) - (selectedVariant ? (selectedVariant.discountedPrice || selectedVariant.price) : (hasDiscount ? Number(p.discountedPrice) : p.price))) / (selectedVariant ? selectedVariant.price : p.price)) * 100) : 0;
 
+  const currencySymbol = getCurrencySymbol(p.country || (p as any).storeData?.country, (p as any).address || (p as any).storeData?.address);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -198,8 +201,8 @@ const ProductCard = memo(({ p, count, onAdd, onUpdate, onRemove, onClick, t, mod
         <h4 className="text-[12px] md:text-[13px] font-bold text-foreground line-clamp-2 leading-snug min-h-[2.5em] group-hover/product:text-primary transition-colors">{p.name}</h4>
         <div className="flex items-center justify-between">
           <div className="flex items-baseline gap-1.5">
-            <span className="text-[13px] md:text-sm font-black text-foreground">₹{discountedPrice}</span>
-            {hasDiscount && <span className="text-[8px] md:text-[9px] text-muted-foreground line-through opacity-50 font-medium">₹{selectedVariant ? selectedVariant.price : p.price}</span>}
+            <span className="text-[13px] md:text-sm font-black text-foreground">{currencySymbol}{discountedPrice}</span>
+            {hasDiscount && <span className="text-[8px] md:text-[9px] text-muted-foreground line-through opacity-50 font-medium">{currencySymbol}{selectedVariant ? selectedVariant.price : p.price}</span>}
           </div>
         </div>
         
@@ -270,9 +273,9 @@ const CustomerHome = () => {
 
   const [search, setSearch] = useState('');
   const [isSearchingLocation, setIsSearchingLocation] = useState(false);
-  const [userLat, setUserLat] = useState<number>(() => Number(localStorage.getItem('user_lat')) || 28.6139);
-  const [userLng, setUserLng] = useState<number>(() => Number(localStorage.getItem('user_lng')) || 77.2090);
-  const [locationName, setLocationName] = useState(() => localStorage.getItem('user_location_name') || 'Connaught Place');
+  const [userLat, setUserLat] = useState<number>(() => Number(localStorage.getItem('user_lat')) || 16.9891);
+  const [userLng, setUserLng] = useState<number>(() => Number(localStorage.getItem('user_lng')) || 82.2475);
+  const [locationName, setLocationName] = useState(() => localStorage.getItem('user_location_name') || 'Kakinada');
   const [userMandal, setUserMandal] = useState(() => localStorage.getItem('user_mandal') || '');
   const [userDistrict, setUserDistrict] = useState(() => localStorage.getItem('user_district') || '');
   const [userState, setUserState] = useState(() => localStorage.getItem('user_state') || '');
@@ -564,9 +567,9 @@ const CustomerHome = () => {
         toast.error(msg);
 
         if (!locationName) {
-          setUserLat(28.6139);
-          setUserLng(77.2090);
-          setLocationName('Connaught Place');
+          setUserLat(16.9891);
+          setUserLng(82.2475);
+          setLocationName('Kakinada');
         }
       },
       {
@@ -962,11 +965,41 @@ const CustomerHome = () => {
   return (
     <div className="min-h-screen gradient-warm">
       <Helmet>
-        <title>BellBasket - Top Local Commerce Platform for Neighborhood Stores & Shops</title>
-        <meta name="description" content="BellBasket is India's top local commerce platform for neighborhood stores. Shop fresh groceries, daily essentials, and local services from neighborhood stores, near shops, and local marketplaces." />
-        <meta name="keywords" content="neighborhood stores, neighborhood shops, near stores, near shops, neighbourhood marketplaces, local shopping India, grocery delivery, buy local fresh vegetables, Kirana store online delivery, daily essentials home delivery, BellBasket app" />
-        <meta property="og:title" content="BellBasket | Neighborhood Stores & Shops Near You" />
-        <meta property="og:description" content="Support your neighborhood stores and find near shops. Pick It. Grab It. Fresh produce and daily needs delivered from local vendors." />
+        <title>{
+          activeSearch 
+            ? `Search for "${activeSearch}" near ${locationName || 'me'} | BellBasket Hyper-local Marketplace`
+            : selectedCategory
+              ? `Best ${selectedCategory} Stores & Services near ${locationName || 'me'} | BellBasket`
+              : `BellBasket - Hyper-Local Digital Marketplace in ${locationName || 'India'}`
+        }</title>
+        <meta name="description" content={
+          selectedCategory
+            ? `Discover and order from the top-rated ${selectedCategory} stores and neighborhood shops in ${locationName || 'your area'}. Enjoy ultra-fast local pickup and support community entrepreneurs on BellBasket.`
+            : activeSearch
+              ? `Find verified local businesses matching "${activeSearch}" near ${locationName || 'your location'}. Compare ratings, check inventory, and order or book services instantly on BellBasket.`
+              : `BellBasket is India's leading hyper-local digital marketplace. Browse verified neighborhood stores, grocery shops, kiranas, pharmacies, AC repair technicians, electricians, and salons near ${locationName || 'you'} within a strict 15km hyperlocal boundary.`
+        } />
+        <meta name="keywords" content={
+          selectedCategory
+            ? `${selectedCategory} near me, ${selectedCategory} shops ${locationName || 'me'}, neighborhood ${selectedCategory}, buy ${selectedCategory} online, hyperlocal marketplace`
+            : activeSearch
+              ? `${activeSearch} near me, local ${activeSearch}, verified ${activeSearch} service ${locationName || 'me'}, search ${activeSearch} shops`
+              : `hyperlocal marketplace, neighborhood stores, neighborhood shops, near stores, near shops, local digital marketplace, grocery delivery Bharat, kirana store online, AC repair near me, salon near me, local home services`
+        } />
+        <meta property="og:title" content={
+          activeSearch 
+            ? `Search for "${activeSearch}" near ${locationName || 'me'} | BellBasket`
+            : selectedCategory
+              ? `Best ${selectedCategory} Stores & Services near ${locationName || 'me'} | BellBasket`
+              : `BellBasket - Hyper-Local Digital Marketplace in ${locationName || 'India'}`
+        } />
+        <meta property="og:description" content={
+          selectedCategory
+            ? `Support neighborhood ${selectedCategory} shops. Compare ratings and prices near you on India's top hyperlocal marketplace.`
+            : activeSearch
+              ? `Find verified local options for ${activeSearch} near your neighborhood on BellBasket.`
+              : `Shop from your favorite neighborhood stores on India's leading hyper-local digital marketplace.`
+        } />
         <meta property="og:url" content="https://bellbasket.com/browse" />
         <meta property="og:type" content="website" />
         <link rel="canonical" href="https://bellbasket.com/browse" />
@@ -974,7 +1007,7 @@ const CustomerHome = () => {
           {JSON.stringify({
             "@context": "https://schema.org",
             "@type": "ItemList",
-            "name": "Stores near me on BellBasket",
+            "name": `Stores near me in ${locationName || 'my area'} on BellBasket`,
             "description": `Discover and shop from the best local stores in ${locationName || 'your area'}.`,
             "itemListElement": filteredStores.slice(0, 15).map((s, i) => ({
               "@type": "ListItem",
@@ -1322,13 +1355,13 @@ const CustomerHome = () => {
                       <div className="flex bg-secondary/80 backdrop-blur-sm p-1 rounded-xl items-center gap-1 border border-border shadow-inner w-fit shrink-0">
                         <button
                           onClick={() => handleModeChange('product')}
-                          className={`px-3 md:px-4 py-1.5 rounded-lg text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${activeMode === 'product' ? 'bg-primary text-white shadow-md scale-105' : 'text-muted-foreground hover:text-foreground'}`}
+                          className={`px-3 md:px-4 py-1.5 rounded-lg text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${activeMode === 'product' ? 'bg-primary text-black shadow-md scale-105' : 'text-muted-foreground hover:text-foreground'}`}
                         >
                           Products
                         </button>
                         <button
                           onClick={() => handleModeChange('service')}
-                          className={`px-3 md:px-4 py-1.5 rounded-lg text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${activeMode === 'service' ? 'bg-primary text-white shadow-md scale-105' : 'text-muted-foreground hover:text-foreground'}`}
+                          className={`px-3 md:px-4 py-1.5 rounded-lg text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${activeMode === 'service' ? 'bg-primary text-black shadow-md scale-105' : 'text-muted-foreground hover:text-foreground'}`}
                         >
                           Services
                         </button>
@@ -1396,7 +1429,7 @@ const CustomerHome = () => {
                                     key={cat?.name}
                                     initial={{ opacity: 0, scale: 0.9 }}
                                     animate={{ opacity: 1, scale: 1 }}
-                                    transition={{ delay: idx * 0.01 }}
+                                    transition={{ delay: idx * 0.001 }}
                                     whileTap={{ scale: 0.95 }}
                                     onClick={() => setSelectedCategory(selectedCategory === cat?.name ? null : cat?.name)}
                                     className="flex flex-col items-center gap-2 group transition-all"
@@ -1489,7 +1522,7 @@ const CustomerHome = () => {
                                     key={cat?.name}
                                     initial={{ opacity: 0, scale: 0.9 }}
                                     animate={{ opacity: 1, scale: 1 }}
-                                    transition={{ delay: idx * 0.02 }}
+                                    transition={{ delay: idx * 0.002 }}
                                     whileTap={{ scale: 0.95 }}
                                     onClick={() => setSelectedCategory(selectedCategory === cat?.name ? null : cat?.name)}
                                     className="flex flex-col items-center gap-2 group transition-all"
@@ -1574,7 +1607,7 @@ const CustomerHome = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
               <div className="space-y-1.5 min-w-0">
                 <h1 className="text-lg md:text-xl font-black text-foreground truncate tracking-tight">
-                  {selectedStoreId ? 'Selected Store' : (activeSearch || selectedCategory ? (activeSearch ? `"${activeSearch}"` : t(`categories.${selectedCategory}`, { defaultValue: selectedCategory })) : (locationName.split(',')[0].length > 2 && locationName !== 'Connaught Place' ? `Stores in ${locationName.split(',')[0]}` : 'Hyperlocal Shops'))}
+                  {selectedStoreId ? 'Selected Store' : (activeSearch || selectedCategory ? (activeSearch ? `"${activeSearch}"` : t(`categories.${selectedCategory}`, { defaultValue: selectedCategory })) : (locationName.split(',')[0].length > 2 && locationName !== 'Kakinada' ? `Stores in ${locationName.split(',')[0]}` : 'Hyperlocal Shops'))}
                 </h1>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-[10px] font-bold text-primary bg-primary/5 px-2 py-0.5 rounded-full border border-primary/10">

@@ -135,7 +135,9 @@ const VendorOrders = () => {
         if (order.userId) {
           const statusMessages: Record<string, string> = {
             accepted: `✅ Your ${order.deliveryMethod === 'delivery' ? 'delivery ' : ''}order from ${order.storeName} has been accepted!`,
-            packed: `📦 Your order from ${order.storeName} has been packed!`,
+            packed: order.deliveryMethod === 'pickup'
+              ? `📦 Your order from ${order.storeName} is ready for pickup!`
+              : `📦 Your order from ${order.storeName} has been packed!`,
             out_for_delivery: `🚚 Your order from ${order.storeName} is out for delivery!`,
             ready: `🔔 Your order from ${order.storeName} is ready for pickup!`,
             completed: `🎉 Your order from ${order.storeName} has been ${order.deliveryMethod === 'delivery' ? 'delivered' : 'completed'}!`,

@@ -89,39 +89,36 @@ const Index = () => {
       </Helmet>
 
       {/* Hero */}
-      <section className="relative min-h-screen flex items-center overflow-hidden">
-        <div className="absolute inset-0">
+      <section className="relative min-h-screen flex items-center overflow-hidden bg-black">
+        <div className="absolute inset-0 bg-black">
           {/* @ts-expect-error React 18 types don't support fetchpriority lowercase, but DOM requires it */}
-          <img src={heroBg} alt="Bustling Indian neighborhood market storefront with fresh groceries" fetchpriority="high" loading="eager" className="w-full h-full object-cover opacity-60 object-center" />
-          <div className="absolute inset-0 bg-gradient-to-b from-background/20 via-background/40 to-background/95" />
+          <img src={heroBg} alt="Bustling Indian neighborhood market storefront with fresh groceries" fetchpriority="high" loading="eager" className="w-full h-full object-cover opacity-40 object-center" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/40 to-background" />
         </div>
 
         {/* Landing Header */}
         <div className="absolute top-0 left-0 right-0 z-50 p-6">
           <div className="max-w-6xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-2 glass px-4 py-2 rounded-full border border-white/20">
-              <span className="text-xl font-black text-foreground tracking-tighter">BellBasket</span>
+              <span className="text-xl font-black text-white tracking-tighter">BellBasket</span>
             </div>
             <div className="flex items-center gap-2 sm:gap-3">
 
 
               {/* Desktop Menu */}
               <div className="hidden md:flex items-center gap-3">
-                <Link to="/about" className="text-sm font-bold text-foreground/80 hover:text-foreground transition-colors glass px-4 py-2 rounded-full border border-white/20">
+                <Link to="/about" className="text-sm font-bold text-white/90 hover:text-white transition-colors glass px-4 py-2 rounded-full border border-white/20">
                   About
-                </Link>
-                <Link to="/careers" className="text-sm font-bold text-foreground/80 hover:text-foreground transition-colors glass px-4 py-2 rounded-full border border-white/20">
-                  Careers
                 </Link>
                 {user ? (
                   <Link 
                     to={user.role === 'vendor' ? '/vendor' : '/browse'} 
-                    className="text-sm font-bold text-primary-foreground transition-colors gradient-primary px-4 py-2 rounded-full shadow-sm hover:opacity-90"
+                    className="text-sm font-bold text-black transition-colors bg-primary px-4 py-2 rounded-full hover:opacity-90"
                   >
                     Go to App
                   </Link>
                 ) : (
-                  <Link to="/auth" className="text-sm font-bold text-foreground/80 hover:text-foreground transition-colors glass px-4 py-2 rounded-full border border-white/20">
+                  <Link to="/auth" className="text-sm font-bold text-white/90 hover:text-white transition-colors glass px-4 py-2 rounded-full border border-white/20">
                     Sign In
                   </Link>
                 )}
@@ -130,7 +127,7 @@ const Index = () => {
               {/* Mobile Menu Toggle */}
               <button 
                 onClick={() => setMenuOpen(!menuOpen)}
-                className="md:hidden w-10 h-10 flex items-center justify-center rounded-xl glass border border-white/20 text-foreground active:scale-95 transition-all"
+                className="md:hidden w-10 h-10 flex items-center justify-center rounded-xl glass border border-white/20 text-white active:scale-95 transition-all"
               >
                 {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
               </button>
@@ -147,17 +144,16 @@ const Index = () => {
                 className="md:hidden mt-2 glass rounded-2xl overflow-hidden border border-white/20 max-w-[200px] ml-auto"
               >
                 <div className="p-2 flex flex-col">
-                  <Link to="/about" className="px-4 py-2.5 rounded-xl hover:bg-white/5 font-bold text-sm text-foreground transition-colors">About</Link>
-                  <Link to="/careers" className="px-4 py-2.5 rounded-xl hover:bg-white/5 font-bold text-sm text-foreground transition-colors">Careers</Link>
+                  <Link to="/about" className="px-4 py-2.5 rounded-xl hover:bg-white/5 font-bold text-sm text-white transition-colors">About</Link>
                   {user ? (
                     <Link 
                       to={user.role === 'vendor' ? '/vendor' : '/browse'} 
-                      className="mt-1 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground font-black text-xs text-center uppercase tracking-widest"
+                      className="mt-1 px-4 py-2.5 rounded-xl bg-primary text-black font-black text-xs text-center uppercase tracking-widest"
                     >
                       Go to App
                     </Link>
                   ) : (
-                    <Link to="/auth" className="mt-1 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground font-black text-xs text-center uppercase tracking-widest">Sign In</Link>
+                    <Link to="/auth" className="mt-1 px-4 py-2.5 rounded-xl bg-primary text-black font-black text-xs text-center uppercase tracking-widest">Sign In</Link>
                   )}
                 </div>
               </motion.div>
@@ -174,24 +170,25 @@ const Index = () => {
           >
             <div className="flex items-center gap-3 mb-6">
               <div className="inline-flex items-center gap-2 glass rounded-full px-4 py-2 border border-white/20">
-                <span className="text-xs font-bold text-primary uppercase tracking-widest">Find It. Grab It.</span>
+                <span className="text-xs font-bold text-[#fef982] uppercase tracking-widest">Find It. Grab It.</span>
               </div>
-              <Link to="/careers" className="hidden sm:inline-flex items-center gap-2 bg-primary/10 text-primary rounded-full px-4 py-2 border border-primary/20 hover:bg-primary/20 transition-all border-dashed">
+              <Link to="/careers" className="hidden sm:inline-flex items-center gap-2 bg-[#fef982]/10 text-[#fef982] rounded-full px-4 py-2 border border-[#fef982]/20 hover:bg-[#fef982]/20 transition-all border-dashed">
                 <span className="text-[10px] font-black uppercase tracking-widest">We're Hiring!</span>
               </Link>
             </div>
-            <h1 className="text-5xl md:text-7xl font-extrabold text-foreground leading-tight mb-6">
+            <h1 className="text-5xl md:text-7xl font-bold text-zinc-100 leading-tight mb-6 drop-shadow-[0_4px_16px_rgba(0,0,0,0.6)]">
               Search <br />
-              <span className="text-gradient">neighborhood stores</span>
+              <span className="bg-gradient-to-r from-yellow-300 via-amber-400 to-[#fef982] bg-clip-text text-transparent font-extrabold">neighborhood stores</span>
             </h1>
-            <p className="text-lg text-muted-foreground mb-8 max-w-lg">
-              Find neighborhood shops and near stores on BellBasket, the top local commerce platform for neighborhood stores. Discover the best neighborhood marketplaces for fresh groceries and daily essentials directly from your local vendors.
+            <p className="text-lg text-zinc-200 mb-8 max-w-lg drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]">
+              Find neighborhood shops and near stores on BellBasket, the top local commerce platform for neighborhood stores.
             </p>
+
             <div className="flex flex-col sm:flex-row gap-3">
               {user ? (
                 <button
                   onClick={() => navigate(user.role === 'vendor' ? '/vendor' : '/browse')}
-                  className="gradient-primary text-primary-foreground px-8 py-3.5 rounded-xl font-semibold text-base flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
+                  className="bg-primary text-black px-8 py-3.5 rounded-xl font-bold text-base flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
                 >
                   Go to App <ArrowRight className="w-4 h-4" />
                 </button>
@@ -199,7 +196,7 @@ const Index = () => {
                 <button
                   onClick={() => navigate('/auth')}
                   onMouseEnter={() => import('@/pages/Auth')}
-                  className="gradient-primary text-primary-foreground px-8 py-3.5 rounded-xl font-semibold text-base flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
+                  className="bg-primary text-black px-8 py-3.5 rounded-xl font-bold text-base flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
                 >
                   Get Started <ArrowRight className="w-4 h-4" />
                 </button>
@@ -207,7 +204,7 @@ const Index = () => {
               <button
                 onClick={() => navigate('/auth?role=vendor')}
                 onMouseEnter={() => import('@/pages/Auth')}
-                className="glass text-foreground px-8 py-3.5 rounded-xl font-semibold text-base flex items-center justify-center gap-2 hover:bg-secondary/80 transition-colors"
+                className="glass text-white px-8 py-3.5 rounded-xl font-bold text-base flex items-center justify-center gap-2 hover:bg-white/10 transition-colors"
               >
                 <Store className="w-4 h-4" /> Become a Vendor
               </button>
@@ -216,18 +213,18 @@ const Index = () => {
             {/* Live Stats Bar */}
             <div className="mt-8 flex items-center gap-6">
               <div className="flex items-center gap-2 glass px-4 py-2 rounded-full border border-white/10">
-                <Store className="w-4 h-4 text-primary" />
-                <span className="text-sm font-bold text-foreground">
+                <Store className="w-4 h-4 text-[#fef982]" />
+                <span className="text-sm font-bold text-white">
                   100+
                 </span>
-                <span className="text-xs text-muted-foreground">Stores</span>
+                <span className="text-xs text-zinc-300">Stores</span>
               </div>
               <div className="flex items-center gap-2 glass px-4 py-2 rounded-full border border-white/10">
-                <Users className="w-4 h-4 text-primary" />
-                <span className="text-sm font-bold text-foreground">
+                <Users className="w-4 h-4 text-[#fef982]" />
+                <span className="text-sm font-bold text-white">
                   5K+
                 </span>
-                <span className="text-xs text-muted-foreground">Members</span>
+                <span className="text-xs text-zinc-300">Members</span>
               </div>
             </div>
             <motion.button
@@ -235,7 +232,7 @@ const Index = () => {
               animate={{ opacity: 1 }}
               transition={{ delay: 1 }}
               onClick={() => navigate('/download')}
-              className="mt-8 flex items-center gap-2 text-sm font-bold text-foreground/60 hover:text-primary transition-colors group"
+              className="mt-8 flex items-center gap-2 text-sm font-bold text-white/70 hover:text-primary transition-colors group"
             >
               <Smartphone className="w-4 h-4" /> Download BellBasket App <ArrowRight className="w-4 h-4 -translate-x-1 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all" />
             </motion.button>
@@ -299,7 +296,7 @@ const Index = () => {
                 Get the best neighborhood shopping experience. Scanning the QR code will take you directly to our download page.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 pt-4">
-                <div className="gradient-primary text-white px-8 py-4 rounded-2xl font-black text-lg shadow-lg shadow-primary/30 flex items-center justify-center gap-3 cursor-default">
+                <div className="bg-primary text-black px-8 py-4 rounded-2xl font-black text-lg flex items-center justify-center gap-3 cursor-default">
                   Coming Soon <Sparkles className="w-5 h-5 animate-pulse" />
                 </div>
               </div>

@@ -11,10 +11,12 @@ import DesktopBackground from './DesktopBackground';
 import { getAudioStatus, onAudioStatusChange, initAudio, playBellSound } from '@/utils/notifications';
 
 const Header = ({ solid = false }: { solid?: boolean }) => {
-  const { user, cart, orders, serviceBookings, logout, notifications, markAllNotificationsRead, stores, requestPushNotifications } = useApp();
+  const { user, cart, orders, serviceBookings, logout, notifications, markAllNotificationsRead, stores, requestPushNotifications, isAnyModalOpen } = useApp();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
+
+
   const isDownloadPage = location.pathname === '/download';
   const [menuOpen, setMenuOpen] = useState(false);
   const [showNotifs, setShowNotifs] = useState(false);
@@ -77,10 +79,11 @@ const Header = ({ solid = false }: { solid?: boolean }) => {
   const activeBtn = "bg-primary text-primary-foreground shadow-lg shadow-primary/20";
   const normalBtn = "text-muted-foreground hover:bg-primary/10 hover:text-primary";
 
+
   return (
     <>
       <DesktopBackground />
-      <header className={`fixed top-0 left-0 right-0 z-50 border-b border-border transition-all duration-300 ${(solid || isVendorPage) ? 'bg-white dark:bg-[#202020]' : 'bg-white/80 dark:bg-[#202020]/80 backdrop-blur-md'}`}>
+      <header className={`fixed top-0 left-0 right-0 z-50 border-b border-border transition-all duration-500 ${isAnyModalOpen ? 'blur-md opacity-0 -translate-y-10 pointer-events-none' : ''} ${(solid || isVendorPage) ? 'bg-white dark:bg-[#202020]' : 'bg-white/80 dark:bg-[#202020]/80 backdrop-blur-md'}`}>
 
 
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
@@ -114,14 +117,6 @@ const Header = ({ solid = false }: { solid?: boolean }) => {
                   >
                     <Zap className="w-5 h-5" />
                     <span className="hidden lg:inline">{t('common.deals')}</span>
-                  </NavLink>
-
-                  <NavLink 
-                    to="/careers" 
-                    className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}
-                  >
-                    <Users className="w-5 h-5" />
-                    <span className="hidden lg:inline">Careers</span>
                   </NavLink>
 
                   <NavLink 

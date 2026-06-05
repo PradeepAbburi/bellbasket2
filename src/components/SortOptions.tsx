@@ -20,6 +20,7 @@ import {
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
+import { useApp } from '@/context/AppContext';
 
 interface SortOptionsProps {
   priceSort: 'none' | 'low-high' | 'high-low';
@@ -48,6 +49,7 @@ const SortOptions: React.FC<SortOptionsProps> = ({
 }) => {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
+  const { setIsAnyModalOpen } = useApp();
 
   const hasActiveSort = priceSort !== 'none' || (showRating && ratingSort !== 'none');
 
@@ -294,7 +296,7 @@ const SortOptions: React.FC<SortOptionsProps> = ({
 
   if (isMobile) {
     return (
-      <Drawer>
+      <Drawer onOpenChange={setIsAnyModalOpen}>
         <DrawerTrigger asChild>
           {SortTrigger}
         </DrawerTrigger>
@@ -304,7 +306,7 @@ const SortOptions: React.FC<SortOptionsProps> = ({
   }
 
   return (
-    <DropdownMenu>
+    <DropdownMenu onOpenChange={setIsAnyModalOpen}>
       <DropdownMenuTrigger asChild>
         {SortTrigger}
       </DropdownMenuTrigger>

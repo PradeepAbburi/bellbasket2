@@ -9,47 +9,42 @@ const About = () => {
     return (
         <div className="min-h-screen gradient-warm">
             <Helmet>
-                <title>About BellBasket | The Leading Neighborhood Marketplace</title>
-                <meta name="description" content="Discover BellBasket, the top neighborhood marketplace for local stores and near shops. We empower neighborhood vendors and enable customers to shop the best neighborhood marketplace directly." />
-                <meta name="keywords" content="neighborhood marketplace, neighborhood stores, neighborhood shops, near stores, near shops, neighbourhood marketplaces, local shopping app, grocery delivery, support local business, neighborhood kirana stores" />
-                <meta property="og:title" content="About BellBasket | How it Works" />
-                <meta property="og:description" content="Discover how BellBasket digitizes neighborhood kirana stores, empowering vendors and giving customers the convenience of local shopping." />
+                <title>About BellBasket | Premium Hyper-Local Digital Marketplace</title>
+                <meta name="description" content="Discover BellBasket, India's leading hyper-local digital marketplace. Digitizing neighborhood kirana stores, fresh groceries, and verified local home services (AC repair, plumbing, salons) under a strict 15km hyperlocal radius." />
+                <meta name="keywords" content="hyper-local digital marketplace, hyperlocal marketplace near me, neighborhood stores, neighborhood shops, local grocery shopping, neighborhood kirana stores, AC repair near me, local plumber service, salon near me, local marketplace app, digital India shop, support local business" />
+                <meta property="og:title" content="About BellBasket | The Leading Hyper-Local Digital Marketplace" />
+                <meta property="og:description" content="Discover how BellBasket empowers neighborhood shops and essential service providers to build online storefronts, giving customers ultimate local convenience." />
                 <meta property="og:url" content="https://bellbasket.com/about" />
                 <link rel="canonical" href="https://bellbasket.com/about" />
                 <script type="application/ld+json">
                     {JSON.stringify({
                         "@context": "https://schema.org",
                         "@type": "AboutPage",
-                        "name": "About BellBasket",
-                        "description": "BellBasket is a hyper-local marketplace that empowers local stores to sell online and enables customers to shop fresh groceries and daily essentials directly from their trusted neighborhood vendors.",
+                        "name": "About BellBasket - Hyper-Local Digital Marketplace",
+                        "description": "BellBasket is India's premium hyper-local digital marketplace that digitizes neighborhood kirana stores and verified local home services, empowering vendors to grow while providing customers safe, fast local pickup options.",
                         "url": "https://bellbasket.com/about",
                         "publisher": {
                             "@type": "Organization",
                             "name": "BellBasket"
                         },
-                        "mainEntity": {
-                            "@type": "ItemList",
-                            "itemListElement": [
-                                {
-                                    "@type": "ListItem",
-                                    "position": 1,
-                                    "name": "How it Works for Shoppers",
-                                    "description": "Shoppers can set their location, browse products from verified local stores, add items to their basket, and choose between fast delivery or store pickup."
-                                },
-                                {
-                                    "@type": "ListItem",
-                                    "position": 2,
-                                    "name": "How it Works for Vendors",
-                                    "description": "Vendors can set up a digital storefront in minutes, manage products and inventory instantly, receive orders securely, and boost visibility using Pro features."
-                                },
-                                {
-                                    "@type": "ListItem",
-                                    "position": 3,
-                                    "name": "Trust & Security",
-                                    "description": "All vendors are verified and transactions are secured using industry-leading encryption to ensure a safe local shopping environment."
+                        "mainEntity": [
+                            {
+                                "@type": "Question",
+                                "name": "What is BellBasket?",
+                                "acceptedAnswer": {
+                                    "@type": "Answer",
+                                    "text": "BellBasket is a premium hyper-local digital marketplace that enables customers to browse, order, and schedule services directly from verified neighborhood vendors and home service technicians."
                                 }
-                            ]
-                        }
+                            },
+                            {
+                                "@type": "Question",
+                                "name": "What is the 'Ask' AI Assistant?",
+                                "acceptedAnswer": {
+                                    "@type": "Answer",
+                                    "text": "Ask is BellBasket's natural-language conversational AI assistant that helps neighborhood customers locate verified shops, repair services, or specific products and compares prices locally using advanced semantic search."
+                                }
+                            }
+                        ]
                     })}
                 </script>
             </Helmet>
@@ -74,13 +69,13 @@ const About = () => {
                 <div className="text-center space-y-6 max-w-4xl mx-auto">
                     <div className="inline-flex items-center gap-2 glass rounded-full px-5 py-2.5 border border-primary/20 bg-primary/5 text-primary">
                         <Sparkles className="w-4 h-4" />
-                        <span className="text-xs font-black uppercase tracking-widest">About BellBasket Marketplace</span>
+                        <span className="text-xs font-black uppercase tracking-widest">Premium Hyper-local Digital Marketplace</span>
                     </div>
                     <h1 className="text-4xl md:text-6xl lg:text-7xl font-black text-foreground leading-[1.1] tracking-tight">
-                        Connecting Bharat to its <span className="text-gradient">Neighborhood</span>
+                        Connecting Bharat to its <span className="text-gradient">Hyper-local</span> neighborhood
                     </h1>
                     <p className="text-xl text-muted-foreground leading-relaxed max-w-3xl mx-auto font-medium">
-                        BellBasket is India's top local commerce platform for neighborhood stores. We empower local neighborhood stores (Kiranas) to sell online, enabling customers to shop fresh groceries and daily essentials directly from their trusted community vendors with fast, reliable delivery.
+                        BellBasket is India's leading **hyper-local digital marketplace** for neighborhood stores and essential services. We empower local neighborhood vendors (Kirana shops, medical dispensaries, home repair, salons) to build online storefronts, enabling neighborhood communities to buy fresh products and schedule local services instantly with high convenience.
                     </p>
                 </div>
 
@@ -113,66 +108,7 @@ const About = () => {
                     </section>
                 </div>
 
-                {/* Section 2: Our Journey Timeline */}
-                <section className="space-y-16 py-12">
-                   <div className="text-center space-y-4">
-                        <h2 className="text-4xl font-black text-foreground">Our Journey So Far</h2>
-                        <p className="text-muted-foreground max-w-2xl mx-auto text-lg">From a small idea to a growing hyper-local network. Here are our major milestones.</p>
-                    </div>
 
-                    <div className="max-w-4xl mx-auto relative px-4">
-                        {/* Vertical Line */}
-                        <div className="absolute left-1/2 -translate-x-1/2 top-0 bottom-0 w-1 bg-gradient-to-b from-primary/50 via-accent/50 to-primary/50 hidden md:block" />
-
-                        <div className="space-y-12">
-                            {[
-                                { year: "2023", title: "The Inception", desc: "BellBasket was born out of the need to help local vendors survive in a shrinking physical market." },
-                                { year: "2024", title: "First 100 Vendors", desc: "Successfully onboarded our first 100 trusted neighborhood stores across South India." },
-                                { year: "2025", title: "Nationwide Expansion", desc: "Launched across major metro cities, bringing thousands of daily essential products online." },
-                                { year: "2026", title: "AI-Powered Marketplace", desc: "Integrated advanced analytics and AI-driven discovery to help vendors grow 2x faster." }
-                            ].map((milestone, idx) => (
-                                <motion.div 
-                                    key={idx}
-                                    initial={{ opacity: 0, x: idx % 2 === 0 ? -50 : 50 }}
-                                    whileInView={{ opacity: 1, x: 0 }}
-                                    viewport={{ once: true }}
-                                    className="flex flex-col md:flex-row items-center gap-4 md:gap-8"
-                                >
-                                    {/* Content on Left for Even, Empty for Odd */}
-                                    <div className="flex-1 w-full text-center md:text-right">
-                                        {idx % 2 === 0 ? (
-                                             <div className="glass p-6 md:p-8 rounded-[2rem] border border-primary/20 hover:border-primary/50 transition-all">
-                                                <span className="text-primary font-black text-2xl">{milestone.year}</span>
-                                                <h3 className="text-xl font-bold mt-2">{milestone.title}</h3>
-                                                <p className="text-muted-foreground text-sm mt-3 leading-relaxed">{milestone.desc}</p>
-                                             </div>
-                                        ) : (
-                                            <div className="hidden md:block" />
-                                        )}
-                                    </div>
-
-                                    {/* Central Number Circle */}
-                                    <div className="w-12 h-12 rounded-full gradient-primary border-4 border-background z-10 flex items-center justify-center text-white font-black shadow-xl shrink-0">
-                                        {idx + 1}
-                                    </div>
-
-                                    {/* Content on Right for Odd, Empty for Even */}
-                                    <div className="flex-1 w-full text-center md:text-left">
-                                        {idx % 2 !== 0 ? (
-                                             <div className="glass p-6 md:p-8 rounded-[2rem] border border-accent/20 hover:border-accent/50 transition-all">
-                                                <span className="text-accent font-black text-2xl">{milestone.year}</span>
-                                                <h3 className="text-xl font-bold mt-2">{milestone.title}</h3>
-                                                <p className="text-muted-foreground text-sm mt-3 leading-relaxed">{milestone.desc}</p>
-                                             </div>
-                                        ) : (
-                                            <div className="hidden md:block" />
-                                        )}
-                                    </div>
-                                </motion.div>
-                            ))}
-                        </div>
-                    </div>
-                </section>
 
                 {/* Section: Our Core Values */}
                 <section className="py-20 px-4">
@@ -235,6 +171,130 @@ const About = () => {
                             </div>
                             <h3 className="text-xl font-bold text-foreground">Self Pickup</h3>
                             <p className="text-sm text-muted-foreground">Currently we support Store Pickup exclusively. Place your order and visit the store at your convenience to collect your items.</p>
+                        </div>
+                    </div>
+                </section>
+
+                {/* Section: Meet 'Ask' — Your Local AI Assistant */}
+                <section className="space-y-16 py-12 relative overflow-hidden">
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-purple-500/5 blur-[120px] rounded-full pointer-events-none" />
+                    
+                    <div className="text-center space-y-4 max-w-3xl mx-auto">
+                        <div className="inline-flex items-center gap-2 bg-purple-500/10 text-purple-500 dark:text-purple-400 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.2em] border border-purple-500/20">
+                            <Sparkles className="w-3.5 h-3.5 animate-pulse" /> Conversational Commerce
+                        </div>
+                        <h2 className="text-4xl md:text-5xl font-black text-foreground">Meet <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-500 via-pink-500 to-amber-500 animate-gradient">"Ask"</span> — Your Local AI Assistant</h2>
+                        <p className="text-muted-foreground text-lg leading-relaxed font-medium">
+                            Say goodbye to complicated filters. BellBasket's next-generation "Ask" assistant brings advanced AI models to hyper-local commerce, making neighborhood shopping as simple as sending a chat message.
+                        </p>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-8 items-center max-w-5xl mx-auto">
+                        {/* Interactive Feature Cards */}
+                        <div className="space-y-6">
+                            {[
+                                { 
+                                    icon: MessageSquare, 
+                                    title: "Natural Language Queries", 
+                                    desc: "Ask naturally, just like speaking to a friendly shopkeeper: 'Which pharmacy nearby has pediatric cough syrup in stock?' or 'Cheapest organic grocery stores around.'", 
+                                    color: "text-indigo-500 bg-indigo-500/10 border-indigo-500/20" 
+                                },
+                                { 
+                                    icon: Sparkles, 
+                                    title: "Typo-Tolerant Fuzzy Match", 
+                                    desc: "No spelling stress. Whether you spell it 'restrant', 'biriyani', or 'kirana', our intelligent spelling engine identifies the correct search terms instantly.", 
+                                    color: "text-amber-500 bg-amber-500/10 border-amber-500/20" 
+                                },
+                                { 
+                                    icon: MapPin, 
+                                    title: "Strict 15km Hyper-local Limit", 
+                                    desc: "Absolute neighborhood focus. Your search queries strictly target stores and home services within a 15km delivery/pickup radius, keeping options extremely relevant.", 
+                                    color: "text-rose-500 bg-rose-500/10 border-rose-500/20" 
+                                },
+                                { 
+                                    icon: Clock, 
+                                    title: "Live Web & Catalog Fusion", 
+                                    desc: "Fresh, real-time results. Ask integrates active neighborhood store catalogs with real-time web scraping so you get immediate, up-to-date availability and general advice.", 
+                                    color: "text-cyan-500 bg-cyan-500/10 border-cyan-500/20" 
+                                }
+                            ].map((feature, idx) => (
+                                <motion.div
+                                    key={idx}
+                                    whileHover={{ x: 8 }}
+                                    className="flex gap-4 p-5 rounded-3xl bg-white/40 dark:bg-slate-900/40 border border-white/50 dark:border-white/5 shadow-md transition-all group"
+                                >
+                                    <div className={`w-12 h-12 rounded-2xl ${feature.color} border flex items-center justify-center shrink-0`}>
+                                        <feature.icon className="w-6 h-6" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <h3 className="font-black text-sm uppercase tracking-wide text-foreground group-hover:text-primary transition-colors">{feature.title}</h3>
+                                        <p className="text-xs text-muted-foreground leading-relaxed font-medium">{feature.desc}</p>
+                                    </div>
+                                </motion.div>
+                            ))}
+                        </div>
+
+                        {/* Visual Mockup Frame */}
+                        <div className="relative p-1">
+                            <div className="absolute inset-0 bg-gradient-to-tr from-purple-500/20 via-pink-500/20 to-amber-500/20 rounded-[3rem] blur-2xl" />
+                            <div className="relative bg-black rounded-[2.5rem] border border-white/10 shadow-2xl p-6 overflow-hidden flex flex-col h-[520px]">
+                                {/* Chat Header */}
+                                <div className="flex items-center justify-between pb-4 border-b border-white/5 mb-4 shrink-0">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+                                            <Sparkles className="w-5 h-5 animate-pulse" />
+                                        </div>
+                                        <div>
+                                            <h4 className="font-black text-xs uppercase tracking-wider text-white">Ask AI Assistant</h4>
+                                            <p className="text-[9px] text-emerald-400 font-bold uppercase tracking-wider">Online & Ready</p>
+                                        </div>
+                                    </div>
+                                    <Link 
+                                        to="/ask"
+                                        className="text-[9px] font-black uppercase tracking-widest bg-white/10 hover:bg-primary hover:text-black border border-white/10 px-3 py-2 rounded-xl transition-all flex items-center gap-1 text-white/80"
+                                    >
+                                        Try Now <ArrowRight className="w-3 h-3" />
+                                    </Link>
+                                </div>
+
+                                {/* Chat Bubbles */}
+                                <div className="flex-1 overflow-y-auto space-y-4 pr-1 text-left scrollbar-thin">
+                                    <div className="flex flex-col gap-1 max-w-[85%]">
+                                        <span className="text-[8px] font-black uppercase tracking-widest text-white/30 ml-2">Customer</span>
+                                        <div className="bg-white/5 border border-white/5 rounded-2xl rounded-tl-none p-3.5 text-xs text-white/90 font-medium leading-relaxed">
+                                            Hi! I need to fix my cooling issues. Can you find an AC repair service near me?
+                                        </div>
+                                    </div>
+
+                                    <div className="flex flex-col gap-1 max-w-[85%] ml-auto items-end">
+                                        <span className="text-[8px] font-black uppercase tracking-widest text-purple-400 mr-2">Ask AI</span>
+                                        <div className="bg-purple-500/10 border border-purple-500/20 rounded-2xl rounded-tr-none p-3.5 text-xs text-purple-200 font-medium leading-relaxed">
+                                            Hello! 🛠️ I found 3 highly-rated AC Repair technicians within 10km of your location:
+                                            <ul className="list-disc pl-4 mt-2 space-y-1.5 text-white/80">
+                                                <li><span className="font-extrabold text-white">CoolTech Solutions</span> (1.2 km) - 4.9 ★</li>
+                                                <li><span className="font-extrabold text-white">QuickFix Electricals</span> (4.5 km) - 4.7 ★</li>
+                                            </ul>
+                                            You can book a home visit instantly below!
+                                        </div>
+                                    </div>
+
+                                    {/* Inline Interactive Card Mockup */}
+                                    <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-3 flex items-center justify-between gap-3 max-w-[85%] ml-auto">
+                                        <div className="flex items-center gap-2 min-w-0">
+                                            <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400 shrink-0">
+                                                <Clock className="w-4 h-4" />
+                                            </div>
+                                            <div className="truncate">
+                                                <h5 className="text-[10px] font-black text-white truncate">CoolTech AC Servicing</h5>
+                                                <p className="text-[8px] text-muted-foreground font-bold">₹499 &bull; Available Today</p>
+                                            </div>
+                                        </div>
+                                        <Link to="/ask" className="bg-primary text-black font-black uppercase tracking-wider text-[8px] px-2.5 py-1.5 rounded-lg whitespace-nowrap">
+                                            Request
+                                        </Link>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </section>

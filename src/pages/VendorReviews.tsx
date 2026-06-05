@@ -28,7 +28,9 @@ const VendorReviews = () => {
 
     if (loading) return <PageLoading />;
     const vendorStore = stores.find(s => s.id === user?.id);
-    const reviews: StoreReview[] = (vendorStore?.reviews || []).filter((r: StoreReview) => r.comment && r.comment.trim() !== "");
+    const reviews: StoreReview[] = (vendorStore?.reviews || []).filter(
+        (r: StoreReview) => r && r.comment && typeof r.comment === 'string' && r.comment.trim() !== ""
+    );
 
     const [replyInputs, setReplyInputs] = useState<Record<string, string>>({});
     const [filterRating, setFilterRating] = useState<number | null>(null);
@@ -40,7 +42,7 @@ const VendorReviews = () => {
     useEffect(() => {
         const fetchAvatars = async () => {
             const uniqueUserIds = [...new Set(reviews
-                .filter(r => r.userId)
+                .filter(r => r && r.userId)
                 .map(r => r.userId!)
             )];
 
@@ -75,17 +77,17 @@ const VendorReviews = () => {
     // Stats
     const totalReviews = reviews.length;
     const avgRating = totalReviews > 0
-        ? (reviews.reduce((sum, r) => sum + (Number(r.rating) || 0), 0) / totalReviews).toFixed(1)
+        ? (reviews.reduce((sum, r) => sum + (r ? (Number(r.rating) || 0) : 0), 0) / totalReviews).toFixed(1)
         : '0.0';
-    const repliedCount = reviews.filter(r => r.reply).length;
+    const repliedCount = reviews.filter(r => r && r.reply).length;
     const replyRate = totalReviews > 0 ? Math.round((repliedCount / totalReviews) * 100) : 0;
 
     // Star distribution
     const starCounts = [5, 4, 3, 2, 1].map(star => ({
         star,
-        count: reviews.filter(r => Math.round(Number(r.rating)) === star).length,
+        count: reviews.filter(r => r && Math.round(Number(r.rating) || 0) === star).length,
         pct: totalReviews > 0
-            ? Math.round((reviews.filter(r => Math.round(Number(r.rating)) === star).length / totalReviews) * 100)
+            ? Math.round((reviews.filter(r => r && Math.round(Number(r.rating) || 0) === star).length / totalReviews) * 100)
             : 0,
     }));
 
@@ -94,23 +96,30 @@ const VendorReviews = () => {
         let list = [...reviews];
 
         if (filterRating !== null) {
-            list = list.filter(r => Math.round(Number(r.rating)) === filterRating);
+            list = list.filter(r => r && Math.round(Number(r.rating) || 0) === filterRating);
         }
 
         if (searchQuery.trim()) {
             const q = searchQuery.toLowerCase();
             list = list.filter(r =>
-                r.userName.toLowerCase().includes(q) ||
-                r.comment.toLowerCase().includes(q) ||
-                (r.reply && r.reply.toLowerCase().includes(q))
+                r && (
+                    (r.userName || '').toLowerCase().includes(q) ||
+                    (r.comment || '').toLowerCase().includes(q) ||
+                    (r.reply && typeof r.reply === 'string' && r.reply.toLowerCase().includes(q))
+                )
             );
         }
 
         list.sort((a, b) => {
-            if (sortBy === 'newest') return new Date(b.date).getTime() - new Date(a.date).getTime();
-            if (sortBy === 'oldest') return new Date(a.date).getTime() - new Date(b.date).getTime();
-            if (sortBy === 'highest') return Number(b.rating) - Number(a.rating);
-            return Number(a.rating) - Number(b.rating);
+            const timeB = b && b.date ? new Date(b.date).getTime() : 0;
+            const timeA = a && a.date ? new Date(a.date).getTime() : 0;
+            if (sortBy === 'newest') return timeB - timeA;
+            if (sortBy === 'oldest') return timeA - timeB;
+            
+            const ratingB = b ? (Number(b.rating) || 0) : 0;
+            const ratingA = a ? (Number(a.rating) || 0) : 0;
+            if (sortBy === 'highest') return ratingB - ratingA;
+            return ratingA - ratingB;
         });
 
         return list;

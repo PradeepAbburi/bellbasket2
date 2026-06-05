@@ -194,7 +194,7 @@ const Profile = () => {
                 <meta name="robots" content="noindex, follow" />
             </Helmet>
             <Header />
-            <main className="pt-24 pb-32 px-4 max-w-lg mx-auto space-y-8 relative">
+            <main className="pt-24 pb-32 px-4 max-w-lg mx-auto space-y-7 relative">
 
 
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center text-center space-y-4">
@@ -353,7 +353,7 @@ const Profile = () => {
                 )}
 
                 {/* Settings Section */}
-                <div className="space-y-6 pt-4">
+                <div className="space-y-6">
                     <div className="px-2">
                         <span className="text-[11px] font-bold tracking-wide text-primary/70 uppercase">{t('common.settings')}</span>
                         <div className="h-[1px] w-8 bg-border/50 mt-1" />

@@ -3,6 +3,8 @@ import { motion } from 'framer-motion';
 import { Plus, Minus, PackageX, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { Product } from '@/types';
+import { useApp } from '@/context/AppContext';
+import { getCurrencySymbol } from '@/utils/currency';
 
 interface ProductCardProps {
     product: Product;
@@ -36,6 +38,10 @@ const ProductCard: React.FC<ProductCardProps> = ({
     selectedVariant
 }) => {
     const { t } = useTranslation();
+    const { stores } = useApp();
+    const store = stores?.find(s => s.id === storeId);
+    const currencySymbol = getCurrencySymbol(product.country || store?.country, product.state || store?.address);
+
     const hasDiscount = selectedVariant 
         ? (!!selectedVariant.discountedPrice && selectedVariant.discountedPrice < selectedVariant.price)
         : (!!product.discountedPrice && product.discountedPrice < product.price);
@@ -89,10 +95,10 @@ const ProductCard: React.FC<ProductCardProps> = ({
                 </div>
                 {/* Stock Overlay */}
                 {!product.inStock && (
-                    <div className="absolute inset-2.5 rounded-[1.8rem] bg-black/40 backdrop-blur-[2px] z-20 flex items-center justify-center p-3 text-center pointer-events-none">
-                        <div className="bg-red-600/80 backdrop-blur-md px-3 py-1.5 rounded-2xl border border-white/20 shadow-2xl flex items-center gap-1.5 animate-in fade-in zoom-in duration-300">
-                            <PackageX className="w-3 h-3 text-white" />
-                            <span className="text-white text-[9px] font-black uppercase tracking-widest leading-none">
+                    <div className="absolute inset-2.5 rounded-[1.8rem] bg-black/60 backdrop-blur-[4px] z-20 flex items-center justify-center p-3 text-center pointer-events-none">
+                        <div className="flex flex-col items-center gap-2 animate-in fade-in zoom-in duration-300">
+                            <PackageX className="w-8 h-8 text-white/90" strokeWidth={1.5} />
+                            <span className="text-white text-[9px] font-black uppercase tracking-[0.2em] text-center drop-shadow-md">
                                 {t('common.out_of_stock')}
                             </span>
                         </div>
@@ -143,11 +149,11 @@ const ProductCard: React.FC<ProductCardProps> = ({
                         <div className="flex flex-col">
                             <div className="flex items-center gap-1.5 h-6 sm:h-7">
                                 <span className="text-sm sm:text-base md:text-lg font-black text-slate-900 dark:text-white tracking-tighter leading-none">
-                                    ₹{discountedPrice}
+                                    {currencySymbol}{discountedPrice}
                                 </span>
                                 {hasDiscount && (
                                     <span className="text-[10px] text-muted-foreground line-through opacity-40 font-bold leading-none mt-0.5">
-                                        ₹{selectedVariant ? selectedVariant.price : product.price}
+                                        {currencySymbol}{selectedVariant ? selectedVariant.price : product.price}
                                     </span>
                                 )}
                             </div>

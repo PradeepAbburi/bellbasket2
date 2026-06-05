@@ -90,12 +90,16 @@ const Auth = () => {
     return () => unsubscribe();
   }, []);
 
-  // Load remembered email on mount
+  // Load remembered credentials on mount
   useEffect(() => {
     const savedEmail = localStorage.getItem('bb_remembered_email');
+    const savedPassword = localStorage.getItem('bb_remembered_password');
     if (savedEmail) {
       setEmail(savedEmail);
       setRememberMe(true);
+    }
+    if (savedPassword) {
+      setPassword(savedPassword);
     }
   }, []);
 
@@ -242,8 +246,10 @@ const Auth = () => {
       if (isLogin) {
         if (rememberMe) {
           localStorage.setItem('bb_remembered_email', sanitizedEmail);
+          localStorage.setItem('bb_remembered_password', password);
         } else {
           localStorage.removeItem('bb_remembered_email');
+          localStorage.removeItem('bb_remembered_password');
         }
       }
 
@@ -521,20 +527,21 @@ const Auth = () => {
 
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-md relative z-10 max-h-[98vh] overflow-y-auto scrollbar-hide py-4 sm:py-8">
         
-        {/* Back Button */}
-        <div className="flex justify-start mb-6 px-4">
+        {/* Header with Back Button on the Side and Title Centered */}
+        <div className="relative flex items-center justify-center mb-6 sm:mb-10 w-full min-h-[50px] px-4">
           <button
+            type="button"
             onClick={() => navigate('/')}
-            className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors glass px-4 py-2 rounded-full border border-white/20 text-xs font-bold"
+            className="absolute left-4 flex items-center justify-center w-10 h-10 rounded-full glass border border-white/20 text-muted-foreground hover:text-foreground transition-colors shadow-sm"
+            title="Back to Home"
           >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Home
+            <ArrowLeft className="w-5 h-5" />
           </button>
-        </div>
 
-        <div className="text-center mb-6 sm:mb-10">
-          <span className="text-2xl sm:text-3xl font-black block tracking-tight">BellBasket</span>
-          <p className="text-[10px] sm:text-xs font-bold text-primary uppercase mt-2 opacity-80 tracking-widest">Find It. Grab It.</p>
+          <div className="text-center">
+            <span className="text-2xl sm:text-3xl font-black block tracking-tight">BellBasket</span>
+            <p className="text-[10px] sm:text-xs font-bold text-primary uppercase mt-1 opacity-80 tracking-widest">Find It. Grab It.</p>
+          </div>
         </div>
 
         <div className="glass rounded-[2rem] p-5 sm:p-8 space-y-4 sm:space-y-6">

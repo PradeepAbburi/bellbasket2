@@ -36,6 +36,7 @@ const notifyListeners = () => {
  * Self-corrects and primes the hardware with a silent buffer.
  */
 export const initAudio = async () => {
+    if (isAudioPrimed) return;
     try {
         const AudioContextClass = (window as any).AudioContext || (window as any).webkitAudioContext;
         if (!AudioContextClass) return;
@@ -206,8 +207,6 @@ export const sendInAppNotification = async (
                 }
                 const errData = await res.json().catch(() => ({ error: 'Unknown Error' }));
                 console.warn('⚠️ [Push] Backend skipped/failed:', res.status, errData);
-                // 🛠️ Debug Alert: Remove after fixing the 500 error
-                alert(`Push Notification Error (${res.status}): ${JSON.stringify(errData)}`);
             } else {
                 console.log('✅ [Push] Backend notified successfully');
             }

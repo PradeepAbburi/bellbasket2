@@ -1,18 +1,23 @@
 import React, { memo } from 'react';
 import { useApp } from '@/context/AppContext';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { Search, ShoppingBag, ShoppingCart, User, ChevronRight, LayoutDashboard, Package, Home, Zap } from 'lucide-react';
+import { Search, ShoppingBag, ShoppingCart, User, ChevronRight, LayoutDashboard, Package, Home, Zap, MessageSquare } from 'lucide-react';
 import { getAvatarUrl } from '@/utils/avatars';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const BottomNav = () => {
-    const { user, cart, orders, serviceBookings, stores, cartSubtotal, isAnyModalOpen, cartConflictItem } = useApp();
+    const { user, cart, orders, serviceBookings, stores, cartSubtotal, isAnyModalOpen, cartConflictItem, productRequests } = useApp();
     const { t } = useTranslation();
     const location = useLocation();
     const navigate = useNavigate();
 
     const cartCount = React.useMemo(() => cart.reduce((s, c) => s + c.quantity, 0), [cart]);
+
+    const activeRequestsCount = React.useMemo(() => {
+        if (!user || !productRequests) return 0;
+        return productRequests.filter(r => r.userId === user.id && r.status === 'pending').length;
+    }, [productRequests, user]);
 
     // Calculate active items for badges
     const activeOrdersCount = React.useMemo(() => orders.filter(o => ['pending', 'accepted', 'packed'].includes(o.status)).length, [orders]);
@@ -37,7 +42,8 @@ const BottomNav = () => {
         location.pathname === '/vendor/combos' ||
         location.pathname === '/vendor/config' ||
         location.pathname === '/vendor/products/new' ||
-        location.pathname.startsWith('/vendor/products/edit/')
+        location.pathname.startsWith('/vendor/products/edit/') ||
+        location.pathname.endsWith('/reviews')
     ) return null;
 
     const isVendor = user.role === 'vendor';
@@ -50,7 +56,7 @@ const BottomNav = () => {
     if (isVendor && !hasValidPlan) return null;
 
     return (
-        <div id="bottom-nav" className="fixed bottom-0 left-0 right-0 z-[110] md:hidden pointer-events-none">
+        <div id="bottom-nav" className={`fixed bottom-0 left-0 right-0 z-[110] md:hidden pointer-events-none transition-all duration-500 ${isAnyModalOpen ? 'blur-md opacity-0 translate-y-10' : ''}`}>
             {/* View Cart Banner - Floating above the bottom nav */}
             <AnimatePresence>
                 {!isVendor && cartCount > 0 && location.pathname !== '/cart' && (
@@ -60,20 +66,17 @@ const BottomNav = () => {
                         exit={{ y: 100, opacity: 0 }}
                         transition={{ type: 'spring', damping: 25, stiffness: 350 }}
                         onClick={() => navigate('/cart')}
-                        className="pointer-events-auto mx-4 mb-3 cursor-pointer bg-primary dark:bg-primary/90 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-primary/20 overflow-hidden"
+                        className="pointer-events-auto cursor-pointer bg-primary dark:bg-primary border-t border-primary/20 overflow-hidden"
                     >
-                        <div className="flex items-center justify-between px-5 py-3.5">
+                        <div className="flex items-center justify-between px-4 py-2">
                             <div className="flex items-center gap-3">
-                                <div className="bg-white/20 p-2 rounded-xl">
-                                    <ShoppingCart className="w-4 h-4 text-primary-foreground" />
+                                <div className="bg-white/20 p-1.5 rounded-lg">
+                                    <ShoppingCart className="w-3.5 h-3.5 text-primary-foreground" />
                                 </div>
                                 <div className="flex flex-col">
-                                    <span className="text-[14px] font-black text-primary-foreground leading-tight">
+                                    <span className="text-[13px] font-black text-primary-foreground leading-tight">
                                         {cartCount} {cartCount === 1 ? 'Item' : 'Items'} &middot; ₹{cartSubtotal.toFixed(0)}
                                     </span>
-                                    <p className="text-[10px] font-bold text-primary-foreground/70 uppercase tracking-widest leading-tight mt-0.5">
-                                        In your basket
-                                    </p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-1.5 bg-white/20 px-3 py-1.5 rounded-xl text-primary-foreground text-[11px] font-black uppercase tracking-widest">
@@ -119,6 +122,11 @@ const BottomNav = () => {
                                 to="/deals"
                                 icon={Zap}
                                 label={t('common.deals')}
+                            />
+                            <NavItem
+                                to="/ask"
+                                icon={MessageSquare}
+                                label={t('common.ask')}
                             />
                             <NavItem
                                 to="/receipts"

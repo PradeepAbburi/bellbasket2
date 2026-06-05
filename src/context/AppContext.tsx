@@ -236,8 +236,20 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
     // 1. OneSignal Web (Browser/PWA) Initialization
     const initWebOneSignal = async () => {
-      const OneSignal = (window as any).OneSignal;
-      if (!OneSignal) return;
+      // Robust loading check: Wait up to 5 seconds for OneSignal SDK to be available on window
+      let OneSignal = (window as any).OneSignal;
+      if (!OneSignal) {
+        let attempts = 0;
+        while (!OneSignal && attempts < 20) {
+          await new Promise(resolve => setTimeout(resolve, 250));
+          OneSignal = (window as any).OneSignal;
+          attempts++;
+        }
+      }
+      if (!OneSignal) {
+        console.warn("⚠️ [OneSignal] SDK script not loaded in time.");
+        return;
+      }
 
       // Singleton check to prevent multiple initializations
       if ((window as any)._oneSignalInitialized) {
@@ -610,27 +622,35 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
                   hasPriorityAlert = true;
                 }
 
-                toast(data.title, {
-                  description: data.body,
-                  action: data.url ? {
-                    label: 'View',
-                    onClick: () => window.location.href = data.url
-                  } : undefined
-                });
+                // Check localStorage to ensure we only toast/alert once per browser/session
+                const localShownKey = `shown_alert_${docId}`;
+                const alreadyShownLocally = localStorage.getItem(localShownKey) === 'true';
 
-                // Show browser/system banner if permission is granted
-                if ("Notification" in window && Notification.permission === 'granted') {
-                  const notification = new Notification(data.title, {
-                    body: data.body,
-                    icon: '/logo.png', // Fallback to logo if available
-                    badge: '/logo.png',
-                    tag: docId, // Prevent duplicate banners for same ID (overwrites with latest status)
+                if (!alreadyShownLocally) {
+                  localStorage.setItem(localShownKey, 'true');
+
+                  toast(data.title, {
+                    description: data.body,
+                    action: data.url ? {
+                      label: 'View',
+                      onClick: () => window.location.href = data.url
+                    } : undefined
                   });
-                  notification.onclick = () => {
-                    window.focus();
-                    if (data.url) window.location.href = data.url;
-                    notification.close();
-                  };
+
+                  // Show browser/system banner if permission is granted
+                  if ("Notification" in window && Notification.permission === 'granted') {
+                    const notification = new Notification(data.title, {
+                      body: data.body,
+                      icon: '/logo.png', // Fallback to logo if available
+                      badge: '/logo.png',
+                      tag: docId, // Prevent duplicate banners for same ID (overwrites with latest status)
+                    });
+                    notification.onclick = () => {
+                      window.focus();
+                      if (data.url) window.location.href = data.url;
+                      notification.close();
+                    };
+                  }
                 }
               }
             }
@@ -890,6 +910,63 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     // refreshProducts(); // Removed global fetch
   }, []);
+
+  // Automatic Order Reconciliation: auto-reject pending orders older than 24 hours (1 day)
+  useEffect(() => {
+    if (!user || orders.length === 0) return;
+
+    const oneDayInMs = 24 * 60 * 60 * 1000;
+    const now = Date.now();
+
+    const checkAndAutoRejectOrders = async () => {
+      const expiredPendingOrders = orders.filter(o => 
+        o.status === 'pending' && 
+        o.date && 
+        (now - new Date(o.date).getTime() > oneDayInMs)
+      );
+
+      if (expiredPendingOrders.length === 0) return;
+
+      console.log(`🕒 [Auto-Reconciliation] Found ${expiredPendingOrders.length} expired pending orders. Auto-rejecting...`);
+
+      for (const order of expiredPendingOrders) {
+        try {
+          const orderRef = doc(db, 'orders', order.id);
+          await updateDoc(orderRef, {
+            status: 'rejected',
+            rejectionReason: 'Auto-rejected: Store did not accept within 24 hours',
+            updatedAt: new Date().toISOString()
+          });
+
+          // Trigger in-app notification to the customer about auto-rejection
+          await sendInAppNotification(order.userId, {
+            title: 'Order Expired & Rejected',
+            body: `Your order from ${order.storeName || 'the store'} was auto-rejected because the vendor did not accept it within 24 hours.`,
+            url: '/receipts',
+            type: 'order',
+            id: order.id
+          });
+
+          // Trigger in-app notification to the vendor as well
+          await sendInAppNotification(order.storeId, {
+            title: 'Order Expired & Auto-Rejected',
+            body: `Order #${order.id.slice(-5)} has been auto-rejected because it was not accepted within 24 hours.`,
+            url: '/vendor/orders',
+            type: 'order',
+            id: order.id
+          });
+
+          console.log(`✅ [Auto-Reconciliation] Auto-rejected order ${order.id}`);
+        } catch (error) {
+          console.error(`❌ [Auto-Reconciliation] Failed to auto-reject order ${order.id}:`, error);
+        }
+      }
+    };
+
+    // Run reconciliation inside a short delay to prevent initial render block
+    const timer = setTimeout(checkAndAutoRejectOrders, 3000);
+    return () => clearTimeout(timer);
+  }, [orders, user?.id]);
 
   const login = React.useCallback((userData: User) => {
     setUser(userData);

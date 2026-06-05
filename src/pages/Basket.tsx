@@ -7,6 +7,7 @@ import { useApp } from '@/context/AppContext';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import PageLoading from '@/components/PageLoading';
+import { getCurrencySymbol } from '@/utils/currency';
 
 
 const Cart = () => {
@@ -39,6 +40,10 @@ const Cart = () => {
   // For multi-shop, we'll take the max delivery fee or a flat fee
   const deliveryFee = Math.max(...groupIds.map(id => cartGroups[id].storeInfo?.deliveryFee || 0));
   const total = subtotal + (selectedDelivery === 'delivery' ? deliveryFee : 0);
+
+  const mainSymbol = groupIds.length > 0 
+    ? getCurrencySymbol(cartGroups[groupIds[0]].storeInfo?.country, cartGroups[groupIds[0]].storeInfo?.address) 
+    : '₹';
 
   // Check if any store in the cart is closed, blocked or expired
   const restrictedStores = groupIds
@@ -168,8 +173,10 @@ const Cart = () => {
             )}
 
             <div className="space-y-8 mb-6">
-              {Object.entries(cartGroups).map(([storeId, group], groupIdx) => (
-                <div key={storeId} className="space-y-3">
+              {Object.entries(cartGroups).map(([storeId, group], groupIdx) => {
+                const storeSymbol = getCurrencySymbol(group.storeInfo?.country, group.storeInfo?.address);
+                return (
+                  <div key={storeId} className="space-y-3">
                   <div className="flex items-center gap-2 px-1">
                     <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center">
                       <Store className="w-4 h-4 text-primary" />
@@ -211,7 +218,7 @@ const Cart = () => {
                           </div>
                           <div className="flex items-center justify-between mt-auto">
                             <span className="font-black text-foreground text-base">
-                              ₹{(item.selectedVariant ? 
+                              {storeSymbol}{(item.selectedVariant ? 
                                  (item.selectedVariant.discountedPrice || item.selectedVariant.price) : 
                                  ((item.product.discountedPrice && Number(item.product.discountedPrice) > 0 && Number(item.product.discountedPrice) < item.product.price) ? Number(item.product.discountedPrice) : item.product.price)
                                 ) * item.quantity}
@@ -235,7 +242,8 @@ const Cart = () => {
                     ))}
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Restricted Store Warning */}
@@ -268,13 +276,13 @@ const Cart = () => {
                 <div className="flex bg-secondary/50 p-1.5 rounded-2xl mb-6 border border-border/20">
                   <button
                     onClick={() => setSelectedDelivery('pickup')}
-                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${selectedDelivery === 'pickup' ? 'bg-white dark:bg-primary shadow-lg text-foreground dark:text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${selectedDelivery === 'pickup' ? 'bg-white dark:bg-primary text-foreground dark:text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                   >
                     <ShoppingBag className="w-3.5 h-3.5" /> Pickup
                   </button>
                   <button
                     onClick={() => setSelectedDelivery('delivery')}
-                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${selectedDelivery === 'delivery' ? 'bg-white dark:bg-primary shadow-lg text-foreground dark:text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${selectedDelivery === 'delivery' ? 'bg-white dark:bg-primary text-foreground dark:text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                   >
                     <MapPin className="w-3.5 h-3.5" /> Delivery
                   </button>
@@ -284,7 +292,7 @@ const Cart = () => {
               <div className="space-y-3 mb-6">
                 <div className="flex justify-between items-center px-1">
                   <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">{t('common.subtotal')}</span>
-                  <span className="text-sm font-black text-foreground">₹{subtotal}</span>
+                  <span className="text-sm font-black text-foreground">{mainSymbol}{subtotal}</span>
                 </div>
                 
                 <div className="pt-4 mt-2 border-t border-border/50 flex justify-between items-end px-1">
@@ -292,7 +300,7 @@ const Cart = () => {
                     <span className="text-[10px] font-black text-primary uppercase tracking-widest block mb-0.5">Total Amount</span>
                     <span className="text-xs text-muted-foreground font-bold uppercase tracking-widest">{groupIds.length} {groupIds.length === 1 ? 'Store' : 'Stores'}</span>
                   </div>
-                  <span className="text-2xl font-black text-foreground">₹{subtotal}</span>
+                  <span className="text-2xl font-black text-foreground">{mainSymbol}{subtotal}</span>
                 </div>
               </div>
 
@@ -300,10 +308,10 @@ const Cart = () => {
                 <button
                   disabled={isCheckoutDisabled}
                   onClick={() => startOrder(selectedDelivery === 'pickup' ? 'pickup' : 'delivery')}
-                  className={`w-full py-4 rounded-2xl font-black text-sm uppercase tracking-[0.15em] flex items-center justify-center gap-3 shadow-xl transition-all ${
+                  className={`w-full py-4 rounded-2xl font-black text-sm uppercase tracking-[0.15em] flex items-center justify-center gap-3 transition-all ${
                     isCheckoutDisabled 
                       ? 'bg-secondary text-muted-foreground opacity-50 cursor-not-allowed' 
-                      : 'gradient-primary text-primary-foreground shadow-primary/20 hover:scale-[1.01] active:scale-95'
+                      : 'gradient-primary text-primary-foreground hover:scale-[1.01] active:scale-95'
                   }`}
                 >
                   <Wallet className="w-5 h-5" /> 
@@ -419,7 +427,7 @@ const Cart = () => {
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 0.7 }}
-                className="bg-primary/10 border border-primary/20 rounded-2xl p-4 max-w-xs mx-auto animate-pulse"
+                className="bg-primary/10 border border-primary/20 rounded-2xl p-4 max-w-xs mx-auto"
               >
                 <div className="flex items-center gap-3 text-left">
                   <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center shrink-0">

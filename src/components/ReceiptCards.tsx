@@ -6,6 +6,7 @@ import { Trash2, CheckCircle2, Circle, Clock, Star, MapPin, Navigation, Phone, U
 import MapView from './MapView';
 import { toast } from 'sonner';
 import { useApp } from '@/context/AppContext';
+import { getCurrencySymbol } from '@/utils/currency';
 
 const statusColors: Record<string, string> = {
   pending: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
@@ -418,6 +419,7 @@ export const RenderOrderCard = ({
   hasReviewedStore?: boolean;
 }) => {
   const store = getStoreForOrder(order.storeId);
+  const storeSymbol = getCurrencySymbol(store?.country, store?.address);
   const [showContact, setShowContact] = useState(false);
   const [showCancelNote, setShowCancelNote] = useState(false);
   const [showProductsModal, setShowProductsModal] = useState(false);
@@ -663,7 +665,7 @@ export const RenderOrderCard = ({
             <div className="flex-1 p-3 bg-white/10 dark:bg-black/20 flex flex-col justify-center items-end relative">
               <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-0.5">Total Amount</p>
               <p className="text-xl font-black text-primary leading-none">
-                ₹{(() => {
+                {storeSymbol}{(() => {
                   const itemsTotal = order.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
                   return itemsTotal + (order.deliveryFee || 0);
                 })()}
@@ -737,7 +739,7 @@ export const RenderOrderCard = ({
                         <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest mt-1 opacity-80">{item.product.quantity}</p>
                       )}
                       <p className="text-[9px] font-black text-primary mt-1.5 opacity-90">
-                        ₹{item.product.price} / unit
+                        {storeSymbol}{item.product.price} / unit
                       </p>
                    </div>
                    <div className="flex flex-col items-end gap-0.5 shrink-0 ml-4">
@@ -745,7 +747,7 @@ export const RenderOrderCard = ({
                         x{item.quantity}
                       </div>
                       <p className="text-[10px] font-bold text-muted-foreground">
-                        ₹{item.product.price * item.quantity}
+                        {storeSymbol}{item.product.price * item.quantity}
                       </p>
                    </div>
                 </div>
@@ -760,17 +762,17 @@ export const RenderOrderCard = ({
                      <>
                        <div className="flex justify-between items-center text-[10px] font-bold">
                          <span className="text-muted-foreground uppercase tracking-[0.2em]">Subtotal</span>
-                         <span className="text-foreground">₹{itemsTotal}</span>
+                         <span className="text-foreground">{storeSymbol}{itemsTotal}</span>
                        </div>
                        {deliveryFee > 0 && (
                          <div className="flex justify-between items-center text-[10px] font-bold">
                            <span className="text-muted-foreground uppercase tracking-[0.2em]">Delivery Fee</span>
-                           <span className="text-foreground">+ ₹{deliveryFee}</span>
+                           <span className="text-foreground">+ {storeSymbol}{deliveryFee}</span>
                          </div>
                        )}
                        <div className="flex justify-between items-center text-xs font-black pt-2 border-t border-primary/10">
                          <span className="text-primary uppercase tracking-[0.2em]">Order Total</span>
-                         <span className="text-primary text-base">₹{itemsTotal + deliveryFee}</span>
+                         <span className="text-primary text-base">{storeSymbol}{itemsTotal + deliveryFee}</span>
                        </div>
                      </>
                    );
@@ -914,7 +916,7 @@ export const RenderOrderCard = ({
                       </h4>
                       <div className="flex items-center gap-2 mt-1.5">
                         <span className="text-[9px] font-black text-primary bg-primary/10 px-1.5 py-0.5 rounded-md">
-                          ₹{item.product.price}
+                          {storeSymbol}{item.product.price}
                         </span>
                         <span className="text-[9px] font-medium text-muted-foreground uppercase tracking-wider">
                           per unit
@@ -927,7 +929,7 @@ export const RenderOrderCard = ({
                         x{item.quantity}
                       </div>
                       <p className="text-xs font-black text-foreground">
-                        ₹{item.product.price * item.quantity}
+                        {storeSymbol}{item.product.price * item.quantity}
                       </p>
                     </div>
                   </motion.div>
@@ -939,19 +941,19 @@ export const RenderOrderCard = ({
                 <div className="space-y-3">
                   <div className="flex justify-between items-center text-xs font-bold">
                   <span className="text-muted-foreground uppercase tracking-widest">Items Subtotal</span>
-                  <span className="text-foreground">₹{order.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0)}</span>
+                  <span className="text-foreground">{storeSymbol}{order.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0)}</span>
                 </div>
                 {order.deliveryFee > 0 && (
                   <div className="flex justify-between items-center text-xs font-bold">
                     <span className="text-muted-foreground uppercase tracking-widest">Delivery Fee</span>
-                    <span className="text-foreground">+ ₹{order.deliveryFee}</span>
+                    <span className="text-foreground">+ {storeSymbol}{order.deliveryFee}</span>
                   </div>
                 )}
                 <div className="flex justify-between items-center pt-3 border-t border-border/20">
                   <div className="space-y-0.5">
                     <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">Total Amount</p>
                     <p className="text-2xl font-black text-foreground leading-none">
-                      ₹{order.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0) + (order.deliveryFee || 0)}
+                      {storeSymbol}{order.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0) + (order.deliveryFee || 0)}
                     </p>
                   </div>
                 </div>

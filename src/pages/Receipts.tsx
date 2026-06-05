@@ -7,6 +7,7 @@ import MapView from '@/components/MapView';
 import { Helmet } from 'react-helmet';
 import PullToRefresh from '@/components/ui/PullToRefresh';
 import { useApp } from '@/context/AppContext';
+import { getCurrencySymbol } from '@/utils/currency';
 import { doc, updateDoc, arrayUnion, setDoc, getDoc, deleteDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { ServiceBooking, Store, Order } from '@/types';
 import { Trash2, CheckCircle2, Circle, RefreshCcw, Package, Clock, Star, ArrowLeft, MapPin, Navigation, Loader2, EyeOff, KeyRound, Phone, User as UserIcon, BellRing, ShoppingCart, ChevronRight } from 'lucide-react';
@@ -44,6 +45,8 @@ const Receipts = () => {
   const { user, stores, orders, serviceBookings, refreshData, loading, cart, cartSubtotal } = useApp();
   if (loading) return <PageLoading />;
   const { t } = useTranslation();
+  const cartStore = cart.length > 0 ? stores.find(s => s.id === cart[0].storeId) : null;
+  const cartSymbol = getCurrencySymbol(cartStore?.country, cartStore?.address);
   const navigate = useNavigate();
   const [view, setView] = useState<'active' | 'history'>('active');
   const [filterType, setFilterType] = useState<'orders' | 'bookings'>('orders');
@@ -442,7 +445,7 @@ const Receipts = () => {
                       </div>
                       <div className="text-left">
                         <p className="text-xs font-black uppercase tracking-[0.2em] opacity-80 leading-none mb-1">My Active Basket</p>
-                        <p className="text-xl font-black tracking-tight">₹{cartSubtotal}</p>
+                        <p className="text-xl font-black tracking-tight">{cartSymbol}{cartSubtotal}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 px-4 py-2 bg-white/10 rounded-full text-[10px] font-black uppercase tracking-widest border border-white/10 group-hover:bg-white/20 transition-colors">

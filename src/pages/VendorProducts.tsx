@@ -143,7 +143,7 @@ const VendorProducts = () => {
             >
               <Package2 className="w-4 h-4" /> Combos
             </button>
-            <button onClick={openNew} className="bg-primary text-white px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg shadow-primary/20"><Plus className="w-4 h-4" /> Add New</button>
+            <button onClick={openNew} className="bg-primary text-white px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all"><Plus className="w-4 h-4" /> Add New</button>
           </div>
         </div>
 
