@@ -1,33 +1,63 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Play, Sparkles, Upload, FileText, BarChart3, Phone, Mail, Check, Trash2, Heart, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Play, Sparkles, Upload, FileText, BarChart3, Phone, Mail, Check, Trash2, Heart, MessageSquare, X, CheckCircle } from 'lucide-react';
 import Header from '@/components/Header';
 import { toast } from 'sonner';
+
+const initialVideos = [
+  {
+    id: '1',
+    title: 'Latte Art Masterclass',
+    likes: '2.4k',
+    queries: 2,
+    bgUrl: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=200&auto=format&fit=crop&q=60',
+    active: true
+  },
+  {
+    id: '2',
+    title: 'Haircut & Styling Demo',
+    likes: '1.1k',
+    queries: 1,
+    bgUrl: 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=200&auto=format&fit=crop&q=60',
+    active: true
+  }
+];
+
+const initialLeads = [
+  {
+    id: '1',
+    clientName: 'Rahul Dev',
+    sourceClip: 'Latte Art Masterclass',
+    query: 'Do you offer bulk catering or coffee bars for corporate events?',
+    time: '2m ago',
+    phone: '9876543210',
+    email: 'rahul.dev@example.com'
+  },
+  {
+    id: '2',
+    clientName: 'Priya Sharma',
+    sourceClip: 'Haircut & Styling Demo',
+    query: 'Is the 5 PM slot today open for styling and colouring together?',
+    time: '15m ago',
+    phone: '9876543211',
+    email: 'priya.s@example.com'
+  }
+];
+
+const mockUploadOptions = [
+  { title: 'Espresso Extraction Guide', url: 'https://images.unsplash.com/photo-151097252790b-a481d9f48d1e?w=200&auto=format&fit=crop&q=60' },
+  { title: 'Signature Beard Grooming', url: 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=200&auto=format&fit=crop&q=60' },
+  { title: 'Neapolitan Sourdough Stretch', url: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=200&auto=format&fit=crop&q=60' }
+];
 
 const VendorClips = () => {
   const navigate = useNavigate();
   const [activeSubTab, setActiveSubTab] = useState<'videos' | 'leads'>('videos');
-  const [leads, setLeads] = useState([
-    {
-      id: '1',
-      clientName: 'Rahul Dev',
-      sourceClip: 'Latte Art Masterclass',
-      query: 'Do you offer bulk catering or coffee bars for corporate events?',
-      time: '2m ago',
-      phone: '9876543210',
-      email: 'rahul.dev@example.com'
-    },
-    {
-      id: '2',
-      clientName: 'Priya Sharma',
-      sourceClip: 'Haircut & Styling Demo',
-      query: 'Is the 5 PM slot today open for styling and colouring together?',
-      time: '15m ago',
-      phone: '9876543211',
-      email: 'priya.s@example.com'
-    }
-  ]);
+  const [leads, setLeads] = useState(initialLeads);
+  const [videos, setVideos] = useState(initialVideos);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [activeFulfillLead, setActiveFulfillLead] = useState<any>(null);
 
   const handleDismissLead = (id: string) => {
     setLeads(prev => prev.filter(l => l.id !== id));
@@ -38,6 +68,34 @@ const VendorClips = () => {
     toast.success(`${type === 'call' ? 'Calling' : 'Composing email to'} ${name}...`, {
       description: 'Simulator link triggered'
     });
+  };
+
+  const handleUploadVideo = (title: string, url: string) => {
+    const newVideo = {
+      id: Date.now().toString(),
+      title,
+      likes: '0',
+      queries: 0,
+      bgUrl: url,
+      active: true
+    };
+    setVideos(prev => [newVideo, ...prev]);
+    setShowUploadModal(false);
+    toast.success(`Video "${title}" published!`, {
+      description: 'It will start rendering in the customer Clips feed shortly.'
+    });
+  };
+
+  const confirmFulfillment = (lead: any) => {
+    setActiveFulfillLead(lead);
+  };
+
+  const completeFulfill = () => {
+    if (activeFulfillLead) {
+      setLeads(prev => prev.filter(l => l.id !== activeFulfillLead.id));
+      toast.success(`Lead for ${activeFulfillLead.clientName} marked as FULFILLED!`);
+      setActiveFulfillLead(null);
+    }
   };
 
   return (
@@ -94,7 +152,10 @@ const VendorClips = () => {
               Vendor Console Suite
             </div>
             
-            <h1 className="text-4xl md:text-5xl font-black tracking-tight leading-none uppercase italic bg-gradient-to-r from-white via-zinc-200 to-teal-400 bg-clip-text text-transparent">
+            <h1 
+              style={{ fontFamily: "'Outfit', sans-serif" }}
+              className="text-4xl md:text-5xl font-black tracking-tight leading-none uppercase bg-gradient-to-r from-white via-zinc-200 to-teal-400 bg-clip-text text-transparent"
+            >
               Clips Manager
             </h1>
             
@@ -136,7 +197,7 @@ const VendorClips = () => {
             </div>
           </div>
 
-          {/* Right: Dashboard Simulator Mock (Redesigned, removed "Coming Soon") */}
+          {/* Right: Dashboard Simulator Mock */}
           <div className="md:col-span-5 flex flex-col items-center w-full">
             <div className="w-full bg-[#141414] border border-white/10 rounded-[2rem] p-5 shadow-2xl relative overflow-hidden text-left">
               
@@ -161,7 +222,7 @@ const VendorClips = () => {
                       : 'text-zinc-500 hover:text-zinc-300'
                   }`}
                 >
-                  My Videos (2)
+                  My Videos ({videos.length})
                 </button>
                 <button
                   onClick={() => setActiveSubTab('leads')}
@@ -186,45 +247,26 @@ const VendorClips = () => {
                       exit={{ opacity: 0, y: -5 }}
                       className="space-y-3"
                     >
-                      {/* Video 1 */}
-                      <div className="p-3 bg-zinc-950/40 border border-white/5 rounded-xl flex items-center gap-3 hover:bg-zinc-950/60 transition-colors">
-                        <div className="w-10 h-10 rounded-lg bg-zinc-900 overflow-hidden shrink-0 relative flex items-center justify-center text-teal-500 border border-white/5 bg-cover bg-center" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=200&auto=format&fit=crop&q=60')" }}>
-                          <Play className="w-3.5 h-3.5 fill-current text-white relative z-10" />
-                          <div className="absolute inset-0 bg-black/45" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[10px] font-bold truncate text-white">Latte Art Masterclass</p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-[8px] text-zinc-500 font-bold uppercase tracking-wider flex items-center gap-0.5">
-                              <Heart className="w-2.5 h-2.5 fill-zinc-600 text-zinc-600" /> 2.4k
-                            </span>
-                            <span className="text-[8px] text-zinc-500 font-bold uppercase tracking-wider flex items-center gap-0.5">
-                              <MessageSquare className="w-2.5 h-2.5 text-zinc-600" /> 24
-                            </span>
+                      {videos.map(video => (
+                        <div key={video.id} className="p-3 bg-zinc-950/40 border border-white/5 rounded-xl flex items-center gap-3 hover:bg-zinc-950/60 transition-colors">
+                          <div className="w-10 h-10 rounded-lg bg-zinc-900 overflow-hidden shrink-0 relative flex items-center justify-center text-teal-500 border border-white/5 bg-cover bg-center" style={{ backgroundImage: `url('${video.bgUrl}')` }}>
+                            <Play className="w-3.5 h-3.5 fill-current text-white relative z-10" />
+                            <div className="absolute inset-0 bg-black/45" />
                           </div>
-                        </div>
-                        <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                      </div>
-
-                      {/* Video 2 */}
-                      <div className="p-3 bg-zinc-950/40 border border-white/5 rounded-xl flex items-center gap-3 hover:bg-zinc-950/60 transition-colors">
-                        <div className="w-10 h-10 rounded-lg bg-zinc-900 overflow-hidden shrink-0 relative flex items-center justify-center text-teal-500 border border-white/5 bg-cover bg-center" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=200&auto=format&fit=crop&q=60')" }}>
-                          <Play className="w-3.5 h-3.5 fill-current text-white relative z-10" />
-                          <div className="absolute inset-0 bg-black/45" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[10px] font-bold truncate text-white">Haircut & Styling Demo</p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-[8px] text-zinc-500 font-bold uppercase tracking-wider flex items-center gap-0.5">
-                              <Heart className="w-2.5 h-2.5 fill-zinc-600 text-zinc-600" /> 1.1k
-                            </span>
-                            <span className="text-[8px] text-zinc-500 font-bold uppercase tracking-wider flex items-center gap-0.5">
-                              <MessageSquare className="w-2.5 h-2.5 text-zinc-600" /> 12
-                            </span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[10px] font-bold truncate text-white">{video.title}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-[8px] text-zinc-500 font-bold uppercase tracking-wider flex items-center gap-0.5">
+                                <Heart className="w-2.5 h-2.5 fill-zinc-600 text-zinc-600" /> {video.likes}
+                              </span>
+                              <span className="text-[8px] text-zinc-500 font-bold uppercase tracking-wider flex items-center gap-0.5">
+                                <MessageSquare className="w-2.5 h-2.5 text-zinc-600" /> {video.queries}
+                              </span>
+                            </div>
                           </div>
+                          <span className="w-2 h-2 rounded-full bg-emerald-500" />
                         </div>
-                        <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                      </div>
+                      ))}
                     </motion.div>
                   ) : (
                     <motion.div
@@ -266,7 +308,7 @@ const VendorClips = () => {
                                   <Mail className="w-3 h-3" />
                                 </button>
                                 <button 
-                                  onClick={() => handleAction('call', lead.clientName)}
+                                  onClick={() => confirmFulfillment(lead)}
                                   className="px-2.5 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-[8px] font-black uppercase tracking-widest flex items-center gap-1 transition-colors"
                                 >
                                   <Phone className="w-2.5 h-2.5" /> Fulfill
@@ -283,7 +325,7 @@ const VendorClips = () => {
                 {/* Upload Button overlay for active simulation */}
                 <div className="pt-4 mt-2 border-t border-white/5 flex gap-2">
                   <button 
-                    onClick={() => toast.success('Video uploader initialized (Simulator)')}
+                    onClick={() => setShowUploadModal(true)}
                     className="flex-1 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-[9px] font-black uppercase tracking-widest text-zinc-300 flex items-center justify-center gap-1.5 transition-colors"
                   >
                     <Upload className="w-3.5 h-3.5" /> Upload Video
@@ -292,7 +334,7 @@ const VendorClips = () => {
               </div>
             </div>
 
-            {/* Glowing Active indicator (removed Beta/Coming soon branding) */}
+            {/* Glowing Active indicator */}
             <div className="mt-5 flex items-center gap-2">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-500 opacity-75"></span>
@@ -303,6 +345,98 @@ const VendorClips = () => {
           </div>
         </div>
       </main>
+
+      {/* Mock Upload Modal Overlay */}
+      <AnimatePresence>
+        {showUploadModal && (
+          <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-[#1c1c1c] border border-white/10 rounded-[2rem] p-6 w-full max-w-sm text-left shadow-2xl relative"
+            >
+              <button
+                onClick={() => setShowUploadModal(false)}
+                className="absolute top-5 right-5 text-zinc-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              <div className="space-y-1.5 mb-5">
+                <h4 className="text-sm font-black uppercase tracking-wider text-white">Select Video to Upload</h4>
+                <p className="text-xs text-zinc-500 font-medium">Choose from pre-recorded catalog reels to simulate posting</p>
+              </div>
+
+              <div className="space-y-3">
+                {mockUploadOptions.map((opt, i) => (
+                  <div 
+                    key={i}
+                    onClick={() => handleUploadVideo(opt.title, opt.url)}
+                    className="p-3 bg-zinc-900 border border-white/5 rounded-2xl flex items-center gap-3 hover:border-teal-500/40 hover:bg-teal-500/5 cursor-pointer transition-all"
+                  >
+                    <img src={opt.url} className="w-10 h-10 rounded-lg object-cover border border-white/5" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-white truncate">{opt.title}</p>
+                      <p className="text-[9px] text-zinc-500 font-bold uppercase mt-0.5">Size: 4.8MB • MP4 Format</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Mock Fulfill Phone Call Modal */}
+      <AnimatePresence>
+        {activeFulfillLead && (
+          <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-[#1c1c1c] border border-white/10 rounded-[2rem] p-6 w-full max-w-xs text-center shadow-2xl relative"
+            >
+              <button
+                onClick={() => setActiveFulfillLead(null)}
+                className="absolute top-5 right-5 text-zinc-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              <div className="w-16 h-16 rounded-full bg-teal-500/10 text-teal-400 flex items-center justify-center mx-auto mb-4">
+                <Phone className="w-8 h-8 animate-bounce" />
+              </div>
+
+              <div className="space-y-1 mb-6">
+                <h4 className="text-xs font-black uppercase tracking-wider text-white">Call Simulator</h4>
+                <p className="text-[10px] text-zinc-500 font-medium">Contacting {activeFulfillLead.clientName}...</p>
+                <p className="text-sm font-bold text-white mt-2">+91 {activeFulfillLead.phone}</p>
+              </div>
+
+              <div className="p-3 bg-zinc-900 border border-white/5 rounded-2xl text-[10px] text-zinc-400 leading-normal italic text-left mb-6">
+                "Simulating connection to client regarding their inquiry on '{activeFulfillLead.sourceClip}'"
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={completeFulfill}
+                  className="w-full py-3 bg-teal-600 hover:bg-teal-500 text-white text-xs font-black uppercase tracking-wider rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <CheckCircle className="w-4 h-4" /> Mark as Resolved
+                </button>
+                <button
+                  onClick={() => setActiveFulfillLead(null)}
+                  className="w-full py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-400 text-[10px] font-black uppercase tracking-wider rounded-xl transition-colors cursor-pointer"
+                >
+                  Cancel Call
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
