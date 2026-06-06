@@ -141,7 +141,7 @@ const VendorClips = () => {
 
           {/* Right: Dashboard Simulator Mock (Redesigned, removed "Coming Soon") */}
           <div className="md:col-span-5 flex flex-col items-center w-full">
-            <div className="w-full bg-[#141414] border border-white/10 rounded-[2rem] p-5 shadow-2xl relative overflow-hidden text-left">
+            <div className="w-full bg-[#202020] border border-white/10 rounded-[2rem] p-5 shadow-2xl relative overflow-hidden text-left">
               
               {/* Simulator Header */}
               <div className="flex items-center justify-between mb-5">

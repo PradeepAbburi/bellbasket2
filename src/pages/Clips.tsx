@@ -378,7 +378,7 @@ const Clips = () => {
                       animate={{ y: 0 }}
                       exit={{ y: "100%" }}
                       transition={{ type: "spring", damping: 25, stiffness: 220 }}
-                      className="absolute inset-x-0 bottom-0 max-h-[88%] bg-[#121212]/98 border-t border-white/10 rounded-t-[1.5rem] z-40 p-4 overflow-y-auto flex flex-col text-left text-white shadow-2xl backdrop-blur-md"
+                      className="absolute inset-x-0 bottom-0 max-h-[88%] bg-[#202020] border-t border-white/10 rounded-t-[1.5rem] z-40 p-4 overflow-y-auto flex flex-col text-left text-white shadow-2xl backdrop-blur-md"
                     >
                       {/* Sheet Header */}
                       <div className="flex justify-between items-center mb-3 pb-1.5 border-b border-white/5">
