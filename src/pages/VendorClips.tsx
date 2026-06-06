@@ -42,12 +42,6 @@ const VendorClips = () => {
 
   return (
     <div className="min-h-screen bg-[#202020] text-white flex flex-col relative overflow-hidden">
-      {/* Full-screen ambient background image */}
-      <div 
-        className="absolute inset-0 bg-cover bg-center opacity-[0.08] saturate-100 filter blur-[1px] pointer-events-none z-0"
-        style={{ backgroundImage: "url('https://images.unsplash.com/photo-1634017839464-5c339ebe3cb4?w=1600&auto=format&fit=crop&q=80')" }}
-      />
-
       {/* Decorative liquid background blobs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
         <motion.div
