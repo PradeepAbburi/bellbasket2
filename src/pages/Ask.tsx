@@ -528,6 +528,10 @@ const AskPage = () => {
       systemPromptText += `\n`;
     }
 
+    if (matchedStores.length === 0 && productsDisplay.length === 0) {
+      systemPromptText += `CRITICAL: No matching stores or products were found near the user's location. You MUST explicitly state "Not found near you" to the user in your reply. Do not recommend wrong or unrelated products or stores.\n\n`;
+    }
+
     systemPromptText += `Please help the customer find what they are looking for based on the context above. If we found products or stores, point them to the cards below. Keep it friendly and concise.`;
 
     let botText = '';
@@ -808,31 +812,34 @@ const AskPage = () => {
       const combined = `${name} ${desc} ${cat} ${tags}`;
       const combinedWords = combined.split(/[\s,./\-()]+/).filter(w => w.length >= 2);
 
-      let score = 0;
+      let relevanceScore = 0;
 
       // 1. Check exact product name match (highest priority)
       if (name === lower || name.includes(lower)) {
-        score += 25;
+        relevanceScore += 25;
       }
 
       // 2. Score word match relevance
       for (const qw of uniqueWords) {
         if (name.includes(qw)) {
-          score += 10; // Match in product name
+          relevanceScore += 10; // Match in product name
         } else if (combined.includes(qw)) {
-          score += 5;  // Match in description/category
+          relevanceScore += 5;  // Match in description/category
         } else if (combinedWords.some(tw => isFuzzyPhoneticMatch(qw, tw))) {
-          score += 3;  // Fuzzy phonetic match
+          relevanceScore += 3;  // Fuzzy phonetic match
         }
       }
 
-      // 3. Proximity Boost
+      // 3. Proximity Boost (only apply if the product is relevant to search query)
       const store = stores.find(s => s.vendorId === p.vendorId || s.id === p.vendorId);
       if (store) {
         const distance = calculateDistance(userLat, userLng, store.lat, store.lng);
-        if (distance <= 2) score += 5;
-        else if (distance <= 5) score += 2;
-        return { product: p, score, distance, store };
+        let finalScore = relevanceScore;
+        if (relevanceScore > 0) {
+          if (distance <= 2) finalScore += 5;
+          else if (distance <= 5) finalScore += 2;
+        }
+        return { product: p, score: finalScore, distance, store };
       }
       
       return { product: p, score: 0, distance: 999, store: null };
@@ -893,35 +900,38 @@ const AskPage = () => {
       const cat = (s.category || '').toLowerCase();
       const distance = calculateDistance(userLat, userLng, s.lat, s.lng);
       
-      let score = 0;
+      let relevanceScore = 0;
 
       // 1. Exact match on name
       if (name === lower || name.includes(lower)) {
-        score += 30;
+        relevanceScore += 30;
       }
 
       // 2. Category match
       if (matchedCategory && cat === matchedCategory.toLowerCase()) {
-        score += 20;
+        relevanceScore += 20;
       }
 
       // 3. Keyword matches
       for (const qw of words) {
-        if (name.includes(qw)) score += 10;
-        else if (desc.includes(qw)) score += 5;
-        else if (cat.includes(qw)) score += 5;
-        else if (isFuzzyPhoneticMatch(qw, name) || isFuzzyPhoneticMatch(qw, cat)) score += 3;
+        if (name.includes(qw)) relevanceScore += 10;
+        else if (desc.includes(qw)) relevanceScore += 5;
+        else if (cat.includes(qw)) relevanceScore += 5;
+        else if (isFuzzyPhoneticMatch(qw, name) || isFuzzyPhoneticMatch(qw, cat)) relevanceScore += 3;
       }
 
-      // 4. Proximity Boost
-      if (distance <= 2) score += 8;
-      else if (distance <= 5) score += 4;
-      else if (distance <= 10) score += 1;
+      let finalScore = relevanceScore;
+      if (relevanceScore > 0) {
+        // 4. Proximity Boost (only applied if store matches search query)
+        if (distance <= 2) finalScore += 8;
+        else if (distance <= 5) finalScore += 4;
+        else if (distance <= 10) finalScore += 1;
 
-      // 5. Rating Boost
-      score += (s.rating || 4.0) * 2;
+        // 5. Rating Boost
+        finalScore += (s.rating || 4.0) * 2;
+      }
 
-      return { store: s, score, distance };
+      return { store: s, score: finalScore, distance };
     })
     .filter(item => item.score > 0 && item.distance <= 15);
 
@@ -1062,7 +1072,7 @@ const AskPage = () => {
     }
 
     return {
-      text: `I understand you're looking for "${query}"! 🔍\n\nI scanned our local database but couldn't find matching items or shops. If you meant to search for a category, try:\n• "AC Repair", "Plumber", "Salon", "Grocery", or "Restaurant".\n\nIf you have an active internet connection, I will also crawl the web to give you direct answers!`,
+      text: `### Not found near you 📍\n\nI scanned our local database but couldn't find matching products or stores for "${query}" near you. \n\nIf you meant to search for a category, try:\n• "AC Repair", "Plumber", "Salon", "Grocery", or "Restaurant".`,
       suggestions: [
         "Show grocery stores 🍎",
         "AC repair services near me 🛠️"
@@ -1102,7 +1112,7 @@ const AskPage = () => {
     <div className="h-[100dvh] bg-background text-foreground flex flex-col relative overflow-hidden">
       <Header solid />
       
-      <main className={`flex-1 w-full max-w-4xl mx-auto px-4 md:px-6 pt-16 ${bottomPaddingClass} md:pb-1 flex flex-col relative z-10 h-[calc(100dvh-4rem)] overflow-hidden`}>
+      <main className={`flex-1 w-full max-w-4xl mx-auto px-4 md:px-6 mt-16 ${bottomPaddingClass} md:pb-1 flex flex-col relative z-10 overflow-hidden`}>
         <div className="flex-1 flex flex-col relative h-full overflow-hidden">
           {/* Header */}
           <div className="px-4 py-4 border-b border-border/40 flex items-center justify-between shrink-0">
