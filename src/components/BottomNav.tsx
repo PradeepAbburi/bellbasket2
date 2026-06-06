@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+    import React, { memo } from 'react';
 import { useApp } from '@/context/AppContext';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { Search, ShoppingBag, ShoppingCart, User, ChevronRight, LayoutDashboard, Package, Home, Zap, MessageSquare, Play } from 'lucide-react';
