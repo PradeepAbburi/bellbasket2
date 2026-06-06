@@ -230,7 +230,12 @@ const Clips = () => {
               </div>
 
               {/* Video Player Mock Content */}
-              <div className="flex-1 bg-zinc-950 rounded-[2rem] overflow-hidden relative flex flex-col justify-end p-4 border border-white/5">
+              <div 
+                onClick={() => {
+                  if (activeOverlay) setActiveOverlay(null);
+                }}
+                className={`flex-1 bg-zinc-950 rounded-[2rem] overflow-hidden relative flex flex-col justify-end p-4 border border-white/5 ${activeOverlay ? 'cursor-pointer' : ''}`}
+              >
                 
                 {/* Simulated Video Frames */}
                 <AnimatePresence mode="wait">
@@ -240,7 +245,7 @@ const Clips = () => {
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.95 }}
                     transition={{ duration: 0.4 }}
-                    className="absolute inset-0 bg-cover bg-center filter saturate-100 opacity-60 brightness-[0.6]"
+                    className={`absolute inset-0 bg-cover bg-center transition-all duration-300 ${activeOverlay ? 'filter blur-[4px] saturate-50 opacity-40 brightness-[0.35]' : 'filter saturate-100 opacity-60 brightness-[0.6]'}`}
                     style={{
                       backgroundImage: activeTab === 'products'
                         ? "url('https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=600&auto=format&fit=crop&q=80')"
@@ -257,7 +262,10 @@ const Clips = () => {
                 </div>
 
                 {/* Right Actions Bar */}
-                <div className="absolute right-3 bottom-20 flex flex-col gap-4 items-center z-10">
+                <div 
+                  onClick={e => e.stopPropagation()}
+                  className="absolute right-3 bottom-20 flex flex-col gap-4 items-center z-10"
+                >
                   <div className="w-8 h-8 rounded-full border border-amber-500/40 bg-zinc-900 overflow-hidden flex items-center justify-center shadow-lg">
                     <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=60" className="w-full h-full object-cover" />
                   </div>
@@ -309,7 +317,10 @@ const Clips = () => {
                 </div>
 
                 {/* Bottom Overlay Context & Mock tagged elements */}
-                <div className="space-y-2.5 relative z-10 text-left w-[82%] pr-2">
+                <div 
+                  onClick={e => e.stopPropagation()}
+                  className="space-y-2.5 relative z-10 text-left w-[82%] pr-2"
+                >
                   <div className="space-y-0.5">
                     <p className="text-[9px] font-black uppercase tracking-wider text-white">@brew_alchemy</p>
                     <p className="text-[9px] text-zinc-300 line-clamp-2 leading-relaxed">
@@ -374,6 +385,7 @@ const Clips = () => {
                 <AnimatePresence>
                   {activeOverlay && (
                     <motion.div
+                      onClick={e => e.stopPropagation()}
                       initial={{ y: "100%" }}
                       animate={{ y: 0 }}
                       exit={{ y: "100%" }}
@@ -389,12 +401,6 @@ const Clips = () => {
                           {activeOverlay === 'book' && 'Select Time Slot'}
                           {activeOverlay === 'success' && 'Notification'}
                         </h4>
-                        <button 
-                          onClick={() => setActiveOverlay(null)}
-                          className="p-1 hover:bg-white/5 rounded-full text-zinc-400 hover:text-white"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
                       </div>
 
                       {/* Enquiry Sheet */}
@@ -467,7 +473,10 @@ const Clips = () => {
                       {/* Comments Sheet */}
                       {activeOverlay === 'comments' && (
                         <div className="flex-1 flex flex-col justify-between min-h-[170px] text-[9px]">
-                          <div className="space-y-2 overflow-y-auto max-h-[120px] pr-1">
+                          <div 
+                            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                            className="space-y-2 overflow-y-auto max-h-[120px] pr-1 [&::-webkit-scrollbar]:hidden"
+                          >
                             {comments.map((c, idx) => (
                               <div key={idx} className="bg-zinc-900/50 p-2 rounded-xl border border-white/5">
                                 <div className="flex justify-between items-center mb-0.5">
