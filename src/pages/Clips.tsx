@@ -28,6 +28,26 @@ const Clips = () => {
   const [activeTab, setActiveTab] = useState<'products' | 'services'>('products');
   const [likes, setLikes] = useState({ products: 2405, services: 1104 });
   const [hasLiked, setHasLiked] = useState({ products: false, services: false });
+  // Carousel state for reels
+  const [currentReel, setCurrentReel] = useState(0);
+  const reels = {
+    products: [
+      { id: 'p1', image: "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=600&auto=format&fit=crop&q=80", title: 'Latte Art Demo' },
+      { id: 'p2', image: "https://images.unsplash.com/photo-1498654896293-37aacf113fd9?w=600&auto=format&fit=crop&q=80", title: 'Artisan Bread' },
+      { id: 'p3', image: "https://images.unsplash.com/photo-1511918984145-48de785d4a9c?w=600&auto=format&fit=crop&q=80", title: 'Fresh Pastries' },
+      { id: 'p4', image: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=600&auto=format&fit=crop&q=80", title: 'Gourmet Sandwiches' },
+      { id: 'p5', image: "https://images.unsplash.com/photo-1556911220-aef6c6ab5d39?w=600&auto=format&fit=crop&q=80", title: 'Seasonal Drinks' },
+      { id: 'p6', image: "https://images.unsplash.com/photo-1582560478965-3c5cfa0bc0ab?w=600&auto=format&fit=crop&q=80", title: 'Dessert Treats' }
+    ],
+    services: [
+      { id: 's1', image: "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=600&auto=format&fit=crop&q=80", title: 'Haircut Studio' },
+      { id: 's2', image: "https://images.unsplash.com/photo-1589187151699-1c5e4b4e0f6d?w=600&auto=format&fit=crop&q=80", title: 'Spa Therapy' },
+      { id: 's3', image: "https://images.unsplash.com/photo-1542744095-fcf48d80b0fd?w=600&auto=format&fit=crop&q=80", title: 'Fitness Training' },
+      { id: 's4', image: "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=600&auto=format&fit=crop&q=80", title: 'Yoga Sessions' },
+      { id: 's5', image: "https://images.unsplash.com/photo-1515165562835-c6bbfcf4d5c8?w=600&auto=format&fit=crop&q=80", title: 'Grooming Deluxe' },
+      { id: 's6', image: "https://images.unsplash.com/photo-1505678261036-a3fcc5e884ee?w=600&auto=format&fit=crop&q=80", title: 'Personal Styling' }
+    ]
+  };
   const [enquiryCount, setEnquiryCount] = useState({ products: 8, services: 14 });
 
   // Overlay state
@@ -514,7 +534,7 @@ const Clips = () => {
                       animate={{ y: 0 }}
                       exit={{ y: "100%" }}
                       transition={{ type: "spring", damping: 25, stiffness: 220 }}
-                      className="absolute inset-x-0 bottom-0 max-h-[88%] bg-[#202020] border-t border-white/10 rounded-t-[1.5rem] z-40 p-4 overflow-y-auto flex flex-col text-left text-white shadow-2xl backdrop-blur-md"
+                      className="absolute inset-x-0 bottom-0 max-h-[88%] bg-[#202020] border-t border-white/10 rounded-t-[1.5rem] rounded-b-none z-40 p-4 overflow-y-auto flex flex-col text-left text-white shadow-2xl backdrop-blur-md"
                     >
                       {/* Sheet Header */}
                       <div className="flex justify-between items-center mb-3 pb-1.5 border-b border-white/5">
