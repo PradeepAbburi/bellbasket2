@@ -27,7 +27,7 @@ const Clips = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#060606] text-white flex flex-col relative overflow-hidden">
+    <div className="min-h-screen bg-[#202020] text-white flex flex-col relative overflow-hidden">
       {/* Full-screen ambient background image */}
       <div 
         className="absolute inset-0 bg-cover bg-center opacity-[0.12] saturate-100 filter blur-[1px] pointer-events-none z-0"

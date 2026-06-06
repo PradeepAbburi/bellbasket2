@@ -41,7 +41,7 @@ const VendorClips = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0d0d0d] text-white flex flex-col relative overflow-hidden">
+    <div className="min-h-screen bg-[#202020] text-white flex flex-col relative overflow-hidden">
       {/* Full-screen ambient background image */}
       <div 
         className="absolute inset-0 bg-cover bg-center opacity-[0.08] saturate-100 filter blur-[1px] pointer-events-none z-0"
