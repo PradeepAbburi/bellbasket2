@@ -12,8 +12,8 @@ const VendorClips = () => {
     {
       id: '1',
       clientName: 'Rahul Dev',
-      sourceClip: 'Sourdough Baking Demo',
-      query: 'Do you offer gluten-free crust options for birthday catering orders?',
+      sourceClip: 'Latte Art Masterclass',
+      query: 'Do you offer bulk catering or coffee bars for corporate events?',
       time: '2m ago',
       phone: '9876543210',
       email: 'rahul.dev@example.com'
@@ -21,8 +21,8 @@ const VendorClips = () => {
     {
       id: '2',
       clientName: 'Priya Sharma',
-      sourceClip: 'AC Leak Repair Demo',
-      query: 'Can you pick up the AC unit from home or do I need to drop it?',
+      sourceClip: 'Haircut & Styling Demo',
+      query: 'Is the 5 PM slot today open for styling and colouring together?',
       time: '15m ago',
       phone: '9876543211',
       email: 'priya.s@example.com'
@@ -44,8 +44,8 @@ const VendorClips = () => {
     <div className="min-h-screen bg-[#0d0d0d] text-white flex flex-col relative overflow-hidden">
       {/* Full-screen ambient background image */}
       <div 
-        className="absolute inset-0 bg-cover bg-center opacity-[0.06] saturate-50 filter blur-[2px] pointer-events-none z-0"
-        style={{ backgroundImage: "url('https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1600&auto=format&fit=crop&q=80')" }}
+        className="absolute inset-0 bg-cover bg-center opacity-[0.08] saturate-100 filter blur-[1px] pointer-events-none z-0"
+        style={{ backgroundImage: "url('https://images.unsplash.com/photo-1634017839464-5c339ebe3cb4?w=1600&auto=format&fit=crop&q=80')" }}
       />
 
       {/* Decorative liquid background blobs */}
@@ -194,12 +194,12 @@ const VendorClips = () => {
                     >
                       {/* Video 1 */}
                       <div className="p-3 bg-zinc-950/40 border border-white/5 rounded-xl flex items-center gap-3 hover:bg-zinc-950/60 transition-colors">
-                        <div className="w-10 h-10 rounded-lg bg-zinc-900 overflow-hidden shrink-0 relative flex items-center justify-center text-teal-500 border border-white/5 bg-cover bg-center" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=200&auto=format&fit=crop&q=60')" }}>
+                        <div className="w-10 h-10 rounded-lg bg-zinc-900 overflow-hidden shrink-0 relative flex items-center justify-center text-teal-500 border border-white/5 bg-cover bg-center" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=200&auto=format&fit=crop&q=60')" }}>
                           <Play className="w-3.5 h-3.5 fill-current text-white relative z-10" />
                           <div className="absolute inset-0 bg-black/45" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-[10px] font-bold truncate text-white">Sourdough Baking Demo</p>
+                          <p className="text-[10px] font-bold truncate text-white">Latte Art Masterclass</p>
                           <div className="flex items-center gap-2 mt-1">
                             <span className="text-[8px] text-zinc-500 font-bold uppercase tracking-wider flex items-center gap-0.5">
                               <Heart className="w-2.5 h-2.5 fill-zinc-600 text-zinc-600" /> 2.4k
@@ -214,12 +214,12 @@ const VendorClips = () => {
 
                       {/* Video 2 */}
                       <div className="p-3 bg-zinc-950/40 border border-white/5 rounded-xl flex items-center gap-3 hover:bg-zinc-950/60 transition-colors">
-                        <div className="w-10 h-10 rounded-lg bg-zinc-900 overflow-hidden shrink-0 relative flex items-center justify-center text-teal-500 border border-white/5 bg-cover bg-center" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=200&auto=format&fit=crop&q=60')" }}>
+                        <div className="w-10 h-10 rounded-lg bg-zinc-900 overflow-hidden shrink-0 relative flex items-center justify-center text-teal-500 border border-white/5 bg-cover bg-center" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=200&auto=format&fit=crop&q=60')" }}>
                           <Play className="w-3.5 h-3.5 fill-current text-white relative z-10" />
                           <div className="absolute inset-0 bg-black/45" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-[10px] font-bold truncate text-white">AC Leak Repair Demo</p>
+                          <p className="text-[10px] font-bold truncate text-white">Haircut & Styling Demo</p>
                           <div className="flex items-center gap-2 mt-1">
                             <span className="text-[8px] text-zinc-500 font-bold uppercase tracking-wider flex items-center gap-0.5">
                               <Heart className="w-2.5 h-2.5 fill-zinc-600 text-zinc-600" /> 1.1k

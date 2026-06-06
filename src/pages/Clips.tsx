@@ -30,8 +30,8 @@ const Clips = () => {
     <div className="min-h-screen bg-[#060606] text-white flex flex-col relative overflow-hidden">
       {/* Full-screen ambient background image */}
       <div 
-        className="absolute inset-0 bg-cover bg-center opacity-[0.08] saturate-50 filter blur-[2px] pointer-events-none z-0"
-        style={{ backgroundImage: "url('https://images.unsplash.com/photo-1542838132-92c53300491e?w=1600&auto=format&fit=crop&q=80')" }}
+        className="absolute inset-0 bg-cover bg-center opacity-[0.12] saturate-100 filter blur-[1px] pointer-events-none z-0"
+        style={{ backgroundImage: "url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1600&auto=format&fit=crop&q=80')" }}
       />
 
       {/* Decorative liquid animated background blobs */}
@@ -181,8 +181,8 @@ const Clips = () => {
                     className="absolute inset-0 bg-cover bg-center filter saturate-100 opacity-60 brightness-[0.6]"
                     style={{
                       backgroundImage: activeTab === 'products'
-                        ? "url('https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=500&auto=format&fit=crop&q=60')"
-                        : "url('https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=500&auto=format&fit=crop&q=60')"
+                        ? "url('https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=600&auto=format&fit=crop&q=80')"
+                        : "url('https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=600&auto=format&fit=crop&q=80')"
                     }}
                   />
                 </AnimatePresence>
@@ -233,11 +233,11 @@ const Clips = () => {
                 {/* Bottom Overlay Context & Mock tagged elements */}
                 <div className="space-y-2.5 relative z-10 text-left w-[82%] pr-2">
                   <div className="space-y-0.5">
-                    <p className="text-[9px] font-black uppercase tracking-wider text-white">@dough_alchemy</p>
+                    <p className="text-[9px] font-black uppercase tracking-wider text-white">@brew_alchemy</p>
                     <p className="text-[9px] text-zinc-300 line-clamp-2 leading-relaxed">
                       {activeTab === 'products'
-                        ? "Crafting sourdough pizza freshly baked daily. Hit order card below!"
-                        : "Express AC service demo and gas refill slot. Schedule instant cleanup!"
+                        ? "Pouring fresh organic single-origin lattes all morning. Order below!"
+                        : "Classic haircut, beard grooming, and hot towel styling slots available."
                       }
                     </p>
                   </div>
@@ -253,11 +253,11 @@ const Clips = () => {
                         className="bg-black/85 border border-white/10 rounded-2xl p-2 flex items-center gap-2.5 backdrop-blur-md shadow-2xl w-full"
                       >
                         <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0 bg-zinc-950">
-                          <img src="https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=200&auto=format&fit=crop&q=60" className="w-full h-full object-cover" />
+                          <img src="https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=200&auto=format&fit=crop&q=80" className="w-full h-full object-cover" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-[8px] font-bold truncate text-white">Sourdough Classic</p>
-                          <p className="text-[9px] font-black text-amber-400">₹299</p>
+                          <p className="text-[8px] font-bold truncate text-white">Specialty Latte</p>
+                          <p className="text-[9px] font-black text-amber-400">₹180</p>
                         </div>
                         <button className="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-black text-[8px] font-black rounded-lg uppercase tracking-wider shrink-0 transition-colors">
                           Buy
@@ -275,8 +275,8 @@ const Clips = () => {
                           <Wrench className="w-3.5 h-3.5" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-[8px] font-bold truncate text-white">Express AC Repair</p>
-                          <p className="text-[7px] font-black uppercase text-emerald-400">Next Slot: 4 PM</p>
+                          <p className="text-[8px] font-bold truncate text-white">Haircut & Styling</p>
+                          <p className="text-[7px] font-black uppercase text-emerald-400">Next Slot: 5 PM</p>
                         </div>
                         <button className="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-black text-[8px] font-black rounded-lg uppercase tracking-wider shrink-0 transition-colors">
                           Book
