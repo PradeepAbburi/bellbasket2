@@ -1,14 +1,34 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Play, Sparkles, Heart, MessageCircle, Share2, ShoppingBag, Wrench, Send, Info, X, HelpCircle, Check } from 'lucide-react';
+import { ArrowLeft, Play, Sparkles, Heart, MessageCircle, Share2, ShoppingBag, Wrench, Send, Info, X, HelpCircle, Check, Reply } from 'lucide-react';
 import Header from '@/components/Header';
+
+interface CommentReply {
+  id: string;
+  user: string;
+  text: string;
+  time: string;
+  likes: number;
+  hasLiked: boolean;
+}
+
+interface Comment {
+  id: string;
+  user: string;
+  text: string;
+  time: string;
+  likes: number;
+  hasLiked: boolean;
+  replies: CommentReply[];
+}
 
 const Clips = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'products' | 'services'>('products');
   const [likes, setLikes] = useState({ products: 2405, services: 1104 });
   const [hasLiked, setHasLiked] = useState({ products: false, services: false });
+  const [enquiryCount, setEnquiryCount] = useState({ products: 8, services: 14 });
 
   // Overlay state
   const [activeOverlay, setActiveOverlay] = useState<null | 'enquiry' | 'comments' | 'buy' | 'book' | 'success'>(null);
@@ -22,12 +42,42 @@ const Clips = () => {
     place: '',
     enquiry: ''
   });
-  const [comments, setComments] = useState([
-    { user: 'Rahul Dev', text: 'Love the latte art demo! Need this coffee every morning. ☕', time: '1m ago' },
-    { user: 'Sneha Rao', text: 'Best styling work in Bengaluru! Highly recommended.', time: '10m ago' },
-    { user: 'Vikram A', text: 'Is the specialty roast available online?', time: '30m ago' }
+
+  // Instagram-style comment threads
+  const [comments, setComments] = useState<Comment[]>([
+    {
+      id: 'c1',
+      user: 'Rahul Dev',
+      text: 'Love the latte art demo! Need this coffee every morning. ☕',
+      time: '1m ago',
+      likes: 12,
+      hasLiked: false,
+      replies: [
+        { id: 'r1', user: 'brew_alchemy', text: 'Thank you Rahul! Drop by tomorrow for a fresh cup.', time: '30s ago', likes: 2, hasLiked: false }
+      ]
+    },
+    {
+      id: 'c2',
+      user: 'Sneha Rao',
+      text: 'Best styling work in Bengaluru! Highly recommended.',
+      time: '10m ago',
+      likes: 8,
+      hasLiked: false,
+      replies: []
+    },
+    {
+      id: 'c3',
+      user: 'Vikram A',
+      text: 'Do you offer catering for birthday orders?',
+      time: '30m ago',
+      likes: 3,
+      hasLiked: false,
+      replies: []
+    }
   ]);
   const [newComment, setNewComment] = useState('');
+  const [replyingTo, setReplyingTo] = useState<{ commentId: string; username: string } | null>(null);
+
   const [selectedSlot, setSelectedSlot] = useState('');
 
   const handleLike = () => {
@@ -50,6 +100,12 @@ const Clips = () => {
     e.preventDefault();
     if (!enquiryForm.name || !enquiryForm.phone || !enquiryForm.enquiry) return;
     
+    // Increment enquiry count
+    setEnquiryCount(prev => ({
+      ...prev,
+      [activeTab]: prev[activeTab] + 1
+    }));
+
     setSuccessMsg(`Your inquiry has been successfully sent to the vendor. They will contact you shortly.`);
     setActiveOverlay('success');
     
@@ -66,11 +122,79 @@ const Clips = () => {
   const handleCommentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newComment.trim()) return;
-    setComments(prev => [
-      ...prev,
-      { user: 'You', text: newComment.trim(), time: 'Just now' }
-    ]);
+
+    if (replyingTo) {
+      // Add reply to specific comment thread
+      setComments(prev => prev.map(c => {
+        if (c.id === replyingTo.commentId) {
+          return {
+            ...c,
+            replies: [
+              ...c.replies,
+              {
+                id: `r-${Date.now()}`,
+                user: 'You',
+                text: `@${replyingTo.username} ${newComment.trim()}`,
+                time: 'Just now',
+                likes: 0,
+                hasLiked: false
+              }
+            ]
+          };
+        }
+        return c;
+      }));
+      setReplyingTo(null);
+    } else {
+      // Add top-level comment
+      setComments(prev => [
+        ...prev,
+        {
+          id: `c-${Date.now()}`,
+          user: 'You',
+          text: newComment.trim(),
+          time: 'Just now',
+          likes: 0,
+          hasLiked: false,
+          replies: []
+        }
+      ]);
+    }
     setNewComment('');
+  };
+
+  const toggleLikeComment = (commentId: string) => {
+    setComments(prev => prev.map(c => {
+      if (c.id === commentId) {
+        return {
+          ...c,
+          likes: c.likes + (c.hasLiked ? -1 : 1),
+          hasLiked: !c.hasLiked
+        };
+      }
+      return c;
+    }));
+  };
+
+  const toggleLikeReply = (commentId: string, replyId: string) => {
+    setComments(prev => prev.map(c => {
+      if (c.id === commentId) {
+        return {
+          ...c,
+          replies: c.replies.map(r => {
+            if (r.id === replyId) {
+              return {
+                ...r,
+                likes: r.likes + (r.hasLiked ? -1 : 1),
+                hasLiked: !r.hasLiked
+              };
+            }
+            return r;
+          })
+        };
+      }
+      return c;
+    }));
   };
 
   const handlePlaceOrder = () => {
@@ -232,7 +356,10 @@ const Clips = () => {
               {/* Video Player Mock Content */}
               <div 
                 onClick={() => {
-                  if (activeOverlay) setActiveOverlay(null);
+                  if (activeOverlay) {
+                    setActiveOverlay(null);
+                    setReplyingTo(null);
+                  }
                 }}
                 className={`flex-1 bg-zinc-950 rounded-[2rem] overflow-hidden relative flex flex-col justify-end p-4 border border-white/5 ${activeOverlay ? 'cursor-pointer' : ''}`}
               >
@@ -255,11 +382,6 @@ const Clips = () => {
                 </AnimatePresence>
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/10 to-black/35 pointer-events-none" />
 
-                {/* Simulated Live Overlays */}
-                <div className="absolute top-12 left-4 z-10 flex items-center gap-1.5 bg-black/40 px-2 py-0.5 rounded-full border border-white/5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="text-[8px] font-black uppercase tracking-wider text-white">LIVE FEED</span>
-                </div>
 
                 {/* Right Actions Bar */}
                 <div 
@@ -300,7 +422,7 @@ const Clips = () => {
                     </span>
                   </div>
 
-                  {/* Enquiry Button */}
+                  {/* Enquiry Button (with count) */}
                   <div className="flex flex-col items-center">
                     <button 
                       onClick={() => setActiveOverlay('enquiry')}
@@ -308,7 +430,9 @@ const Clips = () => {
                     >
                       <HelpCircle className="w-4 h-4 text-amber-400" />
                     </button>
-                    <span className="text-[8px] font-black mt-1 text-zinc-400">Ask</span>
+                    <span className="text-[8px] font-black mt-1 text-zinc-400">
+                      {activeTab === 'products' ? enquiryCount.products : enquiryCount.services}
+                    </span>
                   </div>
 
                   <button className="w-8 h-8 rounded-full bg-black/45 hover:bg-black/60 flex items-center justify-center text-white border border-white/5 shadow-md">
@@ -470,37 +594,93 @@ const Clips = () => {
                         </form>
                       )}
 
-                      {/* Comments Sheet */}
+                      {/* Instagram-style Comments Sheet */}
                       {activeOverlay === 'comments' && (
-                        <div className="flex-1 flex flex-col justify-between min-h-[170px] text-[9px]">
+                        <div className="flex-1 flex flex-col justify-between min-h-[190px] text-[9px]">
                           <div 
                             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-                            className="space-y-2 overflow-y-auto max-h-[120px] pr-1 [&::-webkit-scrollbar]:hidden"
+                            className="space-y-3 overflow-y-auto max-h-[130px] pr-1 [&::-webkit-scrollbar]:hidden"
                           >
-                            {comments.map((c, idx) => (
-                              <div key={idx} className="bg-zinc-900/50 p-2 rounded-xl border border-white/5">
-                                <div className="flex justify-between items-center mb-0.5">
-                                  <span className="font-bold text-amber-500">{c.user}</span>
-                                  <span className="text-[6.5px] text-zinc-500">{c.time}</span>
+                            {comments.map((c) => (
+                              <div key={c.id} className="space-y-1.5 border-b border-white/5 pb-2 last:border-0">
+                                {/* Top-level Comment */}
+                                <div className="flex justify-between items-start gap-2 bg-zinc-900/40 p-2 rounded-xl border border-white/5">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-1.5 mb-0.5">
+                                      <span className="font-bold text-amber-500 text-[8px]">@{c.user}</span>
+                                      <span className="text-[6.5px] text-zinc-500">{c.time}</span>
+                                    </div>
+                                    <p className="text-zinc-200 leading-snug">{c.text}</p>
+                                    <div className="flex items-center gap-3 mt-1.5">
+                                      <button 
+                                        onClick={() => toggleLikeComment(c.id)}
+                                        className={`flex items-center gap-0.5 text-[7px] font-black uppercase tracking-wider hover:text-amber-400 transition-colors ${c.hasLiked ? 'text-amber-500' : 'text-zinc-500'}`}
+                                      >
+                                        <Heart className={`w-2.5 h-2.5 ${c.hasLiked ? 'fill-current' : ''}`} /> {c.likes}
+                                      </button>
+                                      <button 
+                                        onClick={() => setReplyingTo({ commentId: c.id, username: c.user })}
+                                        className="flex items-center gap-0.5 text-[7px] font-black uppercase tracking-wider text-zinc-500 hover:text-white"
+                                      >
+                                        <Reply className="w-2.5 h-2.5" /> Reply
+                                      </button>
+                                    </div>
+                                  </div>
                                 </div>
-                                <p className="text-zinc-300 leading-snug">{c.text}</p>
+
+                                {/* Nested Reply Threads (Instagram Style) */}
+                                {c.replies.length > 0 && (
+                                  <div className="ml-5 pl-2.5 border-l border-white/10 space-y-1.5">
+                                    {c.replies.map((r) => (
+                                      <div key={r.id} className="bg-zinc-900/20 p-2 rounded-lg border border-white/5 flex justify-between items-start gap-2">
+                                        <div className="flex-1 min-w-0">
+                                          <div className="flex items-center gap-1.5 mb-0.5">
+                                            <span className="font-bold text-teal-400 text-[7.5px]">@{r.user}</span>
+                                            <span className="text-[6px] text-zinc-500">{r.time}</span>
+                                          </div>
+                                          <p className="text-zinc-300 leading-snug text-[8.5px]">{r.text}</p>
+                                          <div className="flex items-center gap-2 mt-1">
+                                            <button 
+                                              onClick={() => toggleLikeReply(c.id, r.id)}
+                                              className={`flex items-center gap-0.5 text-[6.5px] font-black uppercase tracking-wider hover:text-amber-400 transition-colors ${r.hasLiked ? 'text-amber-500' : 'text-zinc-500'}`}
+                                            >
+                                              <Heart className={`w-2 h-2 ${r.hasLiked ? 'fill-current' : ''}`} /> {r.likes}
+                                            </button>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
                             ))}
                           </div>
-                          <form onSubmit={handleCommentSubmit} className="flex gap-1.5 mt-2.5 pt-1.5 border-t border-white/5">
-                            <input 
-                              type="text"
-                              value={newComment}
-                              onChange={e => setNewComment(e.target.value)}
-                              placeholder="Write a comment..."
-                              className="flex-1 bg-zinc-900 border border-white/10 rounded-lg px-2 py-1.5 text-white outline-none text-[8px] focus:border-amber-500/50"
-                            />
-                            <button 
-                              type="submit"
-                              className="p-1.5 bg-amber-500 hover:bg-amber-400 text-black rounded-lg transition-colors cursor-pointer"
-                            >
-                              <Send className="w-3 h-3" />
-                            </button>
+
+                          {/* Comment Form with Reply Indicator */}
+                          <form onSubmit={handleCommentSubmit} className="flex flex-col gap-1.5 mt-2.5 pt-1.5 border-t border-white/5">
+                            {replyingTo && (
+                              <div className="flex items-center justify-between bg-amber-500/10 px-2 py-1 rounded-md text-[7px] text-amber-400 font-bold border border-amber-500/10 uppercase tracking-widest">
+                                <span>Replying to @{replyingTo.username}</span>
+                                <button type="button" onClick={() => setReplyingTo(null)} className="text-zinc-500 hover:text-white">
+                                  Cancel
+                                </button>
+                              </div>
+                            )}
+                            <div className="flex gap-1.5">
+                              <input 
+                                type="text"
+                                value={newComment}
+                                onChange={e => setNewComment(e.target.value)}
+                                placeholder={replyingTo ? `Write a reply...` : "Write a comment..."}
+                                className="flex-1 bg-zinc-900 border border-white/10 rounded-lg px-2 py-1.5 text-white outline-none text-[8px] focus:border-amber-500/50"
+                              />
+                              <button 
+                                type="submit"
+                                className="p-1.5 bg-amber-500 hover:bg-amber-400 text-black rounded-lg transition-colors cursor-pointer"
+                              >
+                                <Send className="w-3 h-3" />
+                              </button>
+                            </div>
                           </form>
                         </div>
                       )}
