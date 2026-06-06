@@ -81,11 +81,11 @@ const AskPage = () => {
   const isVendor = user?.role === 'vendor';
   const showCartBanner = !isVendor && cartCount > 0;
   const hasBottomNav = user && user.isVerified && user.role !== 'hr' && user.role !== 'admin';
-  const bottomPaddingClass = hasBottomNav
+  const bottomPositionClass = hasBottomNav
     ? (showCartBanner
-        ? "pb-[calc(99px+max(env(safe-area-inset-bottom),6px))]"
-        : "pb-[calc(55px+max(env(safe-area-inset-bottom),6px))]")
-    : "pb-4";
+        ? "bottom-[calc(99px+max(env(safe-area-inset-bottom),6px))]"
+        : "bottom-[calc(55px+max(env(safe-area-inset-bottom),6px))]")
+    : "bottom-4 md:bottom-1";
 
   // Ask Chatbot State
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -1112,7 +1112,7 @@ const AskPage = () => {
     <div className="h-[100dvh] bg-background text-foreground flex flex-col relative overflow-hidden">
       <Header solid />
       
-      <main className={`flex-1 w-full max-w-4xl mx-auto px-4 md:px-6 mt-16 ${bottomPaddingClass} md:pb-1 flex flex-col relative z-10 overflow-hidden`}>
+      <main className={`fixed top-16 ${bottomPositionClass} left-0 right-0 w-full max-w-4xl mx-auto px-4 md:px-6 flex flex-col z-10 overflow-hidden`}>
         <div className="flex-1 flex flex-col relative h-full overflow-hidden">
           {/* Header */}
           <div className="px-4 py-4 border-b border-border/40 flex items-center justify-between shrink-0">
