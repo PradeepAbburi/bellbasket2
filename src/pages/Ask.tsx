@@ -1262,7 +1262,10 @@ const AskPage = () => {
                             </div>
 
                             <button
-                              onClick={() => navigate(`/store/${s.id}`)}
+                              onClick={() => {
+                                const basePath = s.slug ? `/stores/${s.slug}` : `/store/${s.id}`;
+                                navigate(basePath, { state: { from: '/ask', store: s } });
+                              }}
                               className="w-full py-2 bg-primary text-primary-foreground font-black uppercase text-[9px] tracking-wider rounded-xl hover:scale-[1.02] active:scale-[0.98] transition-transform text-center"
                             >
                               Visit Store

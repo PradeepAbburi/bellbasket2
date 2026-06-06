@@ -778,6 +778,8 @@ const StoreDetail = () => {
             if (activeSearch || isSearching || searchTerm) {
               setSearchTerm('');
               setActiveSearch('');
+            } else if (location.state?.from) {
+              navigate(location.state.from);
             } else {
               navigate('/browse');
             }

@@ -1,7 +1,7 @@
 import React, { memo } from 'react';
 import { useApp } from '@/context/AppContext';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { Search, ShoppingBag, ShoppingCart, User, ChevronRight, LayoutDashboard, Package, Home, Zap, MessageSquare } from 'lucide-react';
+import { Search, ShoppingBag, ShoppingCart, User, ChevronRight, LayoutDashboard, Package, Home, Zap, MessageSquare, Play } from 'lucide-react';
 import { getAvatarUrl } from '@/utils/avatars';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';

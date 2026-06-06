@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Store as StoreIcon, Power, PowerOff, Package, TrendingUp, ShoppingCart, Crown, Check, Star, MessageSquare, Send, Zap, Building2, BarChart3, Clock, Scissors, Settings, MessageCircle, ArrowRight, Image as ImageIcon, Lock, Save, Mail, XCircle, Share2, Phone, Camera, Upload, MapPin, Search, Navigation, X, KeyRound, ShieldAlert, BellRing, Rocket, FileText, StickyNote, Plus, PackageSearch, Package2 } from 'lucide-react';
+import { Store as StoreIcon, Power, PowerOff, Package, TrendingUp, ShoppingCart, Crown, Check, Star, MessageSquare, Send, Zap, Building2, BarChart3, Clock, Scissors, Settings, MessageCircle, ArrowRight, Image as ImageIcon, Lock, Save, Mail, XCircle, Share2, Phone, Camera, Upload, MapPin, Search, Navigation, X, KeyRound, ShieldAlert, BellRing, Rocket, FileText, StickyNote, Plus, PackageSearch, Package2, Play } from 'lucide-react';
 import { getStoreVisualStatus } from '@/utils/store-status';
 import Header from '@/components/Header';
 import { useApp } from '@/context/AppContext';
@@ -912,6 +912,24 @@ const VendorDashboard = () => {
                 </div>
                 </div>
             )}
+
+            {/* Clips Tool */}
+            <div 
+              onClick={() => navigate('/vendor/clips')}
+              className="bg-white dark:bg-[#202020] rounded-3xl p-6 text-center border-teal-500/20 bg-teal-500/5 cursor-pointer transition-all group border flex flex-col items-center justify-center relative overflow-hidden"
+            >
+              <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-400 text-[8px] font-black tracking-widest uppercase">
+                New
+              </div>
+              <div className="w-10 h-10 rounded-2xl bg-teal-500/10 flex items-center justify-center mb-3">
+                <Play className="w-5 h-5 text-teal-500 animate-pulse" />
+              </div>
+              <p className="text-foreground font-black text-sm">Clips Manager</p>
+              <p className="text-[10px] text-muted-foreground mt-1 mb-4 line-clamp-1 truncate">Publish product & service Reels to showcase offerings</p>
+              <div className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-teal-600 text-white text-[10px] font-black uppercase tracking-widest">
+                  <Play className="w-3.5 h-3.5" /> Manage Clips
+              </div>
+            </div>
           </div>
         </div>
 

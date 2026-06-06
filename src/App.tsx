@@ -101,6 +101,8 @@ const AdminPartnerBank = lazy(() => import("./pages/AdminPartnerBank"));
 import BottomNav from "./components/BottomNav";
 import CustomerDeals from "./pages/CustomerDeals";
 import Ask from "./pages/Ask";
+import Clips from "./pages/Clips";
+import VendorClips from "./pages/VendorClips";
 
 const NotificationPrompt = lazy(() => import("./components/NotificationPrompt"));
 const VendorDeals = lazy(() => import("./pages/VendorDeals"));
@@ -231,6 +233,7 @@ const AppContent = () => {
             <Route path="/deals" element={<ErrorBoundary name="CustomerDeals"><CustomerDeals /></ErrorBoundary>} />
             <Route path="/saved-stores" element={<ErrorBoundary name="SavedStores"><ProtectedRoute><SavedStores /></ProtectedRoute></ErrorBoundary>} />
             <Route path="/ask" element={<ErrorBoundary name="Ask"><ProtectedRoute><Ask /></ProtectedRoute></ErrorBoundary>} />
+            <Route path="/clips" element={<ErrorBoundary name="Clips"><ProtectedRoute><Clips /></ProtectedRoute></ErrorBoundary>} />
 
             <Route path="/vendor" element={<ErrorBoundary name="VendorDashboard"><VendorProtectedRoute><VendorDashboard /></VendorProtectedRoute></ErrorBoundary>} />
             <Route path="/vendor/products" element={<ErrorBoundary name="VendorProducts"><VendorProtectedRoute><VendorProducts /></VendorProtectedRoute></ErrorBoundary>} />
@@ -247,6 +250,7 @@ const AppContent = () => {
             <Route path="/vendor/editor" element={<ErrorBoundary name="VendorEditor"><VendorProtectedRoute><StoreEditor /></VendorProtectedRoute></ErrorBoundary>} />
             <Route path="/vendor/deals" element={<ErrorBoundary name="VendorDeals"><VendorProtectedRoute><VendorDeals /></VendorProtectedRoute></ErrorBoundary>} />
             <Route path="/vendor/notes" element={<ErrorBoundary name="VendorNotes"><VendorProtectedRoute><BellNotes /></VendorProtectedRoute></ErrorBoundary>} />
+            <Route path="/vendor/clips" element={<ErrorBoundary name="VendorClips"><VendorProtectedRoute><VendorClips /></VendorProtectedRoute></ErrorBoundary>} />
 
             <Route path="/admin" element={<ProtectedRoute requiredRole="admin"><AdminLayout /></ProtectedRoute>}>
               <Route index element={<AdminOverview />} />

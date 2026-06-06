@@ -1,7 +1,7 @@
 import { useApp } from '@/context/AppContext';
 import { getAvatarUrl } from '@/utils/avatars';
 import { NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
-import { ShoppingCart, Bell, User, LogOut, Store, Menu, X, Search, ShoppingBag, Package, TrendingUp, Crown, Shield, BellRing, FileText, Zap, Settings, Users } from 'lucide-react';
+import { ShoppingCart, Bell, User, LogOut, Store, Menu, X, Search, ShoppingBag, Package, TrendingUp, Crown, Shield, BellRing, FileText, Zap, Settings, Users, Play } from 'lucide-react';
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -120,6 +120,14 @@ const Header = ({ solid = false }: { solid?: boolean }) => {
                   </NavLink>
 
                   <NavLink 
+                    to="/clips" 
+                    className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}
+                  >
+                    <Play className="w-5 h-5" />
+                    <span className="hidden lg:inline">Clips</span>
+                  </NavLink>
+
+                  <NavLink 
                     to="/receipts" 
                     onMouseEnter={() => onHoverPrefetch('receipts')}
                     className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}
@@ -173,6 +181,10 @@ const Header = ({ solid = false }: { solid?: boolean }) => {
                       <NavLink end to="/vendor" className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}>
                         <Store className="w-5 h-5" />
                         <span className="hidden lg:inline">Dashboard</span>
+                      </NavLink>
+                      <NavLink to="/vendor/clips" className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}>
+                        <Play className="w-5 h-5" />
+                        <span className="hidden lg:inline">Clips</span>
                       </NavLink>
                       <NavLink to="/vendor/notes" className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}>
                         <FileText className="w-5 h-5" />
