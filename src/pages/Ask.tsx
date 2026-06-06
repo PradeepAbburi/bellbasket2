@@ -1213,7 +1213,7 @@ const AskPage = () => {
                       <span className="text-[10px] font-black uppercase tracking-wider text-primary">Ask AI</span>
                     )}
                     {isUser && (
-                      <span className="text-[10px] font-black uppercase tracking-wider text-indigo-400">You</span>
+                      <span className="text-[10px] font-black uppercase tracking-wider text-amber-400">You</span>
                     )}
                     <span className="text-[9px] text-muted-foreground/50 font-bold">
                       {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -1454,7 +1454,7 @@ const AskPage = () => {
                       scale: 1 + (Math.min(volume, 120) / 120),
                     }}
                     transition={{ type: 'spring', stiffness: 300, damping: 16 }}
-                    className="w-24 h-24 rounded-full border border-indigo-500/20 flex items-center justify-center"
+                    className="w-24 h-24 rounded-full border border-primary/20 flex items-center justify-center"
                   />
                 </motion.div>
                 
@@ -1470,7 +1470,7 @@ const AskPage = () => {
                     scale: { type: 'spring', stiffness: 450, damping: 10 },
                     borderRadius: { repeat: Infinity, duration: 1.5, ease: "easeInOut" }
                   }}
-                  className="w-16 h-16 bg-gradient-to-tr from-primary via-indigo-500 to-purple-600 shadow-[0_0_30px_rgba(var(--primary-rgb),0.4)] flex items-center justify-center relative z-10"
+                  className="w-16 h-16 bg-gradient-to-tr from-primary via-amber-500 to-yellow-500 shadow-[0_0_30px_rgba(var(--primary-rgb),0.4)] flex items-center justify-center relative z-10"
                 >
                   <Mic className="w-6 h-6 text-primary-foreground" />
                 </motion.div>
