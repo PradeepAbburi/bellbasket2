@@ -1,7 +1,7 @@
 import { useApp } from '@/context/AppContext';
 import { getAvatarUrl } from '@/utils/avatars';
 import { NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
-import { ShoppingCart, Bell, User, LogOut, Store, Menu, X, Search, ShoppingBag, Package, TrendingUp, Crown, Shield, BellRing, FileText, Zap, Settings, Users, Play } from 'lucide-react';
+import { ShoppingCart, Bell, User, LogOut, Store, Menu, X, Search, ShoppingBag, Package, TrendingUp, Crown, Shield, BellRing, FileText, Zap, Settings, Users, Play, Briefcase } from 'lucide-react';
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -219,6 +219,10 @@ const Header = ({ solid = false }: { solid?: boolean }) => {
                       <NavLink to="/vendor/config" className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}>
                         <Settings className="w-5 h-5" />
                         <span className="hidden lg:inline">Config</span>
+                      </NavLink>
+                      <NavLink to="/careers" className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}>
+                        <Briefcase className="w-5 h-5" />
+                        <span className="hidden lg:inline">Post Jobs</span>
                       </NavLink>
                     </>
                   ) : null}

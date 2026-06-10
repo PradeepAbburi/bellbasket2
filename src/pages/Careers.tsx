@@ -59,6 +59,7 @@ const Careers = () => {
     const [showLogin, setShowLogin] = useState(false);
     const { user: globalUser } = useApp();
     const [isAdmin, setIsAdmin] = useState(false);
+    const isEmployer = isAdmin || globalUser?.role === 'vendor';
     const [loading, setLoading] = useState(true);
 
     // Dynamic Data State
@@ -107,18 +108,24 @@ const Careers = () => {
     }, [globalUser]);
 
     useEffect(() => {
-        if (isAdmin) {
+        if (isAdmin || globalUser?.role === 'vendor') {
             const q = query(collection(db, 'job_applications'));
             const unsubscribe = onSnapshot(q, (snapshot) => {
                 const appsList = snapshot.docs.map(doc => ({
                     id: doc.id,
                     ...doc.data()
                 } as Application));
-                setApplications(appsList);
+                
+                if (globalUser?.role === 'vendor') {
+                    const vendorJobIds = new Set(jobs.filter(j => j.vendorId === globalUser.id).map(j => j.id));
+                    setApplications(appsList.filter(app => vendorJobIds.has(app.jobId)));
+                } else {
+                    setApplications(appsList);
+                }
             });
             return () => unsubscribe();
         }
-    }, [isAdmin]);
+    }, [isAdmin, globalUser, jobs]);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -188,11 +195,16 @@ const Careers = () => {
     const handleCreateJob = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            await addDoc(collection(db, 'job_posts'), {
+            const jobPayload: any = {
                 ...newJob,
                 status: 'active',
                 createdAt: serverTimestamp()
-            });
+            };
+            if (globalUser?.role === 'vendor') {
+                jobPayload.vendorId = globalUser.id;
+                jobPayload.vendorName = globalUser.name || 'Vendor';
+            }
+            await addDoc(collection(db, 'job_posts'), jobPayload);
             setShowPostModal(false);
             setNewJob({ title: '', type: 'Full-time', location: '', workplace: 'On-site', category: 'Engineering', description: '' });
             toast.success('Job Posted Successfully');
@@ -215,8 +227,9 @@ const Careers = () => {
 
     const filteredJobs = useMemo(() => {
         return jobs.filter(job => {
-            // Only show active jobs to public, unless admin is viewing
-            if (!isAdmin && job.status === 'on_hold') return false;
+            // Only show active jobs to public, unless admin or posting vendor is viewing
+            const canManage = isAdmin || (globalUser?.role === 'vendor' && job.vendorId === globalUser.id);
+            if (!canManage && job.status === 'on_hold') return false;
             
             const matchesSearch = job.title.toLowerCase().includes(searchTerm.toLowerCase());
             const matchesLocation = job.location.toLowerCase().includes(locationFilter.toLowerCase());
@@ -224,7 +237,7 @@ const Careers = () => {
             const matchesWorkplace = workplaceFilter === 'All' || job.workplace === workplaceFilter;
             return matchesSearch && matchesLocation && matchesType && matchesWorkplace;
         });
-    }, [searchTerm, locationFilter, typeFilter, workplaceFilter, jobs, isAdmin]);
+    }, [searchTerm, locationFilter, typeFilter, workplaceFilter, jobs, isAdmin, globalUser]);
 
     const filteredApps = useMemo(() => {
         let apps = applications.filter(app => (app.status || 'pending') === appTab);
@@ -280,7 +293,7 @@ const Careers = () => {
                         <span className="text-sm font-bold">Back</span>
                     </button>
                     <div className="flex items-center gap-4">
-                        {!isAdmin ? (
+                        {!isEmployer ? (
                             <button 
                                 onClick={() => setShowLogin(true)}
                                 className="flex items-center gap-2 glass px-4 py-2 rounded-full border border-primary/20 text-primary text-xs font-black uppercase tracking-widest hover:bg-primary hover:text-white transition-all shadow-lg shadow-primary/10"
@@ -307,7 +320,7 @@ const Careers = () => {
                     </div>
                 </div>
 
-                {isAdmin && viewMode === 'applications' ? (
+                {isEmployer && viewMode === 'applications' ? (
                     // Applications View
                     <div className="space-y-8">
                         <div className="text-center space-y-4">
@@ -567,40 +580,43 @@ const Careers = () => {
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-3">
-                                                {isAdmin ? (
-                                                    <>
-                                                        <button 
-                                                            onClick={() => toggleJobStatus(job.id, job.status)}
-                                                            className={`p-4 rounded-2xl transition-all shadow-inner border ${
-                                                                job.status === 'active' 
-                                                                ? 'bg-amber-500/10 text-amber-600 border-amber-500/20 hover:bg-amber-500 hover:text-white' 
-                                                                : 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 hover:bg-emerald-500 hover:text-white'
-                                                            }`}
-                                                            title={job.status === 'active' ? 'Pause Hiring' : 'Resume Hiring'}
-                                                        >
-                                                            {job.status === 'active' ? <Clock className="w-5 h-5" /> : <Rocket className="w-5 h-5" />}
-                                                        </button>
-                                                        <button 
-                                                            onClick={() => handleDeleteJob(job.id)}
-                                                            className="bg-red-500/10 text-red-600 p-4 rounded-2xl hover:bg-red-500 hover:text-white transition-all shadow-inner border border-red-500/20"
-                                                        >
-                                                            <Trash2 className="w-5 h-5" />
-                                                        </button>
+                                                {(() => {
+                                                    const canManageJob = isAdmin || (globalUser?.role === 'vendor' && job.vendorId === globalUser.id);
+                                                    return canManageJob ? (
+                                                        <>
+                                                            <button 
+                                                                onClick={() => toggleJobStatus(job.id, job.status)}
+                                                                className={`p-4 rounded-2xl transition-all shadow-inner border ${
+                                                                    job.status === 'active' 
+                                                                    ? 'bg-amber-500/10 text-amber-600 border-amber-500/20 hover:bg-amber-500 hover:text-white' 
+                                                                    : 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 hover:bg-emerald-500 hover:text-white'
+                                                                }`}
+                                                                title={job.status === 'active' ? 'Pause Hiring' : 'Resume Hiring'}
+                                                            >
+                                                                {job.status === 'active' ? <Clock className="w-5 h-5" /> : <Rocket className="w-5 h-5" />}
+                                                            </button>
+                                                            <button 
+                                                                onClick={() => handleDeleteJob(job.id)}
+                                                                className="bg-red-500/10 text-red-600 p-4 rounded-2xl hover:bg-red-500 hover:text-white transition-all shadow-inner border border-red-500/20"
+                                                            >
+                                                                <Trash2 className="w-5 h-5" />
+                                                            </button>
+                                                            <button 
+                                                                onClick={() => navigate(`/careers/job/${job.id}`)}
+                                                                className="glass px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white/05 transition-all border border-border/10"
+                                                            >
+                                                                Details
+                                                            </button>
+                                                        </>
+                                                    ) : (
                                                         <button 
                                                             onClick={() => navigate(`/careers/job/${job.id}`)}
-                                                            className="glass px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white/05 transition-all border border-border/10"
+                                                            className="whitespace-nowrap bg-primary text-white px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl shadow-primary/20 group-hover:scale-105 transition-all active:scale-95"
                                                         >
-                                                            Details
+                                                            Apply Now
                                                         </button>
-                                                    </>
-                                                ) : (
-                                                    <button 
-                                                        onClick={() => navigate(`/careers/job/${job.id}`)}
-                                                        className="whitespace-nowrap bg-primary text-white px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl shadow-primary/20 group-hover:scale-105 transition-all active:scale-95"
-                                                    >
-                                                        Apply Now
-                                                    </button>
-                                                )}
+                                                    );
+                                                })()}
                                             </div>
                                         </motion.div>
                                     ))
@@ -610,7 +626,7 @@ const Careers = () => {
                     </>
                 )}
 
-                {(!isAdmin || viewMode === 'jobs') && (
+                {(!isEmployer || viewMode === 'jobs') && (
                     <div className="glass-strong rounded-[2.5rem] p-8 md:p-12 text-center space-y-6 border border-primary/10">
                         <h2 className="text-3xl font-black text-foreground">Don't see a fit?</h2>
                         <p className="text-muted-foreground font-medium max-w-sm mx-auto">

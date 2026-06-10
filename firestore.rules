@@ -137,12 +137,17 @@ service cloud.firestore {
     // --- CAREERS PORTAL RULES ---
     match /job_posts/{jobId} {
       allow read: if true;
-      allow write: if isAdmin() || (isAuth() && request.auth.token.email == 'careers@bellbasket.com');
+      allow create: if isAdmin() || (isAuth() && (request.auth.token.email == 'careers@bellbasket.com' || (hasRole('vendor') && request.resource.data.vendorId == request.auth.uid)));
+      allow update, delete: if isAdmin() || (isAuth() && (request.auth.token.email == 'careers@bellbasket.com' || resource.data.vendorId == request.auth.uid));
     }
 
     match /job_applications/{appId} {
       allow create: if true;
-      allow read, update, delete: if isAdmin() || (isAuth() && request.auth.token.email == 'careers@bellbasket.com');
+      allow read, update, delete: if isAdmin() || 
+                                    (isAuth() && (
+                                      request.auth.token.email == 'careers@bellbasket.com' || 
+                                      get(/databases/$(database)/documents/job_posts/$(resource.data.jobId)).data.vendorId == request.auth.uid
+                                    ));
     }
   }
 }
