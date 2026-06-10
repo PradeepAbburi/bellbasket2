@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { initializeFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getAnalytics } from 'firebase/analytics';
 import { getMessaging } from 'firebase/messaging';
@@ -21,7 +21,11 @@ export const auth = getAuth(app);
 // Use local persistence so users stay logged in until they explicitly sign out
 setPersistence(auth, browserLocalPersistence).catch(console.error);
 
-export const db = getFirestore(app);
+// Force long-polling to bypass firewall/proxy blocks
+export const db = initializeFirestore(app, {
+    experimentalForceLongPolling: true
+});
+
 export const storage = getStorage(app);
 export const analytics = typeof window !== 'undefined' ? getAnalytics(app) : null;
 export const messaging = typeof window !== 'undefined' ? getMessaging(app) : null;

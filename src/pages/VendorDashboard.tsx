@@ -51,7 +51,38 @@ const VendorDashboard = () => {
   const [contactEmail, setContactEmail] = useState('');
   const [showSupportModal, setShowSupportModal] = useState(false);
   const [supportQuery, setSupportQuery] = useState('');
+  const [supportSubject, setSupportSubject] = useState('');
+  const [contactName, setContactName] = useState('');
+  const [supportModalTab, setSupportModalTab] = useState<'form' | 'history'>('form');
+  const [vendorTickets, setVendorTickets] = useState<any[]>([]);
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
+
+  // Prefill details when user shifts
+  useEffect(() => {
+    if (user) {
+      setContactName(user.name || '');
+      setContactEmail(user.email || '');
+    }
+  }, [user]);
+
+  // Real-time listener for vendor support tickets
+  useEffect(() => {
+    if (!user?.id) return;
+    const q = query(
+      collection(db, "support_requests"),
+      where("userId", "==", user.id)
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      list.sort((a: any, b: any) => {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dateB - dateA;
+      });
+      setVendorTickets(list);
+    });
+    return () => unsub();
+  }, [user?.id]);
 
   useEffect(() => {
     if (user?.subscriptionExpiry && user.plan !== 'none') {
@@ -173,7 +204,11 @@ const VendorDashboard = () => {
   };
 
   const requestSupport = () => {
+    setContactName(user?.name || '');
     setContactEmail(user?.email || '');
+    setSupportSubject('');
+    setSupportQuery('');
+    setSupportModalTab('form');
     setShowSupportModal(true);
   };
 
@@ -190,50 +225,60 @@ const VendorDashboard = () => {
 
   const handleSubmitTicket = async () => {
     if (!user) return;
+    if (!contactName.trim() || !contactEmail.trim() || !supportSubject.trim() || !supportQuery.trim()) {
+      toast.error("Please fill in all ticket details");
+      return;
+    }
     const loadingToast = toast.loading("Submitting ticket...");
     try {
       await addDoc(collection(db, "support_requests"), {
         userId: user.id,
-        userName: user.name || 'Vendor',
-        userEmail: contactEmail,
+        userName: contactName.trim(),
+        userEmail: contactEmail.trim(),
+        userRole: 'vendor',
         plan: user.plan || 'basic',
-        status: 'open',
-        details: supportQuery,
+        status: 'pending',
+        subject: supportSubject.trim(),
+        details: supportQuery.trim(),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         messages: [{
           id: 'init',
-          text: supportQuery,
+          text: supportQuery.trim(),
           senderId: user.id,
-          senderName: user.name || 'Vendor',
+          senderName: contactName.trim(),
           role: 'user',
           timestamp: new Date().toISOString()
         }]
       });
       toast.dismiss(loadingToast);
       toast.success("Ticket Submitted Successfully!");
-      setShowSupportModal(false);
       setSupportQuery('');
+      setSupportSubject('');
+      setSupportModalTab('history');
     } catch (e: any) {
       toast.dismiss(loadingToast);
       console.warn("Firestore write failed, falling back to local storage:", e);
 
       // Fallback: Save to Local Storage for Demo/Offline consistency
+      const ticketId = 'local-' + Date.now();
       const newLocalTicket = {
-        id: 'local-' + Date.now(),
+        id: ticketId,
         userId: user.id,
-        userName: user.name || 'Vendor',
-        userEmail: contactEmail,
+        userName: contactName.trim(),
+        userEmail: contactEmail.trim(),
+        userRole: 'vendor',
         plan: user.plan || 'basic',
-        status: 'open',
-        details: supportQuery,
+        status: 'pending',
+        subject: supportSubject.trim(),
+        details: supportQuery.trim(),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         messages: [{
           id: 'init',
-          text: supportQuery,
+          text: supportQuery.trim(),
           senderId: user.id,
-          senderName: user.name || 'Vendor',
+          senderName: contactName.trim(),
           role: 'user',
           timestamp: new Date().toISOString()
         }]
@@ -242,8 +287,9 @@ const VendorDashboard = () => {
       localStorage.setItem('bellbasket_local_tickets', JSON.stringify([newLocalTicket, ...existing]));
 
       toast.success("Ticket Submitted Successfully (Offline Mode)!");
-      setShowSupportModal(false);
       setSupportQuery('');
+      setSupportSubject('');
+      setSupportModalTab('history');
     }
   };
 
@@ -1344,32 +1390,113 @@ const VendorDashboard = () => {
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.95, opacity: 0 }}
                 onClick={e => e.stopPropagation()}
-                className="bg-background rounded-3xl max-w-md w-full p-6 shadow-2xl border border-border"
+                className="bg-[#202020] rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-white/10 text-white text-left relative"
               >
-                <div className="flex flex-col items-center justify-center py-6 text-center space-y-6">
-                  <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center text-primary shadow-inner mb-2">
-                    <Mail className="w-8 h-8" />
-                  </div>
-                  <div className="space-y-2">
-                    <h2 className="text-2xl font-black text-foreground">{t('common.contact_support')}</h2>
-                    <p className="text-sm text-muted-foreground font-medium max-w-xs mx-auto leading-relaxed">
-                      {t('common.support_desc')}
-                    </p>
-                  </div>
-
-                  <div className="w-full bg-secondary/50 p-6 rounded-2xl border border-border/50 transition-all hover:bg-secondary/80 group cursor-pointer" onClick={() => window.location.href = "mailto:contact@bellbasket.com"}>
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">Official Channel</p>
-                    <a href="mailto:contact@bellbasket.com" className="text-xl font-black text-primary group-hover:underline break-all">
-                      contact@bellbasket.com
-                    </a>
-                  </div>
-
-                  <button
-                    onClick={() => setShowSupportModal(false)}
-                    className="w-full py-4 text-xs font-bold text-muted-foreground hover:text-foreground uppercase tracking-widest transition-colors"
-                  >
-                    {t('common.close')}
+                <div className="flex items-center justify-between mb-6 border-b border-white/5 pb-4">
+                  <h2 className="text-xl font-black text-white tracking-tight uppercase">Priority Support</h2>
+                  <button onClick={() => setShowSupportModal(false)} className="text-white/40 hover:text-white transition-colors">
+                    <X className="w-5 h-5" />
                   </button>
+                </div>
+
+                {/* Tab buttons */}
+                <div className="flex bg-[#151515] border border-white/5 p-1 rounded-xl mb-6">
+                  <button
+                    onClick={() => setSupportModalTab('form')}
+                    className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${supportModalTab === 'form' ? 'bg-primary text-black font-black' : 'text-white/40 hover:text-white'}`}
+                  >
+                    Submit Ticket
+                  </button>
+                  <button
+                    onClick={() => setSupportModalTab('history')}
+                    className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${supportModalTab === 'history' ? 'bg-primary text-black font-black' : 'text-white/40 hover:text-white'}`}
+                  >
+                    Ticket History ({vendorTickets.length})
+                  </button>
+                </div>
+
+                {supportModalTab === 'form' ? (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-[9px] font-black uppercase tracking-widest text-white/30 block mb-1">Your Name</label>
+                      <input
+                        type="text"
+                        value={contactName}
+                        onChange={(e) => setContactName(e.target.value)}
+                        placeholder="Name"
+                        className="w-full bg-[#151515] border border-white/5 rounded-xl px-4 py-3 text-xs text-white placeholder:text-white/10 outline-none focus:border-primary/30 transition-all font-medium"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-black uppercase tracking-widest text-white/30 block mb-1">Email Address</label>
+                      <input
+                        type="email"
+                        value={contactEmail}
+                        onChange={(e) => setContactEmail(e.target.value)}
+                        placeholder="Email"
+                        className="w-full bg-[#151515] border border-white/5 rounded-xl px-4 py-3 text-xs text-white placeholder:text-white/10 outline-none focus:border-primary/30 transition-all font-medium"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-black uppercase tracking-widest text-white/30 block mb-1">Subject</label>
+                      <input
+                        type="text"
+                        value={supportSubject}
+                        onChange={(e) => setSupportSubject(e.target.value)}
+                        placeholder="e.g. Settlement issue, Store configuration"
+                        className="w-full bg-[#151515] border border-white/5 rounded-xl px-4 py-3 text-xs text-white placeholder:text-white/10 outline-none focus:border-primary/30 transition-all font-medium"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-black uppercase tracking-widest text-white/30 block mb-1">Problem Details</label>
+                      <textarea
+                        value={supportQuery}
+                        onChange={(e) => setSupportQuery(e.target.value)}
+                        placeholder="Describe the issue you are experiencing..."
+                        rows={4}
+                        className="w-full bg-[#151515] border border-white/5 rounded-xl px-4 py-3 text-xs text-white placeholder:text-white/10 outline-none focus:border-primary/30 transition-all font-medium resize-none"
+                      />
+                    </div>
+                    <button
+                      onClick={handleSubmitTicket}
+                      className="w-full py-4 bg-primary text-black font-black text-xs uppercase tracking-widest rounded-xl hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-primary/10 mt-2"
+                    >
+                      Submit Support Ticket
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-4 max-h-[350px] overflow-y-auto pr-1 custom-scrollbar">
+                    {vendorTickets.length === 0 ? (
+                      <div className="text-center py-10 bg-[#151515] rounded-2xl border border-dashed border-white/5">
+                        <MessageSquare className="w-8 h-8 text-white/10 mx-auto mb-2" />
+                        <p className="text-xs text-white/40 font-bold">No tickets submitted yet.</p>
+                      </div>
+                    ) : (
+                      vendorTickets.map((t) => {
+                        const isResolved = t.status === 'resolved' || t.status === 'closed';
+                        return (
+                          <div key={t.id} className="p-4 bg-[#151515] rounded-2xl border border-white/5 flex flex-col gap-2">
+                            <div className="flex justify-between items-start">
+                              <span className={`px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider ${isResolved ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}`}>
+                                {t.status || 'pending'}
+                              </span>
+                              <span className="text-[8px] font-bold text-white/30 uppercase tracking-widest">
+                                {new Date(t.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                              </span>
+                            </div>
+                            <h4 className="text-sm font-bold text-white leading-snug break-words">{t.subject || 'Support Request'}</h4>
+                            <p className="text-xs text-white/45 leading-relaxed break-words whitespace-pre-wrap">{t.details}</p>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
+
+                <div className="mt-6 border-t border-white/5 pt-4 text-center">
+                  <p className="text-[9px] text-white/20 uppercase font-black tracking-widest">
+                    Or email: contact@bellbasket.com
+                  </p>
                 </div>
               </motion.div>
             </motion.div>

@@ -2,8 +2,8 @@ import { useState, useEffect } from "react";
 import { useApp } from "@/context/AppContext";
 import { useNavigate } from "react-router-dom";
 import { db, auth } from "@/lib/firebase";
-import { collection, getDocs, query, orderBy, limit, onSnapshot, doc, updateDoc, addDoc, serverTimestamp, setDoc, writeBatch, getDoc, deleteDoc } from "firebase/firestore";
-import { Users, FileText, MessageCircle, Search, Shield, Activity, User, AlertCircle, CheckCircle2, Clock, Lock, Store as StoreIcon, ShoppingBag, TrendingUp, Ban, Loader2, Crown, Zap, RefreshCcw, Ticket, Plus, Trash2, Check, UserCircle, BarChart2, Eye, EyeOff } from "lucide-react";
+import { collection, getDocs, query, where, orderBy, limit, onSnapshot, doc, updateDoc, addDoc, serverTimestamp, setDoc, writeBatch, getDoc, deleteDoc } from "firebase/firestore";
+import { Users, FileText, MessageCircle, Search, Shield, Activity, User, AlertCircle, CheckCircle2, Clock, Lock, Store as StoreIcon, ShoppingBag, TrendingUp, Ban, Loader2, Crown, Zap, RefreshCcw, Ticket, Plus, Trash2, Check, UserCircle, BarChart2, Eye, EyeOff, StickyNote } from "lucide-react";
 import { PlanTier, Coupon, Store } from "@/types";
 import { generateSlug } from "@/utils/seo";
 import { motion } from "framer-motion";
@@ -16,7 +16,7 @@ import { CATEGORY_METADATA } from "@/constants/categories";
 const AdminDashboard = () => {
     const { user, loading, logout } = useApp();
     const navigate = useNavigate();
-    const [activeTab, setActiveTab] = useState<'users' | 'stores' | 'reports' | 'support' | 'coupons' | 'referrals' | 'analytics'>('users');
+    const [activeTab, setActiveTab] = useState<'users' | 'stores' | 'reports' | 'support' | 'coupons' | 'referrals' | 'analytics' | 'notes'>('users');
     const [analyticsPeriod, setAnalyticsPeriod] = useState<'day' | 'week' | 'month' | 'year'>('month');
     const [syncCountdown, setSyncCountdown] = useState(5);
     const [lastSync, setLastSync] = useState(new Date());
@@ -57,6 +57,62 @@ const AdminDashboard = () => {
     const [employeeImage, setEmployeeImage] = useState<string | null>(null);
     const [staffSearchQuery, setStaffSearchQuery] = useState("");
     const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
+
+    const [adminNotes, setAdminNotes] = useState<any[]>([]);
+    const [newNoteTitle, setNewNoteTitle] = useState("");
+    const [newNoteContent, setNewNoteContent] = useState("");
+    const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+    const [isSavingNote, setIsSavingNote] = useState(false);
+
+    const handleSaveAdminNote = async () => {
+        if (!newNoteTitle.trim() || !user) {
+            toast.error("Please enter a note title");
+            return;
+        }
+        setIsSavingNote(true);
+        try {
+            const noteData = {
+                vendorId: user.id,
+                itemName: newNoteTitle.trim(),
+                description: newNoteContent.trim(),
+                quantity: "Admin Note",
+                type: 'admin_note',
+                createdAt: new Date().toISOString()
+            };
+
+            if (editingNoteId) {
+                await updateDoc(doc(db, "notes", editingNoteId), {
+                    itemName: newNoteTitle.trim(),
+                    description: newNoteContent.trim(),
+                    updatedAt: new Date().toISOString()
+                });
+                toast.success("Note updated successfully");
+            } else {
+                await addDoc(collection(db, "notes"), noteData);
+                toast.success("Note saved successfully");
+            }
+
+            setNewNoteTitle("");
+            setNewNoteContent("");
+            setEditingNoteId(null);
+        } catch (e: any) {
+            console.error("Save note failed:", e);
+            toast.error("Failed to save note");
+        } finally {
+            setIsSavingNote(false);
+        }
+    };
+
+    const handleDeleteAdminNote = async (noteId: string) => {
+        if (!window.confirm("Are you sure you want to delete this note?")) return;
+        try {
+            await deleteDoc(doc(db, "notes", noteId));
+            toast.success("Note deleted successfully");
+        } catch (e) {
+            console.error("Delete note failed:", e);
+            toast.error("Failed to delete note");
+        }
+    };
 
     const handleDeleteCoupon = async (couponId: string) => {
         if (!window.confirm("Are you sure you want to delete this coupon?")) return;
@@ -287,6 +343,19 @@ const AdminDashboard = () => {
         unsubscribes.push(onSnapshot(collection(db, "referrals"), (snapshot) => {
             setReferralList(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         }, (err) => console.error("Referrals Sync Error:", err)));
+
+        // 7. Admin Notes
+        if (user?.id) {
+            unsubscribes.push(onSnapshot(
+                query(collection(db, "notes"), where("vendorId", "==", user.id)),
+                (snapshot) => {
+                    const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+                        .sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+                    setAdminNotes(fetched);
+                },
+                (err) => console.error("Admin Notes Sync Error:", err)
+            ));
+        }
 
         // Safety timeout to ensure loader eventually disappears
         const safetyLoader = setTimeout(() => setIsLoadingData(false), 3000);
@@ -713,6 +782,7 @@ const AdminDashboard = () => {
                             { id: 'coupons', label: 'Coupons', icon: Ticket },
                             { id: 'referrals', label: 'Staff', icon: UserCircle },
                             { id: 'analytics', label: 'Analytics', icon: BarChart2 },
+                            { id: 'notes', label: 'Notes', icon: StickyNote },
                         ].filter(tab => user?.role === 'admin' || tab.id === 'referrals').map((tab) => (
                             <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all whitespace-nowrap ${activeTab === tab.id ? 'bg-white text-primary shadow-lg scale-105' : 'text-muted-foreground hover:text-foreground hover:bg-white/05'}`}>
                                 <tab.icon className="w-4 h-4" /> {tab.label}
@@ -1448,16 +1518,124 @@ const AdminDashboard = () => {
                                             />
                                         </AreaChart>
                                     </ResponsiveContainer>
+                                    {totalOrders === 0 && totalVendors === 0 && (
+                                        <p className="text-center text-sm text-muted-foreground font-medium mt-6">
+                                            No data recorded for this period yet.
+                                        </p>
+                                    )}
                                 </div>
-
-                                {totalOrders === 0 && totalVendors === 0 && (
-                                    <p className="text-center text-sm text-muted-foreground font-medium mt-6">
-                                        No data recorded for this period yet.
-                                    </p>
-                                )}
                             </div>
                         );
                     })()}
+
+                    {activeTab === 'notes' && (
+                        <div className="p-6 text-left">
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                                {/* Create/Edit Note Section */}
+                                <div className="lg:col-span-1 space-y-6">
+                                    <div className="p-6 bg-secondary/30 rounded-3xl border border-border/50">
+                                        <h3 className="text-xl font-black text-foreground mb-4">
+                                            {editingNoteId ? "Edit Note" : "Create Admin Note"}
+                                        </h3>
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Title</label>
+                                                <input
+                                                    type="text"
+                                                    value={newNoteTitle}
+                                                    onChange={(e) => setNewNoteTitle(e.target.value)}
+                                                    placeholder="Note Title"
+                                                    className="w-full px-4 py-3 rounded-xl bg-white border-0 outline-none shadow-sm text-sm font-bold mt-1 text-black"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Content</label>
+                                                <textarea
+                                                    value={newNoteContent}
+                                                    onChange={(e) => setNewNoteContent(e.target.value)}
+                                                    placeholder="Write your note here..."
+                                                    rows={6}
+                                                    className="w-full px-4 py-3 rounded-xl bg-white border-0 outline-none shadow-sm text-sm font-bold mt-1 resize-none text-black"
+                                                />
+                                            </div>
+                                            <div className="flex gap-3 mt-2">
+                                                <button
+                                                    onClick={handleSaveAdminNote}
+                                                    disabled={isSavingNote}
+                                                    className="flex-1 py-3 rounded-xl gradient-primary text-white font-black text-xs uppercase tracking-widest shadow-lg hover:scale-105 transition-all disabled:opacity-50"
+                                                >
+                                                    {isSavingNote ? "Saving..." : (editingNoteId ? "Update Note" : "Save Note")}
+                                                </button>
+                                                {editingNoteId && (
+                                                    <button
+                                                        onClick={() => {
+                                                            setEditingNoteId(null);
+                                                            setNewNoteTitle("");
+                                                            setNewNoteContent("");
+                                                        }}
+                                                        className="px-6 py-3 rounded-xl bg-secondary text-foreground font-black text-xs uppercase tracking-widest hover:bg-secondary/80 transition-all border border-border"
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Notes List Section */}
+                                <div className="lg:col-span-2">
+                                    <h3 className="text-xl font-black text-foreground mb-6 flex items-center gap-2">
+                                        <StickyNote className="w-5 h-5 text-primary" />
+                                        Admin Notes
+                                    </h3>
+                                    <div className="space-y-4">
+                                        {adminNotes.length === 0 ? (
+                                            <div className="p-10 text-center glass rounded-3xl border-dashed border-2">
+                                                <p className="text-muted-foreground font-bold italic">No notes saved yet.</p>
+                                            </div>
+                                        ) : (
+                                            adminNotes.map((note) => (
+                                                <div key={note.id} className="p-5 rounded-2xl bg-white border border-border shadow-sm flex flex-col gap-3 group hover:shadow-md transition-all">
+                                                    <div className="flex items-start justify-between">
+                                                        <div>
+                                                            <h4 className="font-black text-foreground text-base">{note.itemName}</h4>
+                                                            <p className="text-[10px] text-muted-foreground mt-1">
+                                                                {new Date(note.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })} at {new Date(note.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                                                            </p>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <button
+                                                                onClick={() => {
+                                                                    setEditingNoteId(note.id);
+                                                                    setNewNoteTitle(note.itemName);
+                                                                    setNewNoteContent(note.description || "");
+                                                                }}
+                                                                className="p-2 rounded-xl bg-primary/5 text-primary hover:bg-primary hover:text-white transition-all opacity-0 group-hover:opacity-100"
+                                                                title="Edit Note"
+                                                            >
+                                                                <Plus className="w-4 h-4 rotate-45" />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleDeleteAdminNote(note.id)}
+                                                                className="p-2 rounded-xl bg-destructive/5 text-destructive hover:bg-destructive hover:text-white transition-all opacity-0 group-hover:opacity-100"
+                                                                title="Delete Note"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    {note.description && (
+                                                        <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap mt-1">{note.description}</p>
+                                                    )}
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </motion.div>
             </div>
         </div>
@@ -1465,6 +1643,7 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
+
 
 
 

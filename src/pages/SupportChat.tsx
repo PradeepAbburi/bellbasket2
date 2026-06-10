@@ -46,8 +46,7 @@ const SupportChat = () => {
             try {
                 const q = query(
                     collection(db, 'support_requests'),
-                    where('userId', '==', user.id),
-                    orderBy('createdAt', 'desc')
+                    where('userId', '==', user.id)
                 );
                 const snap = await getDocs(q);
                 firestoreList = snap.docs.map(d => ({
@@ -284,6 +283,8 @@ const SupportChat = () => {
             const docRef = await addDoc(collection(db, "support_requests"), {
                 userId: user.id,
                 userName: user.name,
+                userEmail: user.email || '',
+                userRole: user.role || 'customer',
                 status: 'pending',
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),

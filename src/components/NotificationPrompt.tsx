@@ -22,14 +22,14 @@ const NotificationPrompt = () => {
       return;
     }
 
-    if (!user) return;
+    if (!user || user.role === 'admin' || user.role === 'hr') return;
 
     // Show if they are a vendor 
     // OR if they have active orders/bookings
     const hasActiveOrders = orders.some(o => !['completed', 'rejected'].includes(o.status));
     const hasActiveBookings = serviceBookings.some(b => !['completed', 'rejected'].includes(b.status));
     
-    if (user.role === 'vendor' || user.role === 'admin' || hasActiveOrders || hasActiveBookings) {
+    if (user.role === 'vendor' || hasActiveOrders || hasActiveBookings) {
       const timer = setTimeout(() => setShow(true), 4000);
       return () => clearTimeout(timer);
     }

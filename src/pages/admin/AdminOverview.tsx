@@ -3,31 +3,32 @@ import {
     Users, Store, ShoppingBag, TrendingUp, 
     ArrowUpRight, ArrowDownRight, Activity,
     Calendar, Download, Filter, Sparkles,
-    ShieldCheck, AlertCircle, CreditCard
+    ShieldCheck, AlertCircle, CreditCard, StickyNote
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { db } from '@/lib/firebase';
-import { collection, onSnapshot, query, orderBy, limit, getDocs } from 'firebase/firestore';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { collection, onSnapshot, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useApp } from '@/context/AppContext';
 import PageLoading from '@/components/PageLoading';
+import { useNavigate } from 'react-router-dom';
 
 const StatCard = ({ label, value, icon: Icon, color, trend, trendType }: any) => (
     <motion.div 
         whileHover={{ y: -5 }}
-        className="bg-white p-5 md:p-6 rounded-[2rem] border border-slate-200 shadow-sm hover:shadow-xl hover:shadow-indigo-500/5 transition-all group"
+        className="bg-[#0f172a] p-5 md:p-6 rounded-[2rem] border border-slate-800 shadow-lg hover:shadow-xl hover:shadow-indigo-500/5 transition-all group text-left"
     >
         <div className="flex items-start justify-between">
             <div className="space-y-3 md:space-y-4">
                 <div className={`w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-${color}-500/10 flex items-center justify-center`}>
-                    <Icon className={`w-5 h-5 md:w-6 md:h-6 text-${color}-500`} />
+                    <Icon className={`w-5 h-5 md:w-6 md:h-6 text-${color}-400`} />
                 </div>
                 <div>
                     <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{label}</p>
-                    <h3 className="text-2xl md:text-3xl font-black text-slate-900 mt-1">{value}</h3>
+                    <h3 className="text-2xl md:text-3xl font-black text-white mt-1">{value}</h3>
                 </div>
                 {trend && (
-                    <div className={`flex items-center gap-1 text-[9px] md:text-[10px] font-bold ${trendType === 'up' ? 'text-emerald-500 bg-emerald-500/10' : 'text-rose-500 bg-rose-500/10'} px-2.5 py-1 rounded-full w-fit`}>
+                    <div className={`flex items-center gap-1 text-[9px] md:text-[10px] font-bold ${trendType === 'up' ? 'text-emerald-400 bg-emerald-500/10' : 'text-rose-400 bg-rose-500/10'} px-2.5 py-1 rounded-full w-fit`}>
                         {trendType === 'up' ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
                         {trend}
                     </div>
@@ -39,6 +40,7 @@ const StatCard = ({ label, value, icon: Icon, color, trend, trendType }: any) =>
 
 const AdminOverview = () => {
     const { user } = useApp();
+    const navigate = useNavigate();
     const [stats, setStats] = useState({
         totalUsers: 0,
         totalVendors: 0,
@@ -47,6 +49,7 @@ const AdminOverview = () => {
         activeSync: true
     });
     const [loading, setLoading] = useState(true);
+    const [recentNotes, setRecentNotes] = useState<any[]>([]);
 
     useEffect(() => {
         const unsubUsers = onSnapshot(collection(db, "users"), (snap) => {
@@ -68,11 +71,32 @@ const AdminOverview = () => {
             setLoading(false);
         });
 
+        let unsubNotes = () => {};
+        if (user?.id) {
+            unsubNotes = onSnapshot(
+                query(
+                    collection(db, "notes"),
+                    where("vendorId", "==", user.id)
+                ),
+                (snap) => {
+                    const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    list.sort((a: any, b: any) => {
+                        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+                        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+                        return dateB - dateA;
+                    });
+                    setRecentNotes(list.slice(0, 3));
+                },
+                (err) => console.error("Recent notes sync error:", err)
+            );
+        }
+
         return () => {
             unsubUsers();
             unsubOrders();
+            unsubNotes();
         };
-    }, []);
+    }, [user?.id]);
 
     const chartData = [
         { name: 'Mon', revenue: 4500 },
@@ -87,17 +111,17 @@ const AdminOverview = () => {
     if (loading) return <PageLoading />;
 
     return (
-        <div className="space-y-6 md:space-y-10 pb-20">
+        <div className="space-y-6 md:space-y-10 pb-20 text-left">
             <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div className="space-y-1">
                     <div className="flex items-center gap-3 text-center md:text-left">
                         <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse hidden md:block" />
-                        <h2 className="text-2xl md:text-4xl font-black text-slate-900 tracking-tight">System Node</h2>
+                        <h2 className="text-2xl md:text-4xl font-black text-white tracking-tight">System Node</h2>
                     </div>
-                    <p className="text-slate-500 font-medium text-[10px] md:text-sm uppercase tracking-widest text-center md:text-left">Real-time Command Center</p>
+                    <p className="text-slate-400 font-medium text-[10px] md:text-sm uppercase tracking-widest text-center md:text-left">Real-time Command Center</p>
                 </div>
                 <div className="flex items-center gap-2 md:gap-3 w-full md:w-auto">
-                    <button className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 md:px-6 py-3 rounded-xl bg-white border border-slate-200 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all">
+                    <button className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 md:px-6 py-3 rounded-xl bg-slate-900 border border-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-300 hover:bg-slate-800/80 hover:text-white transition-all">
                         <Download className="w-4 h-4" /> Export
                     </button>
                     <button className="flex-1 md:flex-none gradient-primary text-white h-12 px-6 md:px-8 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-600/20 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2">
@@ -114,15 +138,15 @@ const AdminOverview = () => {
             </div>
 
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 md:gap-8">
-                <div className="xl:col-span-2 bg-white p-6 md:p-8 rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
+                <div className="xl:col-span-2 bg-[#0f172a] p-6 md:p-8 rounded-[2.5rem] border border-slate-800 shadow-lg overflow-hidden">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
                         <div>
-                            <h3 className="text-xl font-black text-slate-900 tracking-tight">Revenue Matrix</h3>
+                            <h3 className="text-xl font-black text-white tracking-tight">Revenue Matrix</h3>
                             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mt-1">Daily Traffic Analysis</p>
                         </div>
-                        <div className="flex bg-slate-100 p-1 rounded-xl w-fit">
+                        <div className="flex bg-slate-900/60 border border-slate-800 p-1 rounded-xl w-fit">
                             {['7D', '30D', 'ALL'].map(t => (
-                                <button key={t} className={`px-4 py-1.5 rounded-lg text-[10px] font-black transition-all ${t === '7D' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}>{t}</button>
+                                <button key={t} className={`px-4 py-1.5 rounded-lg text-[10px] font-black transition-all ${t === '7D' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`}>{t}</button>
                             ))}
                         </div>
                     </div>
@@ -131,21 +155,21 @@ const AdminOverview = () => {
                             <AreaChart data={chartData}>
                                 <defs>
                                     <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#4F46E5" stopOpacity={0.1}/>
+                                        <stop offset="5%" stopColor="#4F46E5" stopOpacity={0.2}/>
                                         <stop offset="95%" stopColor="#4F46E5" stopOpacity={0}/>
                                     </linearGradient>
                                 </defs>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 9, fontWeight: 900, fill: '#94a3b8'}} dy={10} />
-                                <YAxis axisLine={false} tickLine={false} tick={{fontSize: 9, fontWeight: 900, fill: '#94a3b8'}} />
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1e293b" />
+                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 9, fontWeight: 900, fill: '#64748b'}} dy={10} />
+                                <YAxis axisLine={false} tickLine={false} tick={{fontSize: 9, fontWeight: 900, fill: '#64748b'}} />
                                 <Tooltip 
                                     contentStyle={{ 
-                                        backgroundColor: '#1e293b', 
+                                        backgroundColor: '#0f172a', 
                                         borderRadius: '16px',
-                                        border: 'none',
+                                        border: '1px solid #1e293b',
                                         color: '#fff',
                                         padding: '16px',
-                                        boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)'
+                                        boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.3)'
                                     }}
                                 />
                                 <Area type="monotone" dataKey="revenue" stroke="#4F46E5" strokeWidth={4} fillOpacity={1} fill="url(#colorRev)" />
@@ -155,7 +179,7 @@ const AdminOverview = () => {
                 </div>
 
                 <div className="space-y-6 md:space-y-8">
-                    <div className="bg-slate-900 p-6 md:p-8 rounded-[2.5rem] text-white relative overflow-hidden">
+                    <div className="bg-[#0f172a] border border-slate-800 p-6 md:p-8 rounded-[2.5rem] text-white relative overflow-hidden shadow-lg">
                         <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-bl-full -mr-8 -mt-8" />
                         <h3 className="text-lg font-black tracking-tight uppercase tracking-widest mb-6">Operations Hub</h3>
                         
@@ -165,7 +189,7 @@ const AdminOverview = () => {
                                 { label: 'Sync Rate', value: '100%', color: 'indigo' },
                                 { label: 'Latency Delta', value: '24ms', color: 'amber' }
                             ].map((s, i) => (
-                                <div key={i} className="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/10">
+                                <div key={i} className="flex items-center justify-between p-4 rounded-2xl bg-slate-950/20 border border-slate-800">
                                     <span className="text-[9px] font-black uppercase tracking-widest text-indigo-200">{s.label}</span>
                                     <span className={`text-xs font-black text-${s.color}-400`}>{s.value}</span>
                                 </div>
@@ -173,8 +197,43 @@ const AdminOverview = () => {
                         </div>
                     </div>
 
-                    <div className="bg-white p-6 md:p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
-                        <h3 className="text-xl font-black text-slate-900 tracking-tight mb-8">Performance</h3>
+                    <div className="bg-[#0f172a] p-6 md:p-8 rounded-[2.5rem] border border-slate-800 shadow-lg text-left">
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
+                                <StickyNote className="w-5 h-5 text-indigo-500 animate-pulse" />
+                                Admin Notes
+                            </h3>
+                            <button 
+                                onClick={() => navigate('/admin/notes')}
+                                className="text-xs font-black text-indigo-400 hover:underline flex items-center gap-1 uppercase tracking-wider"
+                            >
+                                View All <ArrowUpRight className="w-4.5 h-4.5" />
+                            </button>
+                        </div>
+                        
+                        <div className="space-y-4">
+                            {recentNotes.length === 0 ? (
+                                <div className="text-center py-6 border-2 border-dashed border-slate-850 rounded-2xl">
+                                    <p className="text-xs font-bold text-slate-500 italic">No saved notes.</p>
+                                </div>
+                            ) : (
+                                recentNotes.map((note) => (
+                                    <div key={note.id} className="p-4 rounded-2xl bg-slate-900/30 border border-slate-800/80 hover:border-indigo-500/30 transition-colors">
+                                        <h4 className="font-bold text-white text-sm truncate">{note.itemName}</h4>
+                                        {note.description && (
+                                            <p className="text-slate-400 text-xs mt-1 whitespace-pre-wrap break-words">{note.description}</p>
+                                        )}
+                                        <p className="text-[9px] font-bold text-slate-500 mt-2 uppercase">
+                                            {new Date(note.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                                        </p>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="bg-[#0f172a] p-6 md:p-8 rounded-[2.5rem] border border-slate-800 shadow-lg text-left">
+                        <h3 className="text-xl font-black text-white tracking-tight mb-8">Performance</h3>
                         <div className="space-y-6">
                             {[
                                 { name: 'Admin Node 1', score: 92 },
@@ -183,10 +242,10 @@ const AdminOverview = () => {
                             ].map((p, i) => (
                                 <div key={i} className="space-y-2">
                                     <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
-                                        <span className="text-slate-500">{p.name}</span>
-                                        <span className="text-slate-900">{p.score}%</span>
+                                        <span className="text-slate-400">{p.name}</span>
+                                        <span className="text-white">{p.score}%</span>
                                     </div>
-                                    <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                                    <div className="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden">
                                         <motion.div initial={{ width: 0 }} animate={{ width: `${p.score}%` }} className="h-full bg-indigo-600" />
                                     </div>
                                 </div>

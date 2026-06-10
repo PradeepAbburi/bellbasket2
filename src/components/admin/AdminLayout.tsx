@@ -3,7 +3,7 @@ import {
     LayoutDashboard, Users, Store, Ticket, 
     LifeBuoy, BarChart3, ShieldCheck, LogOut, 
     Bell, Search, Menu, X, ChevronRight,
-    Settings, Sparkles, UserCircle
+    Settings, Sparkles, UserCircle, StickyNote
 } from 'lucide-react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '@/context/AppContext';
@@ -22,6 +22,7 @@ const AdminLayout = () => {
         { icon: Ticket, label: 'Coupons', path: '/admin/coupons' },
         { icon: LifeBuoy, label: 'Support', path: '/admin/support' },
         { icon: BarChart3, label: 'Stats', path: '/admin/analytics' },
+        { icon: StickyNote, label: 'Notes', path: '/admin/notes' },
     ];
 
     const handleLogout = () => {
@@ -34,17 +35,17 @@ const AdminLayout = () => {
     );
 
     return (
-        <div className="min-h-screen bg-[#f8fafc] flex flex-col lg:flex-row overflow-hidden">
+        <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col lg:flex-row overflow-hidden">
             {/* Sidebar - Desktop */}
-            <aside className="hidden lg:flex w-72 flex-col fixed inset-y-0 border-r border-slate-200 bg-white z-50">
+            <aside className="hidden lg:flex w-72 flex-col fixed inset-y-0 border-r border-slate-800 bg-[#0f172a] z-50">
                 <div className="p-8">
                     <div className="flex items-center gap-3 px-2">
-                        <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-200">
+                        <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-950/30">
                             <ShieldCheck className="w-6 h-6 text-white" />
                         </div>
                         <div>
-                            <h1 className="text-xl font-black text-slate-900 tracking-tighter">BellBasket</h1>
-                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600 opacity-60">Master Admin</p>
+                            <h1 className="text-xl font-black text-white tracking-tighter">BellBasket</h1>
+                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-400 opacity-80">Master Admin</p>
                         </div>
                     </div>
                 </div>
@@ -58,11 +59,11 @@ const AdminLayout = () => {
                             className={({ isActive }) => `
                                 flex items-center gap-3 px-5 py-4 rounded-2xl text-sm font-bold transition-all group
                                 ${isActive 
-                                    ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-100' 
-                                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}
+                                    ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-950/20' 
+                                    : 'text-slate-400 hover:bg-slate-800/60 hover:text-white'}
                             `}
                         >
-                            <item.icon className={`w-5 h-5 ${location.pathname === item.path ? 'text-white' : 'text-slate-400 group-hover:text-indigo-600'}`} />
+                            <item.icon className={`w-5 h-5 ${location.pathname === item.path ? 'text-white' : 'text-slate-400 group-hover:text-indigo-400'}`} />
                             {item.label}
                             {(item.exact ? location.pathname === item.path : location.pathname.startsWith(item.path)) && (
                                 <ChevronRight className="w-4 h-4 ml-auto opacity-60" />
@@ -72,19 +73,19 @@ const AdminLayout = () => {
                 </nav>
 
                 <div className="p-6">
-                    <div className="bg-slate-50 rounded-[2rem] p-6 space-y-4">
+                    <div className="bg-slate-900/60 rounded-[2rem] p-6 border border-slate-800 space-y-4">
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center border border-slate-200 shadow-sm overflow-hidden">
-                                <UserCircle className="w-full h-full text-slate-300" />
+                            <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center border border-slate-700 shadow-sm overflow-hidden">
+                                <UserCircle className="w-full h-full text-slate-500" />
                             </div>
                             <div className="min-w-0">
-                                <p className="text-xs font-black text-slate-900 truncate">{user?.name || 'Administrator'}</p>
-                                <p className="text-[9px] font-bold text-slate-500 truncate">{user?.email}</p>
+                                <p className="text-xs font-black text-white truncate">{user?.name || 'Administrator'}</p>
+                                <p className="text-[9px] font-bold text-slate-400 truncate">{user?.email}</p>
                             </div>
                         </div>
                         <button 
                             onClick={handleLogout}
-                            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-600 hover:bg-red-50 hover:text-red-600 hover:border-red-100 transition-all"
+                            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-slate-950/40 border border-slate-800 text-xs font-bold text-slate-400 hover:bg-red-950/20 hover:text-red-400 hover:border-red-900/50 transition-all"
                         >
                             <LogOut className="w-4 h-4" /> Sign Out
                         </button>
@@ -95,40 +96,40 @@ const AdminLayout = () => {
             {/* Main Content */}
             <main className="flex-1 lg:pl-72 flex flex-col min-w-0 relative h-screen">
                 {/* Header */}
-                <header className="h-20 bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50 px-6 sm:px-10 flex items-center justify-between shrink-0">
+                <header className="h-20 bg-[#090d16]/80 backdrop-blur-md border-b border-slate-800/80 sticky top-0 z-50 px-6 sm:px-10 flex items-center justify-between shrink-0">
                     <div className="flex items-center gap-4 lg:hidden">
                          <button 
                             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                            className="w-10 h-10 flex items-center justify-center bg-slate-100 rounded-xl text-indigo-600 focus:outline-none"
+                            className="w-10 h-10 flex items-center justify-center bg-slate-900 border border-slate-800 rounded-xl text-indigo-400 focus:outline-none"
                          >
                             {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
                          </button>
                          <div className="flex items-center gap-2">
-                             <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-200">
+                             <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-950/30">
                                  <ShieldCheck className="w-4 h-4 text-white" />
                              </div>
-                             <h1 className="text-lg font-black text-slate-900 tracking-tighter">Admin</h1>
+                             <h1 className="text-lg font-black text-white tracking-tighter">Admin</h1>
                          </div>
                     </div>
 
                     <div className="hidden lg:flex items-center gap-3">
-                        <span className="text-xs font-black text-slate-400 uppercase tracking-widest">{activeItem?.label || 'Dashboard'}</span>
-                        <ChevronRight className="w-4 h-4 text-slate-300" />
-                        <span className="text-xs font-bold text-slate-900">Live Management</span>
+                        <span className="text-xs font-black text-slate-500 uppercase tracking-widest">{activeItem?.label || 'Dashboard'}</span>
+                        <ChevronRight className="w-4 h-4 text-slate-600" />
+                        <span className="text-xs font-bold text-slate-300">Live Management</span>
                     </div>
 
                     <div className="flex items-center gap-4">
                         <div className="relative hidden md:block group">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-indigo-400 transition-colors" />
                             <input 
                                 type="text" 
                                 placeholder="Global search..." 
-                                className="bg-slate-100 border-none rounded-xl py-2.5 pl-11 pr-4 text-xs font-bold w-48 xl:w-64 focus:ring-4 focus:ring-indigo-600/5 transition-all outline-none"
+                                className="bg-slate-900 border border-slate-800 text-white placeholder-slate-500 rounded-xl py-2.5 pl-11 pr-4 text-xs font-bold w-48 xl:w-64 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 transition-all outline-none"
                             />
                         </div>
-                        <button className="p-2.5 rounded-xl text-slate-400 hover:bg-slate-100 hover:text-indigo-600 transition-all relative">
+                        <button className="p-2.5 rounded-xl text-slate-400 hover:bg-slate-900 hover:text-indigo-400 border border-transparent hover:border-slate-800 transition-all relative">
                             <Bell className="w-5 h-5" />
-                            <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-indigo-600 rounded-full ring-2 ring-white"></span>
+                            <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-indigo-500 rounded-full ring-2 ring-[#090d16]"></span>
                         </button>
                     </div>
                 </header>
@@ -142,14 +143,14 @@ const AdminLayout = () => {
                                 animate={{ opacity: 1 }}
                                 exit={{ opacity: 0 }}
                                 onClick={() => setIsMobileMenuOpen(false)}
-                                className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[55] lg:hidden"
+                                className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[55] lg:hidden"
                             />
                             <motion.div
                                 initial={{ x: '-100%' }}
                                 animate={{ x: 0 }}
                                 exit={{ x: '-100%' }}
                                 transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                                className="fixed top-20 left-4 bottom-4 w-72 bg-white z-[60] rounded-[2rem] border border-slate-200 shadow-2xl flex flex-col p-6 lg:hidden"
+                                className="fixed top-20 left-4 bottom-4 w-72 bg-[#0f172a] z-[60] rounded-[2rem] border border-slate-800 shadow-2xl flex flex-col p-6 lg:hidden"
                             >
                                 <nav className="flex-1 space-y-1.5 overflow-y-auto">
                                     {menuItems.map((item) => (
@@ -161,8 +162,8 @@ const AdminLayout = () => {
                                             className={({ isActive }) => `
                                                 flex items-center gap-3 px-5 py-4 rounded-2xl text-sm font-bold transition-all
                                                 ${isActive 
-                                                    ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-100' 
-                                                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}
+                                                    ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-950/20' 
+                                                    : 'text-slate-400 hover:bg-slate-800 hover:text-white'}
                                             `}
                                         >
                                             <item.icon className={`w-5 h-5 ${location.pathname === item.path ? 'text-white' : 'text-slate-400'}`} />
@@ -170,19 +171,19 @@ const AdminLayout = () => {
                                         </NavLink>
                                     ))}
                                 </nav>
-                                <div className="pt-6 border-t border-slate-100 mt-4">
+                                <div className="pt-6 border-t border-slate-800 mt-4">
                                      <div className="flex items-center gap-3 mb-6 px-2">
-                                        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200 overflow-hidden">
-                                            <UserCircle className="w-full h-full text-slate-300" />
+                                        <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center border border-slate-700 overflow-hidden">
+                                            <UserCircle className="w-full h-full text-slate-500" />
                                         </div>
                                         <div className="min-w-0">
-                                            <p className="text-xs font-black text-slate-900 truncate">{user?.name || 'Administrator'}</p>
-                                            <p className="text-[9px] font-bold text-slate-500 truncate">{user?.email}</p>
+                                            <p className="text-xs font-black text-white truncate">{user?.name || 'Administrator'}</p>
+                                            <p className="text-[9px] font-bold text-slate-400 truncate">{user?.email}</p>
                                         </div>
                                     </div>
                                     <button 
                                         onClick={handleLogout}
-                                        className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-600"
+                                        className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-slate-900 border border-slate-800 text-xs font-bold text-slate-400"
                                     >
                                         <LogOut className="w-4 h-4" /> Sign Out
                                     </button>

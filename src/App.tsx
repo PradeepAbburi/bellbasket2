@@ -75,6 +75,7 @@ const AdminUsers = lazy(() => import("./pages/admin/AdminUsers"));
 const AdminCoupons = lazy(() => import("./pages/admin/AdminCoupons"));
 const AdminSupport = lazy(() => import("./pages/admin/AdminSupport"));
 const AdminAnalyticsNew = lazy(() => import("./pages/admin/AdminAnalytics"));
+const AdminNotes = lazy(() => import("./pages/admin/AdminNotes"));
 const SupportChat = lazy(() => import("./pages/SupportChat"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const AuthAction = lazy(() => import("./pages/AuthAction"));
@@ -259,6 +260,7 @@ const AppContent = () => {
               <Route path="coupons" element={<AdminCoupons />} />
               <Route path="support" element={<AdminSupport />} />
               <Route path="analytics" element={<AdminAnalyticsNew />} />
+              <Route path="notes" element={<AdminNotes />} />
               <Route path="partner-payments" element={<AdminPartnerPayments />} />
               <Route path="partner-bank" element={<AdminPartnerBank />} />
             </Route>
