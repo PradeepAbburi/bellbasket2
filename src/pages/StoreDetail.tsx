@@ -947,6 +947,23 @@ const StoreDetail = () => {
                   <Share2 className="w-4 h-4 shrink-0" />
                   <span className="hidden md:inline whitespace-nowrap">{t('common.share')}</span>
                 </button>
+
+                <button
+                  onClick={() => {
+                    navigate('/support', {
+                      state: {
+                        prefillSubject: `Report Store: ${store.name}`,
+                        prefillMessage: `I want to report the store "${store.name}" (ID: ${store.id}).\n\nReason for reporting: `,
+                        storeId: store.id
+                      }
+                    });
+                  }}
+                  className="flex-1 md:flex-none flex items-center justify-center gap-2 px-3 md:px-6 py-3 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-500 hover:text-white font-bold transition-all shadow-sm border border-rose-500/20 min-w-0"
+                  aria-label="Report Store"
+                >
+                  <AlertCircle className="w-4 h-4 shrink-0" strokeWidth={3} />
+                  <span className="hidden md:inline whitespace-nowrap">Report</span>
+                </button>
  
                 <button
                   onClick={() => toggleSaveStore(store.id)}

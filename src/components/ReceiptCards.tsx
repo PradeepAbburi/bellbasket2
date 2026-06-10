@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ServiceBooking, Store, Order } from '@/types';
 import { getAvatarUrl } from '@/utils/avatars';
@@ -103,6 +104,7 @@ export const RenderBookingCard = ({
   hasReviewedStore?: boolean;
 }) => {
   const store = getStoreForOrder(booking.storeId);
+  const navigate = useNavigate();
   const [showContact, setShowContact] = useState(false);
   const [showCancelNote, setShowCancelNote] = useState(false);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
@@ -207,6 +209,23 @@ export const RenderBookingCard = ({
               title="Share Booking"
             >
               <Share2 className="w-4 h-4" />
+            </button>
+            <button 
+              onClick={(e) => { 
+                e.stopPropagation(); 
+                navigate('/support', { 
+                  state: { 
+                    prefillSubject: `Report Booking #${booking.id.slice(-6).toUpperCase()}`, 
+                    prefillMessage: `I want to report Booking #${booking.id} for the service "${booking.serviceName}" from store "${booking.storeName}".\n\nIssue details: `,
+                    bookingId: booking.id,
+                    storeId: booking.storeId
+                  } 
+                });
+              }}
+              className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white transition-all shadow-lg backdrop-blur-md"
+              title="Report Booking"
+            >
+              <AlertCircle className="w-4 h-4" />
             </button>
             <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full border shadow-sm ${statusColors[booking.status] || statusColors.pending}`}>
               {t(`common.booking_status.${booking.status}`, { defaultValue: statusLabels[booking.status] || booking.status.toUpperCase() })}
@@ -419,6 +438,7 @@ export const RenderOrderCard = ({
   hasReviewedStore?: boolean;
 }) => {
   const store = getStoreForOrder(order.storeId);
+  const navigate = useNavigate();
   const storeSymbol = getCurrencySymbol(store?.country, store?.address);
   const [showContact, setShowContact] = useState(false);
   const [showCancelNote, setShowCancelNote] = useState(false);
@@ -552,6 +572,23 @@ export const RenderOrderCard = ({
                 title="Share Order"
               >
                 <Share2 className="w-4 h-4" />
+              </button>
+              <button 
+                onClick={(e) => { 
+                  e.stopPropagation(); 
+                  navigate('/support', { 
+                    state: { 
+                      prefillSubject: `Report Order #${order.id.slice(-6).toUpperCase()}`, 
+                      prefillMessage: `I want to report Order #${order.id} from store "${order.storeName}".\n\nIssue details: `,
+                      orderId: order.id,
+                      storeId: order.storeId
+                    } 
+                  });
+                }}
+                className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white transition-all shadow-lg backdrop-blur-md"
+                title="Report Order"
+              >
+                <AlertCircle className="w-4 h-4" />
               </button>
               <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full border shadow-sm ${statusColors[order.status] || statusColors.pending}`}>
                 {order.status === 'completed' && order.deliveryMethod === 'delivery' ? 'Delivered' : 

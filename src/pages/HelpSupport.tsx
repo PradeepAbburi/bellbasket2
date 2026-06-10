@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, MessageSquare, Send, CheckCircle, Info, HelpCircle } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import { useApp } from '@/context/AppContext';
 import { db } from '@/lib/firebase';
@@ -9,12 +9,13 @@ import { toast } from 'sonner';
 
 const HelpSupport = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const { user } = useApp();
     
     const [name, setName] = useState(user?.name || '');
     const [email, setEmail] = useState(user?.email || '');
-    const [subject, setSubject] = useState('');
-    const [message, setMessage] = useState('');
+    const [subject, setSubject] = useState(location.state?.prefillSubject || '');
+    const [message, setMessage] = useState(location.state?.prefillMessage || '');
     const [isSubmitting, setIsSubmitting] = useState(false);
     
     const [previousTickets, setPreviousTickets] = useState<any[]>([]);
@@ -67,7 +68,7 @@ const HelpSupport = () => {
         const loadingToast = toast.loading("Creating support ticket...");
 
         try {
-            await addDoc(collection(db, "support_requests"), {
+            const ticketData: any = {
                 userId: user?.id || 'guest_' + Date.now(),
                 userName: name.trim(),
                 userEmail: email.trim(),
@@ -95,7 +96,19 @@ const HelpSupport = () => {
                         timestamp: new Date().toISOString()
                     }
                 ]
-            });
+            };
+
+            if (location.state?.storeId) {
+                ticketData.storeId = location.state.storeId;
+            }
+            if (location.state?.orderId) {
+                ticketData.orderId = location.state.orderId;
+            }
+            if (location.state?.bookingId) {
+                ticketData.bookingId = location.state.bookingId;
+            }
+
+            await addDoc(collection(db, "support_requests"), ticketData);
 
             toast.dismiss(loadingToast);
             toast.success("Support ticket submitted successfully!");

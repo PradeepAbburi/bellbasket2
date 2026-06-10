@@ -305,6 +305,32 @@ const AdminSupport = () => {
                                         </div>
                                     </div>
 
+                                    {(selectedTicket.storeId || selectedTicket.orderId || selectedTicket.bookingId) && (
+                                        <div className="bg-indigo-950/10 p-5 rounded-2xl border border-indigo-900/35 space-y-2">
+                                            <p className="text-[9px] font-black uppercase tracking-widest text-indigo-400 mb-1">Linked Reference Ledger</p>
+                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                                {selectedTicket.storeId && (
+                                                    <div>
+                                                        <span className="text-[8px] text-slate-500 font-bold uppercase tracking-wider block">Store Reference</span>
+                                                        <span className="text-xs font-mono font-black text-white">{selectedTicket.storeId}</span>
+                                                    </div>
+                                                )}
+                                                {selectedTicket.orderId && (
+                                                    <div>
+                                                        <span className="text-[8px] text-slate-500 font-bold uppercase tracking-wider block">Order Reference</span>
+                                                        <span className="text-xs font-mono font-black text-white">{selectedTicket.orderId}</span>
+                                                    </div>
+                                                )}
+                                                {selectedTicket.bookingId && (
+                                                    <div>
+                                                        <span className="text-[8px] text-slate-500 font-bold uppercase tracking-wider block">Booking Reference</span>
+                                                        <span className="text-xs font-mono font-black text-white">{selectedTicket.bookingId}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+
                                     <div className="space-y-3 pt-4">
                                         <p className="text-[9px] font-black uppercase tracking-widest text-indigo-400">Problem Description</p>
                                         <div className="p-6 rounded-2xl lg:rounded-[2rem] bg-indigo-950/20 border border-indigo-900/30 text-slate-200 text-xs font-medium leading-relaxed whitespace-pre-wrap break-words">
