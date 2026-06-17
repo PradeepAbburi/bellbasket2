@@ -126,7 +126,7 @@ const MobileMenu = ({
                           <span className="font-bold text-sm">Store Config</span>
                         </Link>
                         <Link
-                          to="/careers"
+                          to="/vendor/jobs"
                           onClick={() => { initAudio(); onClose(); }}
                           className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-primary/5 text-foreground transition-colors"
                         >
@@ -178,6 +178,7 @@ const MobileMenu = ({
                     <Briefcase className="w-5 h-5 text-primary" />
                     <span className="font-bold text-sm">Bell Jobs</span>
                   </Link>
+                  
                   <Link
                     to="/receipts"
                     onClick={() => { initAudio(); onClose(); }}

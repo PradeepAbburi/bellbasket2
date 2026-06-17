@@ -62,12 +62,16 @@ const VendorDashboard = lazy(() => import("./pages/VendorDashboard"));
 const VendorProducts = lazy(() => import("./pages/VendorProducts"));
 const VendorOrders = lazy(() => import("./pages/VendorOrders"));
 const VendorCombos = lazy(() => import("./pages/VendorCombos"));
-const VendorStoreConfig = lazy(() => import("./pages/VendorStoreConfig"));
+const VendorPostJob = lazy(() => import('./pages/VendorPostJob'));
+const VendorStoreConfig = lazy(() => import('./pages/VendorStoreConfig'));
+const BellJobDetail = lazy(() => import('./pages/BellJobDetail'));
+const CustomerAppliedJobs = lazy(() => import('./pages/CustomerAppliedJobs'));
 const VendorBookings = lazy(() => import("./pages/VendorBookings"));
 const VendorSetup = lazy(() => import("./pages/VendorSetup"));
 const VendorAnalytics = lazy(() => import("./pages/VendorAnalytics"));
 const VendorPlans = lazy(() => import("./pages/VendorPlans"));
 const VendorReviews = lazy(() => import("./pages/VendorReviews"));
+const VendorJobsDashboard = lazy(() => import("./pages/VendorJobsDashboard"));
 const AdminLayout = lazy(() => import("./components/admin/AdminLayout"));
 const AdminOverview = lazy(() => import("./pages/admin/AdminOverview"));
 const AdminVendors = lazy(() => import("./pages/admin/AdminVendors"));
@@ -112,6 +116,7 @@ const BellNotes = lazy(() => import("./pages/BellNotes"));
 const VendorEditProduct = lazy(() => import("./pages/VendorEditProduct"));
 const FAQ = lazy(() => import("./pages/FAQ"));
 const SavedStores = lazy(() => import("./pages/SavedStores"));
+
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -243,11 +248,14 @@ const AppContent = () => {
             <Route path="/vendor/products/edit/:id" element={<ErrorBoundary name="VendorEditProduct"><VendorProtectedRoute><VendorEditProduct /></VendorProtectedRoute></ErrorBoundary>} />
             <Route path="/vendor/orders" element={<ErrorBoundary name="VendorOrders"><VendorProtectedRoute><VendorOrders /></VendorProtectedRoute></ErrorBoundary>} />
             <Route path="/vendor/combos" element={<ErrorBoundary name="VendorCombos"><VendorProtectedRoute><VendorCombos /></VendorProtectedRoute></ErrorBoundary>} />
+            <Route path="/vendor/jobs/new" element={<ErrorBoundary name="VendorPostJob"><VendorProtectedRoute><VendorPostJob /></VendorProtectedRoute></ErrorBoundary>} />
+            <Route path="/vendor/jobs/edit/:id" element={<ErrorBoundary name="VendorEditJob"><VendorProtectedRoute><VendorPostJob /></VendorProtectedRoute></ErrorBoundary>} />
             <Route path="/vendor/config" element={<ErrorBoundary name="VendorStoreConfig"><VendorProtectedRoute><VendorStoreConfig /></VendorProtectedRoute></ErrorBoundary>} />
             <Route path="/vendor/bookings" element={<ErrorBoundary name="VendorBookings"><VendorProtectedRoute><VendorBookings /></VendorProtectedRoute></ErrorBoundary>} />
             <Route path="/vendor/setup" element={<ProtectedRoute><VendorSetup /></ProtectedRoute>} />
             <Route path="/vendor/analytics" element={<ErrorBoundary name="VendorAnalytics"><VendorProtectedRoute><VendorAnalytics /></VendorProtectedRoute></ErrorBoundary>} />
             <Route path="/vendor/subscription" element={<VendorPlans />} />
+            <Route path="/vendor/jobs" element={<ErrorBoundary name="VendorJobsDashboard"><VendorProtectedRoute><VendorJobsDashboard /></VendorProtectedRoute></ErrorBoundary>} />
             <Route path="/vendor/reviews" element={<ErrorBoundary name="VendorReviews"><VendorProtectedRoute><VendorReviews /></VendorProtectedRoute></ErrorBoundary>} />
             <Route path="/vendor/editor" element={<ErrorBoundary name="VendorEditor"><VendorProtectedRoute><StoreEditor /></VendorProtectedRoute></ErrorBoundary>} />
             <Route path="/vendor/deals" element={<ErrorBoundary name="VendorDeals"><VendorProtectedRoute><VendorDeals /></VendorProtectedRoute></ErrorBoundary>} />
@@ -277,6 +285,8 @@ const AppContent = () => {
             <Route path="/careers/job/:id" element={<JobDetail />} />
             <Route path="/careers/apply/:id" element={<ApplyJob />} />
             <Route path="/belljobs" element={<ErrorBoundary name="BellJobs"><BellJobs /></ErrorBoundary>} />
+            <Route path="/belljobs/applied" element={<ProtectedRoute><CustomerAppliedJobs /></ProtectedRoute>} />
+            <Route path="/belljobs/:id" element={<ErrorBoundary name="BellJobDetail"><BellJobDetail /></ErrorBoundary>} />
             <Route path="/store/:id/jobs" element={<ErrorBoundary name="BellJobsStore"><BellJobs /></ErrorBoundary>} />
             <Route path="/stores/:slug/jobs" element={<ErrorBoundary name="BellJobsStoreSlug"><BellJobs /></ErrorBoundary>} />
             

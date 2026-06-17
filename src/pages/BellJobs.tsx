@@ -1,11 +1,11 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import {
   ArrowLeft, Briefcase, MapPin, Search, Clock, Plus, Trash2, X,
   Phone, Navigation, Sliders, ChevronDown, Send, Eye, EyeOff,
   Building2, Users, FileText, Loader2, CheckCircle2, CircleDot,
-  Radius, IndianRupee, SlidersHorizontal, Sparkles, Zap, UserCheck, AlertCircle
+  Radius, IndianRupee, SlidersHorizontal, Sparkles, Zap, UserCheck, AlertCircle, History
 } from 'lucide-react';
 import { Helmet } from 'react-helmet';
 import { toast } from 'sonner';
@@ -100,9 +100,7 @@ const BellJobs = () => {
 
   // ── State ──
   const [jobs, setJobs] = useState<BellJob[]>([]);
-  const [applications, setApplications] = useState<BellJobApplication[]>([]);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<'browse' | 'my-jobs' | 'applications'>('browse');
 
   const hasValidPlan = useMemo(() => {
     if (!user) return false;
@@ -118,9 +116,23 @@ const BellJobs = () => {
   }, [user, isAdmin]);
 
   // Location
-  const [userLat, setUserLat] = useState<number | null>(null);
-  const [userLng, setUserLng] = useState<number | null>(null);
+  const [userLat, setUserLat] = useState<number | null>(() => {
+    const lat = localStorage.getItem('user_lat');
+    return lat ? parseFloat(lat) : null;
+  });
+  const [userLng, setUserLng] = useState<number | null>(() => {
+    const lng = localStorage.getItem('user_lng');
+    return lng ? parseFloat(lng) : null;
+  });
+  const [locationName, setLocationName] = useState(localStorage.getItem('user_location_name') || 'Current Location');
   const [locating, setLocating] = useState(false);
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [locationSearch, setLocationSearch] = useState('');
+  const [isSearchingLocation, setIsSearchingLocation] = useState(false);
+  const [locationResults, setLocationResults] = useState<any[]>([]);
+  const [searchHistory, setSearchHistory] = useState<any[]>(() => {
+    try { return JSON.parse(localStorage.getItem('location_history') || '[]'); } catch { return []; }
+  });
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -128,25 +140,16 @@ const BellJobs = () => {
   const [typeFilter, setTypeFilter] = useState('All');
   const [radiusFilter, setRadiusFilter] = useState(25);
   const [showFilters, setShowFilters] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
 
-  // Post Job Modal
-  const [showPostModal, setShowPostModal] = useState(false);
-  const [posting, setPosting] = useState(false);
-  const [newJob, setNewJob] = useState({
-    title: '', description: '', category: 'Retail / Sales', type: 'Full-time',
-    salary: '', contactPhone: '', location: '', lat: 0, lng: 0, radiusKm: 10,
-  });
-  const [detectingJobLoc, setDetectingJobLoc] = useState(false);
+  useEffect(() => {
+    const handleScroll = () => setIsScrolled(window.scrollY > 100);
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
-  // Apply Modal
-  const [applyingJob, setApplyingJob] = useState<BellJob | null>(null);
-  const [applyForm, setApplyForm] = useState({
-    applicantName: '', phone: '', email: '', experience: '', note: '',
-  });
-  const [submittingApp, setSubmittingApp] = useState(false);
-
-  // App tab
-  const [appTab, setAppTab] = useState<'pending' | 'reviewed' | 'contacted' | 'hired'>('pending');
+  // Search
+  const locationSearchTimeout = useRef<NodeJS.Timeout>();
 
   // ── Vendor store for auto-fill ──
   const vendorStore = useMemo(() => {
@@ -163,10 +166,30 @@ const BellJobs = () => {
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setUserLat(pos.coords.latitude);
-        setUserLng(pos.coords.longitude);
-        setLocating(false);
-        toast.success('Location detected!');
+        const { latitude: lat, longitude: lng } = pos.coords;
+        setUserLat(lat);
+        setUserLng(lng);
+        
+        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
+          .then(async res => {
+            if (!res.ok) throw new Error(`Nominatim error`);
+            return res.json();
+          })
+          .then(data => {
+            const name = data.display_name?.split(',')[0] || data.address?.city || 'Current Location';
+            setLocationName(name);
+            localStorage.setItem('user_lat', lat.toString());
+            localStorage.setItem('user_lng', lng.toString());
+            localStorage.setItem('user_location_name', name);
+            toast.success('Found you in ' + name);
+          })
+          .catch(() => {
+             setLocationName('Current Location');
+             toast.success('Location detected');
+          })
+          .finally(() => {
+             setLocating(false);
+          });
       },
       () => {
         setLocating(false);
@@ -176,10 +199,101 @@ const BellJobs = () => {
     );
   }, []);
 
+  const handleLocationSearch = (val: string) => {
+    setLocationSearch(val);
+    if (val.length < 2) {
+      setLocationResults([]);
+      return;
+    }
+
+    if (locationSearchTimeout.current) clearTimeout(locationSearchTimeout.current);
+    
+    setIsSearchingLocation(true);
+    locationSearchTimeout.current = setTimeout(async () => {
+      try {
+        const query = val.toUpperCase() === 'HYD' ? 'Hyderabad, India' : val;
+        const photonUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&lat=${userLat || 16.98}&lon=${userLng || 82.24}&limit=12`;
+        const res = await fetch(photonUrl);
+        const data = await res.json();
+
+        const results = data.features
+          .filter((f: any) => {
+            const country = f.properties.countrycode?.toUpperCase();
+            return country !== 'BD' && country !== 'PK';
+          })
+          .map((f: any) => {
+            const lat = f.geometry.coordinates[1];
+            const lon = f.geometry.coordinates[0];
+            const name = f.properties.name || '';
+            const type = f.properties.osm_value || f.properties.osm_key;
+            
+            let displayNameTokens = [name];
+            if (f.properties.city && f.properties.city !== name) displayNameTokens.push(f.properties.city);
+            else if (f.properties.county && f.properties.county !== name) displayNameTokens.push(f.properties.county);
+            if (f.properties.state) displayNameTokens.push(f.properties.state);
+
+            return {
+              place_id: Math.random().toString(),
+              lat, lon,
+              short_name: name,
+              display_name: displayNameTokens.join(', '),
+              type,
+              distanceKm: userLat && userLng ? haversineKm(userLat, userLng, lat, lon) : undefined
+            };
+          });
+
+        setLocationResults(results);
+      } catch (err) {
+        console.error("Location search failed", err);
+      } finally {
+        setIsSearchingLocation(false);
+      }
+    }, 500);
+  };
+
+  const selectResult = (res: any) => {
+    const lat = typeof res.lat === 'string' ? parseFloat(res.lat) : res.lat;
+    const lng = typeof res.lon === 'string' ? parseFloat(res.lon) : res.lon;
+    const shortName = res.short_name || res.display_name.split(',')[0];
+
+    setUserLat(lat);
+    setUserLng(lng);
+    setLocationName(shortName);
+    
+    const newItem = {
+      id: res.place_id?.toString() || Math.random().toString(),
+      name: shortName,
+      lat,
+      lon: lng,
+    };
+
+    setSearchHistory(prev => {
+      const filtered = prev.filter(item => item.name !== shortName);
+      const newHistory = [newItem, ...filtered].slice(0, 5);
+      localStorage.setItem('location_history', JSON.stringify(newHistory));
+      return newHistory;
+    });
+
+    localStorage.setItem('user_lat', lat.toString());
+    localStorage.setItem('user_lng', lng.toString());
+    localStorage.setItem('user_location_name', shortName);
+    
+    setLocationSearch('');
+    setShowLocationPicker(false);
+    toast.success(`Location set to ${shortName}`);
+  };
+
+  const clearHistory = () => {
+    setSearchHistory([]);
+    localStorage.removeItem('location_history');
+  };
+
   // Auto-detect on mount
   useEffect(() => {
-    detectLocation();
-  }, []);
+    if (!userLat || !userLng) {
+      detectLocation();
+    }
+  }, [userLat, userLng, detectLocation]);
 
   // ── Fetch Jobs ──
   useEffect(() => {
@@ -192,30 +306,12 @@ const BellJobs = () => {
     return () => unsub();
   }, []);
 
-  // ── Fetch Applications (vendor only) ──
-  useEffect(() => {
-    if (!isVendor && !isAdmin) return;
-    const baseCol = collection(db, 'bell_job_applications');
-    const q = isAdmin ? query(baseCol) : query(baseCol, where('vendorId', '==', user?.id));
-    const unsub = onSnapshot(q, (snap) => {
-      const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as BellJobApplication));
-      if (isVendor && user) {
-        const myJobIds = new Set(jobs.filter(j => j.vendorId === user.id).map(j => j.id));
-        setApplications(list.filter(a => myJobIds.has(a.jobId)));
-      } else {
-        setApplications(list);
-      }
-    });
-    return () => unsub();
-  }, [isVendor, isAdmin, user, jobs]);
+
 
   // ── Filtered Jobs ──
   const filteredJobs = useMemo(() => {
     return jobs.filter(job => {
       // Only show active to public
-      if (viewMode === 'my-jobs') {
-        return job.vendorId === user?.id;
-      }
       
       if (activeVendorId && job.vendorId !== activeVendorId) {
         return false;
@@ -226,9 +322,10 @@ const BellJobs = () => {
       const matchesSearch = !searchTerm ||
         job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         job.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        job.location?.toLowerCase().includes(searchTerm.toLowerCase());
+        job.location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        job.category?.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCategory = categoryFilter === 'All' || job.category === categoryFilter;
-      const matchesType = typeFilter === 'All' || job.type === typeFilter;
+      const matchesType = typeFilter === 'All' || job.type === typeFilter || !job.type;
 
       // Distance filter
       let matchesRadius = true;
@@ -239,12 +336,8 @@ const BellJobs = () => {
 
       return matchesSearch && matchesCategory && matchesType && matchesRadius;
     });
-  }, [jobs, searchTerm, categoryFilter, typeFilter, radiusFilter, userLat, userLng, viewMode, user, activeVendorId]);
+  }, [jobs, searchTerm, categoryFilter, typeFilter, radiusFilter, userLat, userLng, user, activeVendorId]);
 
-  // ── Filtered Applications ──
-  const filteredApps = useMemo(() => {
-    return applications.filter(a => (a.status || 'pending') === appTab);
-  }, [applications, appTab]);
 
   // ── Distance helper ──
   const getDistance = (job: BellJob) => {
@@ -252,42 +345,6 @@ const BellJobs = () => {
     return haversineKm(userLat, userLng, job.lat, job.lng);
   };
 
-  // ── Post Job ──
-  const handlePostJob = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) { toast.error('Please login first'); return; }
-    if (!hasValidPlan) { toast.error('An active subscription is required to post jobs.'); return; }
-    if (!newJob.title.trim() || !newJob.location.trim()) {
-      toast.error('Title and Location are required');
-      return;
-    }
-    if (!newJob.lat || !newJob.lng) {
-      toast.error('Please detect location for the job');
-      return;
-    }
-
-    setPosting(true);
-    try {
-      await addDoc(collection(db, 'bell_jobs'), {
-        ...newJob,
-        vendorId: user.id,
-        vendorName: user.name || 'Vendor',
-        storeName: vendorStore?.name || '',
-        status: 'active',
-        createdAt: serverTimestamp(),
-      });
-      toast.success('Job posted successfully!');
-      setShowPostModal(false);
-      setNewJob({
-        title: '', description: '', category: 'Retail / Sales', type: 'Full-time',
-        salary: '', contactPhone: '', location: '', lat: 0, lng: 0, radiusKm: 10,
-      });
-    } catch (err: any) {
-      toast.error(`Failed: ${err.message}`);
-    } finally {
-      setPosting(false);
-    }
-  };
 
   // ── Toggle Job Status ──
   const toggleJobStatus = async (id: string, current: string) => {
@@ -307,80 +364,6 @@ const BellJobs = () => {
     } catch { toast.error('Failed to delete'); }
   };
 
-  // ── Apply ──
-  const handleApply = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!applyingJob) return;
-    if (!applyForm.applicantName || !applyForm.phone) {
-      toast.error('Name and Phone are required');
-      return;
-    }
-
-    setSubmittingApp(true);
-    try {
-      await addDoc(collection(db, 'bell_job_applications'), {
-        jobId: applyingJob.id,
-        jobTitle: applyingJob.title,
-        vendorId: applyingJob.vendorId,
-        ...applyForm,
-        resumeUrl: '',
-        status: 'pending',
-        appliedAt: serverTimestamp(),
-      });
-      toast.success('Application submitted!');
-      setApplyingJob(null);
-      setApplyForm({ applicantName: '', phone: '', email: '', experience: '', note: '' });
-    } catch (err: any) {
-      toast.error(`Failed: ${err.message}`);
-    } finally {
-      setSubmittingApp(false);
-    }
-  };
-
-  // ── Update App Status ──
-  const updateAppStatus = async (id: string, status: string) => {
-    try {
-      await updateDoc(doc(db, 'bell_job_applications', id), { status });
-      toast.success(`Moved to ${status}`);
-    } catch { toast.error('Failed'); }
-  };
-
-  // ── Delete Application ──
-  const deleteApplication = async (id: string) => {
-    if (!window.confirm('Delete this application?')) return;
-    try {
-      await deleteDoc(doc(db, 'bell_job_applications', id));
-      toast.success('Removed');
-    } catch { toast.error('Failed'); }
-  };
-
-  // ── Detect Job Location ──
-  const detectJobLocation = () => {
-    if (!navigator.geolocation) { toast.error('Geolocation not supported'); return; }
-    setDetectingJobLoc(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setNewJob(prev => ({ ...prev, lat: pos.coords.latitude, lng: pos.coords.longitude }));
-        setDetectingJobLoc(false);
-        toast.success('Job location set from GPS');
-      },
-      () => { setDetectingJobLoc(false); toast.error('Could not detect'); },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
-  };
-
-  // Auto-fill from vendor store
-  const autoFillFromStore = () => {
-    if (!vendorStore) return;
-    setNewJob(prev => ({
-      ...prev,
-      location: vendorStore.address || '',
-      lat: vendorStore.lat || 0,
-      lng: vendorStore.lng || 0,
-      contactPhone: vendorStore.phone || prev.contactPhone,
-    }));
-    toast.success('Auto-filled from store');
-  };
 
   // ─── Render ────────────────────────────────────────────────────────────
   return (
@@ -394,378 +377,286 @@ const BellJobs = () => {
       </Helmet>
       <Header />
 
-      {/* ── Apply Modal ── */}
-      <AnimatePresence>
-        {applyingJob && (
-          <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-            onClick={() => setApplyingJob(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="bg-white dark:bg-[#1a1a1a] w-full max-w-lg rounded-3xl p-8 relative shadow-2xl border border-white/10 max-h-[90vh] overflow-y-auto"
-              onClick={e => e.stopPropagation()}
-            >
-              <button onClick={() => setApplyingJob(null)} className="absolute top-5 right-5 p-2 rounded-full hover:bg-secondary/50"><X className="w-5 h-5" /></button>
-              <div className="space-y-1 mb-6">
-                <span className="text-[10px] font-black uppercase tracking-widest text-primary bg-primary/10 px-3 py-1 rounded-full">{applyingJob.category}</span>
-                <h2 className="text-2xl font-black text-foreground mt-2">{applyingJob.title}</h2>
-                <p className="text-xs text-muted-foreground font-bold flex items-center gap-1.5"><MapPin className="w-3 h-3" />{applyingJob.location}</p>
-                {applyingJob.salary && <p className="text-xs text-emerald-600 font-bold flex items-center gap-1.5"><IndianRupee className="w-3 h-3" />{applyingJob.salary}</p>}
-              </div>
-
-              <form onSubmit={handleApply} className="space-y-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Full Name *</label>
-                  <input type="text" value={applyForm.applicantName} onChange={e => setApplyForm({ ...applyForm, applicantName: e.target.value })}
-                    className="w-full bg-secondary/50 border border-border/50 rounded-2xl py-3.5 px-5 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20" required />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Phone *</label>
-                    <input type="tel" value={applyForm.phone} onChange={e => setApplyForm({ ...applyForm, phone: e.target.value })}
-                      className="w-full bg-secondary/50 border border-border/50 rounded-2xl py-3.5 px-5 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20" required />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Email</label>
-                    <input type="email" value={applyForm.email} onChange={e => setApplyForm({ ...applyForm, email: e.target.value })}
-                      className="w-full bg-secondary/50 border border-border/50 rounded-2xl py-3.5 px-5 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20" />
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Experience</label>
-                  <input type="text" placeholder="e.g., 2 years in retail" value={applyForm.experience} onChange={e => setApplyForm({ ...applyForm, experience: e.target.value })}
-                    className="w-full bg-secondary/50 border border-border/50 rounded-2xl py-3.5 px-5 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Why should we hire you?</label>
-                  <textarea rows={3} value={applyForm.note} onChange={e => setApplyForm({ ...applyForm, note: e.target.value })}
-                    className="w-full bg-secondary/50 border border-border/50 rounded-2xl py-3.5 px-5 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
-                </div>
-                <button type="submit" disabled={submittingApp}
-                  className="w-full bg-primary text-white py-4 rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all disabled:opacity-50 flex items-center justify-center gap-2">
-                  {submittingApp ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                  {submittingApp ? 'Submitting...' : 'Submit Application'}
-                </button>
-              </form>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* ── Post Job Modal ── */}
-      <AnimatePresence>
-        {showPostModal && (
-          <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto"
-            onClick={() => setShowPostModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="bg-white dark:bg-[#1a1a1a] w-full max-w-2xl rounded-3xl p-8 relative shadow-2xl border border-white/10 my-8 max-h-[90vh] overflow-y-auto"
-              onClick={e => e.stopPropagation()}
-            >
-              <button onClick={() => setShowPostModal(false)} className="absolute top-5 right-5 p-2 rounded-full hover:bg-secondary/50"><X className="w-5 h-5" /></button>
-              <h2 className="text-3xl font-black text-foreground mb-2">Post a Local Job</h2>
-              <p className="text-sm text-muted-foreground font-medium mb-8">Your job will be visible to people within the specified radius.</p>
-
-              <form onSubmit={handlePostJob} className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div className="md:col-span-2 space-y-1.5">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Job Title *</label>
-                  <input type="text" placeholder="e.g. Delivery Boy, Shop Assistant" value={newJob.title} onChange={e => setNewJob({ ...newJob, title: e.target.value })}
-                    className="w-full bg-secondary/50 border border-border/50 rounded-2xl py-3.5 px-5 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20" required />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Category</label>
-                  <select value={newJob.category} onChange={e => setNewJob({ ...newJob, category: e.target.value })}
-                    className="w-full bg-secondary/50 border border-border/50 rounded-2xl py-3.5 px-5 text-sm font-bold focus:outline-none">
-                    {JOB_CATEGORIES.map(c => <option key={c}>{c}</option>)}
-                  </select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Job Type</label>
-                  <select value={newJob.type} onChange={e => setNewJob({ ...newJob, type: e.target.value })}
-                    className="w-full bg-secondary/50 border border-border/50 rounded-2xl py-3.5 px-5 text-sm font-bold focus:outline-none">
-                    {JOB_TYPES.map(t => <option key={t}>{t}</option>)}
-                  </select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Salary / Pay (Optional)</label>
-                  <input type="text" placeholder="e.g. ₹12,000/month" value={newJob.salary} onChange={e => setNewJob({ ...newJob, salary: e.target.value })}
-                    className="w-full bg-secondary/50 border border-border/50 rounded-2xl py-3.5 px-5 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20" />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Contact Phone</label>
-                  <input type="tel" placeholder="Phone number" value={newJob.contactPhone} onChange={e => setNewJob({ ...newJob, contactPhone: e.target.value })}
-                    className="w-full bg-secondary/50 border border-border/50 rounded-2xl py-3.5 px-5 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20" />
-                </div>
-
-                {/* Location Section */}
-                <div className="md:col-span-2 space-y-3 bg-secondary/30 p-5 rounded-2xl border border-border/30">
-                  <div className="flex items-center justify-between">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-2"><MapPin className="w-3.5 h-3.5" /> Job Location</label>
-                    <div className="flex items-center gap-2">
-                      {vendorStore && (
-                        <button type="button" onClick={autoFillFromStore}
-                          className="text-[9px] font-black uppercase tracking-widest bg-primary/10 text-primary px-3 py-1.5 rounded-full hover:bg-primary/20 transition-all">
-                          Use Store Location
-                        </button>
-                      )}
-                      <button type="button" onClick={detectJobLocation} disabled={detectingJobLoc}
-                        className="text-[9px] font-black uppercase tracking-widest bg-blue-500/10 text-blue-600 px-3 py-1.5 rounded-full hover:bg-blue-500/20 transition-all flex items-center gap-1.5 disabled:opacity-50">
-                        {detectingJobLoc ? <Loader2 className="w-3 h-3 animate-spin" /> : <Navigation className="w-3 h-3" />}
-                        Detect GPS
-                      </button>
-                    </div>
-                  </div>
-                  <input type="text" placeholder="Address / Area name *" value={newJob.location} onChange={e => setNewJob({ ...newJob, location: e.target.value })}
-                    className="w-full bg-white dark:bg-[#252525] border border-border/50 rounded-xl py-3 px-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20" required />
-                  {newJob.lat !== 0 && (
-                    <p className="text-[10px] font-bold text-emerald-600 flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5" /> GPS: {newJob.lat.toFixed(4)}, {newJob.lng.toFixed(4)}
-                    </p>
-                  )}
-                  {newJob.lat === 0 && (
-                    <p className="text-[10px] font-bold text-amber-600 flex items-center gap-1.5">
-                      <AlertCircle className="w-3.5 h-3.5" /> Please detect GPS location or use store location
-                    </p>
-                  )}
-
-                  {/* Radius Selector */}
-                  <div className="space-y-2 pt-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                      <Radius className="w-3.5 h-3.5" /> Visibility Radius — {newJob.radiusKm} km
-                    </label>
-                    <input type="range" min={1} max={50} value={newJob.radiusKm} onChange={e => setNewJob({ ...newJob, radiusKm: parseInt(e.target.value) })}
-                      className="w-full accent-primary h-2 rounded-full" />
-                    <div className="flex justify-between text-[9px] text-muted-foreground font-bold">
-                      <span>1 km</span><span>10 km</span><span>25 km</span><span>50 km</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="md:col-span-2 space-y-1.5">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Description</label>
-                  <textarea rows={3} placeholder="Job details, requirements, timings..." value={newJob.description} onChange={e => setNewJob({ ...newJob, description: e.target.value })}
-                    className="w-full bg-secondary/50 border border-border/50 rounded-2xl py-3.5 px-5 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
-                </div>
-
-                <button type="submit" disabled={posting}
-                  className="md:col-span-2 bg-primary text-white py-4 rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all disabled:opacity-50 flex items-center justify-center gap-2">
-                  {posting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                  {posting ? 'Posting...' : 'Post Job'}
-                </button>
-              </form>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <Header />
 
       {/* ── Main Content ── */}
-      <div className="pt-20 pb-32 lg:pb-8 px-4 max-w-5xl mx-auto space-y-8">
-        {/* Nav Row */}
-        <div className="flex items-center justify-between">
-          <button onClick={() => {
-            if (activeVendorId || window.history.length > 2) {
-              navigate(-1);
-            } else {
-              navigate('/');
-            }
-          }} className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-all hover:translate-x-[-4px]">
-            <ArrowLeft className="w-4 h-4" /><span className="text-sm font-bold">Back</span>
-          </button>
-          {hasValidPlan && (
-            <div className="flex items-center gap-2">
-              <button onClick={() => setShowPostModal(true)}
-                className="flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-lg shadow-primary/20">
+      <div className="pb-32 lg:pb-8 px-4 max-w-5xl mx-auto space-y-6 pt-24 lg:pt-28">
+        
+        {/* Top Nav Row (Hidden on scroll) */}
+        <div className={`flex items-center justify-between transition-all duration-300 ${isScrolled ? 'opacity-0 h-0 overflow-hidden pointer-events-none -mt-6' : 'opacity-100 h-10 mb-4'}`}>
+          <div className="flex items-center gap-3">
+            <button onClick={() => {
+              if (activeVendorId || window.history.length > 2) navigate(-1);
+              else navigate('/');
+            }} className="flex items-center gap-2 text-muted-foreground hover:text-foreground">
+              <ArrowLeft className="w-5 h-5" /> <span className="text-sm font-bold">Back</span>
+            </button>
+            {activeVendorName && (
+              <div className="h-8 w-px bg-border/50 hidden sm:block"></div>
+            )}
+            {activeVendorName && (
+              <div className="flex flex-col min-w-0">
+                <span className="text-base font-black text-yellow-400">
+                  {activeVendorName}
+                </span>
+                {(urlStore?.address || urlStore?.mandal) && (
+                  <span className="text-[10px] text-muted-foreground truncate flex items-center gap-1">
+                    <MapPin className="w-3 h-3 text-muted-foreground" />
+                    {urlStore.address || urlStore.mandal}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            {!activeVendorId && user && !isAdmin && (
+              <button onClick={() => navigate('/belljobs/applied')}
+                className="flex items-center gap-2 bg-[#202020] text-white px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-[#2a2a2a] transition-all shadow-lg">
+                <FileText className="w-3.5 h-3.5 text-white" /> Applied Jobs
+              </button>
+            )}
+            {hasValidPlan && (
+              <button onClick={() => navigate('/vendor/jobs/new')}
+                className="sm:hidden flex items-center gap-2 bg-primary text-white px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest hover:scale-105 transition-all shadow-lg shadow-primary/20">
                 <Plus className="w-3.5 h-3.5" /> Post Job
               </button>
-            </div>
-          )}
-        </div>
-
-        {/* Hero */}
-        <div className="text-center space-y-5 max-w-3xl mx-auto">
-          <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }}
-            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary border border-primary/20">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Powered by BellBasket</span>
-          </motion.div>
-          <h1 className="text-4xl md:text-5xl font-black text-foreground leading-[1.1] tracking-tighter">
-            {activeVendorName ? (
-              <>Jobs at <span className="text-gradient">{activeVendorName}</span></>
-            ) : (
-              <>Bell<span className="text-gradient">Jobs</span></>
             )}
-          </h1>
-          <p className="text-base text-muted-foreground font-medium max-w-md mx-auto leading-relaxed">
-            {activeVendorName 
-              ? `Apply to open positions at ${activeVendorName}.`
-              : 'Find and post local jobs near you. Connecting employers and job seekers in your neighborhood.'}
-          </p>
+          </div>
         </div>
 
-        {/* View Tabs (Vendor) */}
-        {hasValidPlan && (
-          <div className="flex items-center justify-center gap-2">
-            {(['browse', 'my-jobs', 'applications'] as const).map(tab => (
-              <button key={tab} onClick={() => setViewMode(tab)}
-                className={`px-5 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === tab
-                  ? 'bg-primary text-white shadow-lg shadow-primary/20'
-                  : 'glass border border-border/10 text-muted-foreground hover:bg-white/5'
-                }`}>
-                {tab === 'browse' && <><Search className="w-3.5 h-3.5 inline mr-1.5" />Browse</>}
-                {tab === 'my-jobs' && <><Briefcase className="w-3.5 h-3.5 inline mr-1.5" />My Jobs</>}
-                {tab === 'applications' && <><Users className="w-3.5 h-3.5 inline mr-1.5" />Applicants ({applications.length})</>}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* ════════════════════════ APPLICATIONS VIEW ════════════════════════ */}
-        {viewMode === 'applications' ? (
-          <div className="space-y-6">
-            <div className="flex flex-wrap items-center justify-center gap-2">
-              {(['pending', 'reviewed', 'contacted', 'hired'] as const).map(tab => (
-                <button key={tab} onClick={() => setAppTab(tab)}
-                  className={`px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${appTab === tab
-                    ? 'bg-primary text-white shadow-lg shadow-primary/20'
-                    : 'glass border border-border/10 text-muted-foreground hover:bg-white/5'
-                  }`}>
-                  {tab} ({applications.filter(a => (a.status || 'pending') === tab).length})
+      {/* ── Sticky Toolbar ── */}
+      <div className="sticky top-16 z-40 bg-background/95 backdrop-blur-xl border-t border-border/40 pt-3 pb-0 shadow-sm transition-all -mx-4 px-4 mb-0">
+        <div className="max-w-5xl mx-auto flex flex-col gap-3">
+          <div className="flex items-center gap-2 md:gap-3">
+            {isScrolled && (
+              <div className="flex items-center gap-3">
+                <button onClick={() => {
+                  if (activeVendorId || window.history.length > 2) navigate(-1);
+                  else navigate('/');
+                }} className="flex-shrink-0 w-10 h-10 md:w-auto md:px-4 flex items-center justify-center gap-2 rounded-xl bg-secondary/50 hover:bg-secondary text-foreground transition-all">
+                  <ArrowLeft className="w-5 h-5 md:w-4 md:h-4" />
+                  <span className="hidden md:inline text-sm font-bold">Back</span>
                 </button>
-              ))}
+                {activeVendorName && (
+                  <div className="hidden sm:flex flex-col min-w-0 max-w-[200px]">
+                    <span className="text-sm font-black text-yellow-400 truncate">
+                      {activeVendorName}
+                    </span>
+                    {(urlStore?.address || urlStore?.mandal) && (
+                      <span className="text-[9px] text-muted-foreground truncate flex items-center gap-1">
+                        <MapPin className="w-2.5 h-2.5" />
+                        {urlStore.address || urlStore.mandal}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+            
+            <div className="flex-1 min-w-0 relative group">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+              <input type="text" placeholder="Search jobs..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+                className="w-full bg-secondary/50 border border-border/50 rounded-xl py-2.5 pl-10 pr-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
             </div>
 
-            <div className="grid gap-4">
-              {filteredApps.length === 0 ? (
-                <div className="p-16 text-center glass rounded-3xl border-dashed border-2 border-border/50">
-                  <Users className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
-                  <p className="text-muted-foreground font-bold text-sm">No applicants in {appTab} stage.</p>
-                </div>
-              ) : filteredApps.map(app => (
-                <motion.div key={app.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                  className="glass p-6 rounded-3xl border border-white/40 space-y-4">
-                  <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-                    <div className="space-y-2">
-                      <span className="text-[10px] font-black uppercase tracking-widest bg-primary/10 text-primary px-3 py-1 rounded-full">{app.jobTitle}</span>
-                      <h3 className="text-xl font-black text-foreground">{app.applicantName}</h3>
-                      <div className="flex flex-wrap gap-3 text-xs text-muted-foreground font-bold">
-                        <span className="flex items-center gap-1.5"><Phone className="w-3.5 h-3.5 text-primary/60" /> {app.phone}</span>
-                        {app.email && <span className="flex items-center gap-1.5">✉ {app.email}</span>}
-                        {app.experience && <span className="flex items-center gap-1.5"><Briefcase className="w-3.5 h-3.5 text-primary/60" /> {app.experience}</span>}
-                      </div>
-                      {app.note && <p className="text-sm text-muted-foreground italic bg-secondary/30 p-4 rounded-2xl mt-2">"{app.note}"</p>}
-                    </div>
-                    <div className="flex flex-wrap gap-2 shrink-0">
-                      {appTab !== 'reviewed' && (
-                        <button onClick={() => updateAppStatus(app.id, 'reviewed')}
-                          className="text-[8px] font-black uppercase tracking-widest bg-blue-500/10 text-blue-600 px-3 py-2 rounded-xl border border-blue-500/20 hover:bg-blue-500 hover:text-white transition-all">
-                          Reviewed
-                        </button>
-                      )}
-                      {appTab !== 'contacted' && (
-                        <button onClick={() => updateAppStatus(app.id, 'contacted')}
-                          className="text-[8px] font-black uppercase tracking-widest bg-purple-500/10 text-purple-600 px-3 py-2 rounded-xl border border-purple-500/20 hover:bg-purple-500 hover:text-white transition-all">
-                          Contacted
-                        </button>
-                      )}
-                      {appTab !== 'hired' && (
-                        <button onClick={() => updateAppStatus(app.id, 'hired')}
-                          className="text-[8px] font-black uppercase tracking-widest bg-emerald-500/10 text-emerald-600 px-3 py-2 rounded-xl border border-emerald-500/20 hover:bg-emerald-500 hover:text-white transition-all">
-                          Hired
-                        </button>
-                      )}
-                      <button onClick={() => deleteApplication(app.id)}
-                        className="text-[8px] font-black uppercase tracking-widest bg-red-500/10 text-red-600 px-3 py-2 rounded-xl border border-red-500/20 hover:bg-red-500 hover:text-white transition-all">
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
+            <button onClick={() => setShowFilters(!showFilters)}
+              className={`flex-shrink-0 w-10 h-10 md:w-auto md:px-4 flex items-center justify-center gap-2 rounded-xl text-sm font-bold transition-all border ${showFilters ? 'bg-primary text-white border-primary' : 'bg-secondary/50 border-border/50 text-foreground hover:bg-secondary'}`}>
+              <SlidersHorizontal className="w-4 h-4 md:w-4 md:h-4" /> 
+              <span className="hidden md:inline">Filters</span>
+            </button>
+
+            {isScrolled && !activeVendorId && user && !isAdmin && (
+              <button onClick={() => navigate('/belljobs/applied')}
+                className="hidden sm:flex flex-shrink-0 items-center gap-2 bg-[#202020] text-white px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-[#2a2a2a] transition-all shadow-sm">
+                <FileText className="w-3.5 h-3.5" /> Applied
+              </button>
+            )}
+
+            {isScrolled && hasValidPlan && (
+              <button onClick={() => navigate('/vendor/jobs/new')}
+                className="hidden sm:flex flex-shrink-0 items-center gap-2 bg-primary text-white px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest hover:scale-105 transition-all shadow-lg shadow-primary/20">
+                <Plus className="w-3.5 h-3.5" /> Post Job
+              </button>
+            )}
           </div>
-        ) : (
-          <>
-            {/* ════════════════════════ BROWSE / MY JOBS VIEW ════════════════════════ */}
 
-            {/* Search & Filter Bar */}
-            {viewMode === 'browse' && (
-              <div className="glass-strong rounded-3xl p-4 border border-white/40 shadow-xl space-y-4">
-                <div className="flex flex-col md:flex-row gap-3">
-                  <div className="flex-1 relative group">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                    <input type="text" placeholder="Search jobs..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-                      className="w-full bg-secondary/50 border border-border/50 rounded-2xl py-3.5 pl-12 pr-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+          <AnimatePresence>
+            {showFilters && (
+              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-3 border-t border-border/20">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Category</label>
+                    <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}
+                      className="w-full bg-secondary/50 border border-border/50 rounded-xl py-3 px-4 text-sm font-bold focus:outline-none">
+                      <option value="All">All Categories</option>
+                      {JOB_CATEGORIES.map(c => <option key={c}>{c}</option>)}
+                    </select>
                   </div>
-                  <button onClick={() => setShowFilters(!showFilters)}
-                    className={`flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl text-sm font-bold transition-all border ${showFilters ? 'bg-primary text-white border-primary' : 'bg-secondary/50 border-border/50 text-foreground hover:bg-secondary'}`}>
-                    <SlidersHorizontal className="w-4 h-4" /> Filters
-                  </button>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Job Type</label>
+                    <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)}
+                      className="w-full bg-secondary/50 border border-border/50 rounded-xl py-3 px-4 text-sm font-bold focus:outline-none">
+                      <option value="All">All Types</option>
+                      {JOB_TYPES.map(t => <option key={t}>{t}</option>)}
+                    </select>
+                  </div>
                   {!activeVendorId && (
-                    <button onClick={detectLocation} disabled={locating}
-                      className="flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl text-sm font-bold bg-blue-500/10 text-blue-600 border border-blue-500/20 hover:bg-blue-500 hover:text-white transition-all disabled:opacity-50">
-                      {locating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Navigation className="w-4 h-4" />}
-                      {userLat ? 'Refresh GPS' : 'Detect Location'}
-                    </button>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                        Radius: {radiusFilter >= 99999 ? 'All' : `${radiusFilter} km`}
+                      </label>
+                      <div className="flex items-center gap-2 pt-1">
+                        {RADIUS_OPTIONS.map(r => (
+                          <button key={r.value} onClick={() => setRadiusFilter(r.value)}
+                            className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${radiusFilter === r.value
+                              ? 'bg-primary text-white shadow-md'
+                              : 'bg-secondary/50 text-muted-foreground hover:bg-secondary border border-border/30'
+                            }`}>
+                            {r.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   )}
                 </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
 
-                <AnimatePresence>
-                  {showFilters && (
-                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
-                      className="overflow-hidden">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-3 border-t border-border/20">
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Category</label>
-                          <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}
-                            className="w-full bg-secondary/50 border border-border/50 rounded-xl py-3 px-4 text-sm font-bold focus:outline-none">
-                            <option value="All">All Categories</option>
-                            {JOB_CATEGORIES.map(c => <option key={c}>{c}</option>)}
-                          </select>
+        <div className="text-center max-w-3xl mx-auto -mt-6">
+          {!activeVendorId && (
+            <div className="max-w-2xl mx-auto w-full space-y-4 relative">
+              <div className="glass rounded-2xl p-3.5 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0 text-left">
+                  <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center flex-shrink-0">
+                    <MapPin className="w-4 h-4 text-primary-foreground" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground">Your location</p>
+                    <p className="text-sm font-semibold text-foreground truncate">
+                      {locating ? 'Detecting...' : locationName}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    onClick={detectLocation}
+                    disabled={locating}
+                    className="text-xs font-medium text-primary hover:underline flex items-center gap-1 disabled:opacity-50"
+                  >
+                    {locating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Navigation className="w-3 h-3" />}
+                    <span className="hidden sm:inline">Detect</span>
+                  </button>
+                  <button
+                    onClick={() => setShowLocationPicker(!showLocationPicker)}
+                    className="text-xs font-medium bg-secondary text-secondary-foreground px-3 py-1.5 rounded-lg hover:bg-secondary/80 transition-colors"
+                  >
+                    Change
+                  </button>
+                </div>
+              </div>
+
+              {/* Location picker dropdown */}
+              <AnimatePresence>
+                {showLocationPicker && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="glass rounded-2xl p-4 space-y-4 text-left shadow-2xl absolute z-40 left-0 right-0 max-w-2xl mx-auto bg-white dark:bg-[#1a1a1a]"
+                  >
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <input
+                        type="text"
+                        value={locationSearch}
+                        onChange={e => handleLocationSearch(e.target.value)}
+                        placeholder="Search for your area or city..."
+                        className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-secondary border border-border/50 text-foreground text-sm outline-none focus:ring-2 focus:ring-primary/30"
+                        autoFocus
+                      />
+                      {isSearchingLocation && (
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                          <Loader2 className="w-4 h-4 animate-spin text-primary" />
                         </div>
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Job Type</label>
-                          <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)}
-                            className="w-full bg-secondary/50 border border-border/50 rounded-xl py-3 px-4 text-sm font-bold focus:outline-none">
-                            <option value="All">All Types</option>
-                            {JOB_TYPES.map(t => <option key={t}>{t}</option>)}
-                          </select>
-                        </div>
-                        {!activeVendorId && (
-                          <div className="space-y-1.5">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                              Radius: {radiusFilter >= 99999 ? 'All' : `${radiusFilter} km`}
-                            </label>
-                            <div className="flex items-center gap-2 pt-1">
-                              {RADIUS_OPTIONS.map(r => (
-                                <button key={r.value} onClick={() => setRadiusFilter(r.value)}
-                                  className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${radiusFilter === r.value
-                                    ? 'bg-primary text-white shadow-md'
-                                    : 'bg-secondary/50 text-muted-foreground hover:bg-secondary border border-border/30'
-                                  }`}>
-                                  {r.label}
+                      )}
+                    </div>
+
+                    {locationResults.length > 0 ? (
+                      <div className="divide-y divide-border max-h-60 overflow-y-auto">
+                        {locationResults.map(res => (
+                          <button
+                            key={res.place_id}
+                            onClick={() => selectResult(res)}
+                            className="w-full text-left py-3 px-1 hover:bg-secondary/50 transition-colors rounded-lg flex items-start justify-between gap-3 group"
+                          >
+                            <div className="flex items-start gap-3 min-w-0">
+                              <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center shrink-0 mt-0.5 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                                <MapPin className="w-4 h-4" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-sm font-bold text-foreground line-clamp-1">{res.short_name}</p>
+                                <p className="text-[11px] text-muted-foreground line-clamp-1">{res.display_name}</p>
+                              </div>
+                            </div>
+                            {res.distanceKm !== undefined && (
+                              <div className="shrink-0 flex flex-col items-end">
+                                <span className="text-[10px] font-black text-primary bg-primary/10 px-2 py-0.5 rounded-full whitespace-nowrap">
+                                  {res.distanceKm < 1 ? '<1 km' : `${Math.round(res.distanceKm)} km`}
+                                </span>
+                                {res.type && res.type !== 'place' && (
+                                  <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-tighter mt-1">{res.type}</span>
+                                )}
+                              </div>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <>
+                        {searchHistory.length > 0 && (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between px-1">
+                              <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                                <History className="w-3 h-3" />
+                                Recently Searched
+                              </div>
+                              <button onClick={clearHistory} className="text-[10px] text-primary hover:underline font-bold">Clear</button>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {searchHistory.map(item => (
+                                <button
+                                  key={item.id}
+                                  onClick={() => {
+                                    setUserLat(item.lat);
+                                    setUserLng(item.lon);
+                                    setLocationName(item.name);
+                                    setShowLocationPicker(false);
+                                    toast.success('Location set to ' + item.name);
+                                  }}
+                                  className="flex items-center gap-2 px-3 py-2 rounded-xl bg-secondary/50 hover:bg-primary hover:text-primary-foreground transition-all group"
+                                >
+                                  <MapPin className="w-3 h-3" />
+                                  <span className="text-xs font-medium">{item.name}</span>
                                 </button>
                               ))}
                             </div>
                           </div>
                         )}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            )}
+                      </>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
+        </div>
 
             {/* Location Status */}
-            {viewMode === 'browse' && !activeVendorId && (
+            {!activeVendorId && (
               <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground font-bold">
                 {userLat ? (
                   <><CircleDot className="w-3.5 h-3.5 text-emerald-500" /> Showing jobs near your location{radiusFilter < 99999 ? ` within ${radiusFilter} km` : ''}</>
@@ -784,12 +675,10 @@ const BellJobs = () => {
                   <div className="p-16 text-center space-y-4 glass rounded-3xl border-dashed border-2 border-primary/20">
                     <Briefcase className="w-10 h-10 text-primary/30 mx-auto" />
                     <h3 className="text-xl font-black text-foreground">
-                      {viewMode === 'my-jobs' ? 'No jobs posted yet' : (activeVendorName ? `No jobs available at ${activeVendorName}` : 'No jobs found nearby')}
+                      {activeVendorName ? `No jobs available at ${activeVendorName}` : 'No jobs found nearby'}
                     </h3>
                     <p className="text-sm text-muted-foreground font-medium max-w-xs mx-auto">
-                      {viewMode === 'my-jobs'
-                        ? 'Click "Post Job" to create your first listing.'
-                        : (activeVendorName ? 'Check back later for new opportunities.' : 'Try increasing the radius or removing filters.')}
+                      {activeVendorName ? 'Check back later for new opportunities.' : 'Try increasing the radius or removing filters.'}
                     </p>
                   </div>
                 ) : (
@@ -849,9 +738,9 @@ const BellJobs = () => {
                                   <Phone className="w-4 h-4" /> Call
                                 </a>
                               )}
-                              <button onClick={() => setApplyingJob(job)}
+                              <button onClick={(e) => { e.stopPropagation(); navigate(`/belljobs/${job.id}`); }}
                                 className="flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-105 transition-all active:scale-95">
-                                <Send className="w-4 h-4" /> Apply
+                                View Details
                               </button>
                             </>
                           )}
@@ -864,7 +753,7 @@ const BellJobs = () => {
             </div>
 
             {/* CTA for non-vendors */}
-            {!isVendor && !isAdmin && viewMode === 'browse' && (
+            {!isVendor && !isAdmin && (
               <div className="glass-strong rounded-3xl p-8 md:p-10 text-center space-y-4 border border-primary/10">
                 <h2 className="text-2xl font-black text-foreground">Want to post a job?</h2>
                 <p className="text-muted-foreground font-medium max-w-sm mx-auto">
@@ -876,8 +765,6 @@ const BellJobs = () => {
                 </button>
               </div>
             )}
-          </>
-        )}
       </div>
     </div>
   );
