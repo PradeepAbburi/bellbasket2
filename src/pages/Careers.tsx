@@ -10,7 +10,7 @@ import {
 import { Helmet } from 'react-helmet';
 import { toast } from 'sonner';
 import { db, auth } from '../lib/firebase';
-import { collection, query, onSnapshot, addDoc, deleteDoc, doc, serverTimestamp, getDocs, updateDoc } from 'firebase/firestore';
+import { collection, query, onSnapshot, addDoc, deleteDoc, doc, serverTimestamp, getDocs, updateDoc, where } from 'firebase/firestore';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { useApp } from '../context/AppContext';
 
@@ -24,6 +24,8 @@ interface JobPost {
     description?: string;
     status: 'active' | 'on_hold';
     createdAt?: any;
+    vendorId?: string;
+    vendorName?: string;
 }
 
 interface Application {
@@ -56,7 +58,6 @@ const Careers = () => {
     const [locationFilter, setLocationFilter] = useState('');
     const [typeFilter, setTypeFilter] = useState('All');
     const [workplaceFilter, setWorkplaceFilter] = useState('All');
-    const [showLogin, setShowLogin] = useState(false);
     const { user: globalUser } = useApp();
     const [isAdmin, setIsAdmin] = useState(false);
     const isEmployer = isAdmin || globalUser?.role === 'vendor';
@@ -79,10 +80,6 @@ const Careers = () => {
         category: 'Engineering',
         description: ''
     });
-
-    // Login Form State
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
 
     useEffect(() => {
         // Fetch Jobs
@@ -109,7 +106,8 @@ const Careers = () => {
 
     useEffect(() => {
         if (isAdmin || globalUser?.role === 'vendor') {
-            const q = query(collection(db, 'job_applications'));
+            const baseCol = collection(db, 'job_applications');
+            const q = isAdmin ? query(baseCol) : query(baseCol, where('vendorId', '==', globalUser?.id));
             const unsubscribe = onSnapshot(q, (snapshot) => {
                 const appsList = snapshot.docs.map(doc => ({
                     id: doc.id,
@@ -126,35 +124,6 @@ const Careers = () => {
             return () => unsubscribe();
         }
     }, [isAdmin, globalUser, jobs]);
-
-    const handleLogin = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (email === 'careers@bellbasket.com' && password === 'Pradeep@123') {
-            try {
-                // Try logging in with Firebase Auth to satisfy security rules
-                try {
-                    await signInWithEmailAndPassword(auth, email, password);
-                } catch (authErr: any) {
-                    // if user doesn't exist, create it (as per user request "keep a new login and signup for this")
-                    if (authErr.code === 'auth/user-not-found' || authErr.code === 'auth/invalid-credential') {
-                        try {
-                            await createUserWithEmailAndPassword(auth, email, password);
-                        } catch (createErr) {
-                            // If signup fails also, just proceed with local admin state if it was a cred match
-                        }
-                    }
-                }
-                
-                setIsAdmin(true);
-                setShowLogin(false);
-                toast.success('Management Portal Active');
-            } catch (err) {
-                toast.error('Portal access error. Please check your credentials.');
-            }
-        } else {
-            toast.error('Unauthorized access. Only management can login.');
-        }
-    };
 
     const handleUpdateJobStatus = async (id: string, currentStatus: string) => {
         try {
@@ -293,14 +262,7 @@ const Careers = () => {
                         <span className="text-sm font-bold">Back</span>
                     </button>
                     <div className="flex items-center gap-4">
-                        {!isEmployer ? (
-                            <button 
-                                onClick={() => setShowLogin(true)}
-                                className="flex items-center gap-2 glass px-4 py-2 rounded-full border border-primary/20 text-primary text-xs font-black uppercase tracking-widest hover:bg-primary hover:text-white transition-all shadow-lg shadow-primary/10"
-                            >
-                                <Lock className="w-3.5 h-3.5" /> Management Login
-                            </button>
-                        ) : (
+                        {isEmployer && (
                             <div className="flex items-center gap-3">
                                 <button 
                                     onClick={() => setViewMode(viewMode === 'jobs' ? 'applications' : 'jobs')}
@@ -311,7 +273,7 @@ const Careers = () => {
                                 </button>
                                 <button 
                                     onClick={() => setShowPostModal(true)}
-                                    className="flex items-center gap-2 bg-primary text-white px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-lg shadow-primary/20"
+                                    className="flex items-center gap-2 bg-primary text-white px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all"
                                 >
                                     <Plus className="w-3.5 h-3.5" /> Post New Job
                                 </button>
@@ -333,7 +295,7 @@ const Careers = () => {
                                         onClick={() => setAppTab(tab)}
                                         className={`px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
                                             appTab === tab 
-                                            ? 'bg-primary text-white shadow-lg shadow-primary/20' 
+                                            ? 'bg-primary text-white' 
                                             : 'glass border border-border/10 text-muted-foreground hover:bg-white/05'
                                         }`}
                                     >
@@ -427,7 +389,7 @@ const Careers = () => {
                                                 </div>
                                                 <button 
                                                     onClick={() => window.open(app.resumeUrl || app.portfolioLink, '_blank')}
-                                                    className="w-full glass py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-primary hover:text-white transition-all shadow-xl shadow-primary/10 border border-primary/20"
+                                                    className="w-full glass py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-primary hover:text-white transition-all border border-primary/20"
                                                 >
                                                     {app.resumeUrl ? 'View Resume' : 'View Portfolio/Link'}
                                                 </button>
@@ -479,7 +441,7 @@ const Careers = () => {
                                 <span className="text-[10px] font-black uppercase tracking-[0.2em]">Join the 1% Builders</span>
                             </motion.div>
                             <h1 className="text-5xl md:text-6xl font-black text-foreground leading-[1.1] tracking-tighter">
-                                Building Bharat's <br />
+                                Building the world's <br />
                                 <span className="text-gradient">Commerce Engine</span>
                             </h1>
                             <p className="text-lg text-muted-foreground font-medium max-w-xl mx-auto leading-relaxed">
@@ -611,7 +573,7 @@ const Careers = () => {
                                                     ) : (
                                                         <button 
                                                             onClick={() => navigate(`/careers/job/${job.id}`)}
-                                                            className="whitespace-nowrap bg-primary text-white px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl shadow-primary/20 group-hover:scale-105 transition-all active:scale-95"
+                                                            className="whitespace-nowrap bg-primary text-white px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-widest group-hover:scale-105 transition-all active:scale-95"
                                                         >
                                                             Apply Now
                                                         </button>
@@ -639,54 +601,7 @@ const Careers = () => {
                 )}
             </div>
 
-            {/* Management Login Modal */}
-            <AnimatePresence>
-                {showLogin && (
-                    <motion.div 
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md"
-                        onClick={() => setShowLogin(false)}
-                    >
-                        <motion.div 
-                            initial={{ scale: 0.9, opacity: 0, y: 20 }}
-                            animate={{ scale: 1, opacity: 1, y: 0 }}
-                            exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                            className="bg-background w-full max-w-md rounded-[2.5rem] p-8 md:p-10 relative shadow-2xl border border-white/10"
-                            onClick={e => e.stopPropagation()}
-                        >
-                            <button onClick={() => setShowLogin(false)} className="absolute top-6 right-6 p-2 rounded-full hover:bg-secondary"><X className="w-5 h-5" /></button>
-                            <div className="space-y-8">
-                                <div className="text-center space-y-2">
-                                    <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto text-primary mb-4"><Lock className="w-8 h-8" /></div>
-                                    <h2 className="text-3xl font-black text-foreground">Management</h2>
-                                    <p className="text-sm text-muted-foreground font-medium">Post jobs and track applications</p>
-                                </div>
-                                <form onSubmit={handleLogin} className="space-y-4">
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Admin Email</label>
-                                        <div className="relative group">
-                                            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary" />
-                                            <input type="email" placeholder="careers@bellbasket.com" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-secondary border border-border rounded-2xl py-4 pl-12 pr-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20" required />
-                                        </div>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Password</label>
-                                        <div className="relative group">
-                                            <Key className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary" />
-                                            <input type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-secondary border border-border rounded-2xl py-4 pl-12 pr-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20" required />
-                                        </div>
-                                    </div>
-                                    <button type="submit" className="w-full gradient-primary text-white py-5 rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all">
-                                        Enter Management Portal
-                                    </button>
-                                </form>
-                            </div>
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+
 
             {/* Post Job Modal */}
             <AnimatePresence>
@@ -738,7 +653,7 @@ const Careers = () => {
                                     <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Job Description (Optional)</label>
                                     <textarea rows={4} placeholder="Briefly describe the role..." value={newJob.description} onChange={e => setNewJob({...newJob, description: e.target.value})} className="w-full bg-secondary border border-border rounded-2xl py-4 px-6 text-sm font-bold focus:outline-none resize-none"></textarea>
                                 </div>
-                                <button type="submit" className="md:col-span-2 bg-primary text-white py-5 rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all">Submit Posting</button>
+                                <button type="submit" className="md:col-span-2 bg-primary text-white py-5 rounded-2xl text-xs font-black uppercase tracking-widest hover:scale-[1.02] transition-all">Submit Posting</button>
                             </form>
                         </motion.div>
                     </motion.div>

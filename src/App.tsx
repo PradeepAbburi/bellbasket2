@@ -91,6 +91,7 @@ const TeamLeadLogin = lazy(() => import("./pages/TeamLeadLogin"));
 const Careers = lazy(() => import("./pages/Careers"));
 const JobDetail = lazy(() => import("./pages/JobDetail"));
 const ApplyJob = lazy(() => import("./pages/ApplyJob"));
+const BellJobs = lazy(() => import("./pages/BellJobs"));
 const HrLayout = lazy(() => import("./components/hr/HrLayout"));
 const HrOverview = lazy(() => import("./pages/hr/HrOverview"));
 const HrStaffDirectory = lazy(() => import("./pages/hr/StaffDirectory"));
@@ -275,6 +276,9 @@ const AppContent = () => {
             <Route path="/careers" element={<Careers />} />
             <Route path="/careers/job/:id" element={<JobDetail />} />
             <Route path="/careers/apply/:id" element={<ApplyJob />} />
+            <Route path="/belljobs" element={<ErrorBoundary name="BellJobs"><BellJobs /></ErrorBoundary>} />
+            <Route path="/store/:id/jobs" element={<ErrorBoundary name="BellJobsStore"><BellJobs /></ErrorBoundary>} />
+            <Route path="/stores/:slug/jobs" element={<ErrorBoundary name="BellJobsStoreSlug"><BellJobs /></ErrorBoundary>} />
             
             <Route path="/hr" element={<ProtectedRoute requiredRole="hr"><HrLayout /></ProtectedRoute>}>
               <Route index element={<HrOverview />} />

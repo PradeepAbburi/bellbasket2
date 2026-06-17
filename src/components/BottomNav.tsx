@@ -43,7 +43,11 @@ const BottomNav = () => {
         location.pathname === '/vendor/config' ||
         location.pathname === '/vendor/products/new' ||
         location.pathname.startsWith('/vendor/products/edit/') ||
-        location.pathname.endsWith('/reviews')
+        location.pathname.endsWith('/reviews') ||
+        location.pathname === '/belljobs' ||
+        location.pathname.endsWith('/jobs') ||
+        location.pathname === '/support' ||
+        location.pathname.startsWith('/support/')
     ) return null;
 
     const isVendor = user.role === 'vendor';

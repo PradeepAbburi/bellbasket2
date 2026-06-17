@@ -1,6 +1,6 @@
 import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Star, MapPin, Clock, Plus, Minus, Loader2, MessageSquare, Search, X, Tag, Phone, ChevronRight, ChevronLeft, Share2, Sparkles, Calendar, AlertCircle, ArrowUpDown, ChevronDown, XCircle, ImageIcon, PackageSearch, Heart, Zap, PackageX, Globe, ShoppingCart, Instagram, Download } from 'lucide-react';
+import { ArrowLeft, Star, MapPin, Clock, Plus, Minus, Loader2, MessageSquare, Search, X, Tag, Phone, ChevronRight, ChevronLeft, Share2, Sparkles, Calendar, AlertCircle, ArrowUpDown, ChevronDown, XCircle, ImageIcon, PackageSearch, Heart, Zap, PackageX, Globe, ShoppingCart, Instagram, Download, Briefcase, MoreVertical } from 'lucide-react';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -124,10 +124,20 @@ const StoreDetail = () => {
   const [showBookingDiscardConfirm, setShowBookingDiscardConfirm] = useState(false);
   const [activeDeals, setActiveDeals] = useState<any[]>([]);
   const { requestProduct } = useApp();
+  const [activeJobsCount, setActiveJobsCount] = useState(0);
 
   const currencySymbol = useMemo(() => {
     return getCurrencySymbol(store?.country, store?.address);
   }, [store?.country, store?.address]);
+
+  useEffect(() => {
+    if (!store?.id) return;
+    const q = query(collection(db, 'bell_jobs'), where('vendorId', '==', store.id), where('status', '==', 'active'));
+    const unsub = onSnapshot(q, (snap) => {
+      setActiveJobsCount(snap.docs.length);
+    });
+    return () => unsub();
+  }, [store?.id]);
 
   // Cart banner: compute store-specific item count & total
   const storeCartItems = useMemo(() => cart.filter(c => c.storeId === store?.id), [cart, store?.id]);
@@ -772,22 +782,41 @@ const StoreDetail = () => {
         )}
       </AnimatePresence>
       <div className={`pt-20 pb-32 lg:pb-8 px-4 max-w-6xl mx-auto transition-all duration-500 ${isLocalModalOpen ? 'blur-md opacity-40 scale-[0.98] pointer-events-none' : ''}`}>
-        {/* Back */}
-        <button
-          onClick={() => {
-            if (activeSearch || isSearching || searchTerm) {
-              setSearchTerm('');
-              setActiveSearch('');
-            } else if (location.state?.from) {
-              navigate(location.state.from);
-            } else {
-              navigate('/browse');
-            }
-          }}
-          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" /> {activeSearch || isSearching || searchTerm ? t('common.back_to_store') : t('common.back')}
-        </button>
+        {/* Back + Report */}
+        <div className="flex items-center justify-between mb-4">
+          <button
+            onClick={() => {
+              if (activeSearch || isSearching || searchTerm) {
+                setSearchTerm('');
+                setActiveSearch('');
+              } else if (location.state?.from) {
+                navigate(location.state.from);
+              } else {
+                navigate('/browse');
+              }
+            }}
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" /> {activeSearch || isSearching || searchTerm ? t('common.back_to_store') : t('common.back')}
+          </button>
+
+          <button
+            onClick={() => {
+              navigate(store.slug ? `/stores/${store.slug}/jobs` : `/store/${store.id}/jobs`, {
+                state: { vendorId: store.id, vendorName: store.name }
+              });
+            }}
+            className="relative p-2 rounded-full text-muted-foreground/50 hover:text-primary hover:bg-primary/10 transition-all"
+            aria-label="Jobs"
+          >
+            <Briefcase className="w-5 h-5" />
+            {activeJobsCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">
+                {activeJobsCount}
+              </span>
+            )}
+          </button>
+        </div>
 
         {/* Store header - Hidden when searching or viewing search results */}
         {!activeSearch && !isSearching && (
@@ -801,6 +830,31 @@ const StoreDetail = () => {
                   <div className={`w-2 h-2 rounded-full ${store.isOpen ? 'bg-green-500' : 'bg-red-500'} animate-pulse`} />
                   {store.isOpen ? t('home.open_now') : t('home.currently_closed')}
                 </span>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="p-2 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-md transition-colors text-white border border-white/10 shadow-lg">
+                      <MoreVertical className="w-4 h-4" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48 z-[100] rounded-2xl">
+                    <DropdownMenuItem 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate('/support', {
+                          state: {
+                            prefillSubject: `Report Store: ${store.name}`,
+                            prefillMessage: `I want to report the store "${store.name}" (ID: ${store.id}).\n\nReason for reporting: `,
+                            storeId: store.id
+                          }
+                        });
+                      }}
+                      className="text-rose-500 focus:text-rose-500 focus:bg-rose-500/10 cursor-pointer"
+                    >
+                      <AlertCircle className="w-4 h-4 mr-2" />
+                      Report Store
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
 
               {/* Category Tag */}
@@ -948,22 +1002,7 @@ const StoreDetail = () => {
                   <span className="hidden md:inline whitespace-nowrap">{t('common.share')}</span>
                 </button>
 
-                <button
-                  onClick={() => {
-                    navigate('/support', {
-                      state: {
-                        prefillSubject: `Report Store: ${store.name}`,
-                        prefillMessage: `I want to report the store "${store.name}" (ID: ${store.id}).\n\nReason for reporting: `,
-                        storeId: store.id
-                      }
-                    });
-                  }}
-                  className="flex-1 md:flex-none flex items-center justify-center gap-2 px-3 md:px-6 py-3 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-500 hover:text-white font-bold transition-all shadow-sm border border-rose-500/20 min-w-0"
-                  aria-label="Report Store"
-                >
-                  <AlertCircle className="w-4 h-4 shrink-0" strokeWidth={3} />
-                  <span className="hidden md:inline whitespace-nowrap">Report</span>
-                </button>
+
  
                 <button
                   onClick={() => toggleSaveStore(store.id)}

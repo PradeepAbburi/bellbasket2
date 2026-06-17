@@ -23,6 +23,8 @@ interface JobPost {
     description: string;
     requirements?: string;
     responsibilities?: string;
+    vendorId?: string;
+    vendorName?: string;
 }
 
 const JobDetail = () => {

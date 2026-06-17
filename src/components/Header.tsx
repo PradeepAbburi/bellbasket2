@@ -128,6 +128,14 @@ const Header = ({ solid = false }: { solid?: boolean }) => {
                   </NavLink>
 
                   <NavLink 
+                    to="/belljobs" 
+                    className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}
+                  >
+                    <Briefcase className="w-5 h-5" />
+                    <span className="hidden lg:inline">Bell Jobs</span>
+                  </NavLink>
+
+                  <NavLink 
                     to="/receipts" 
                     onMouseEnter={() => onHoverPrefetch('receipts')}
                     className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}
@@ -222,7 +230,7 @@ const Header = ({ solid = false }: { solid?: boolean }) => {
                       </NavLink>
                       <NavLink to="/careers" className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}>
                         <Briefcase className="w-5 h-5" />
-                        <span className="hidden lg:inline">Post Jobs</span>
+                        <span className="hidden lg:inline">BellJobs</span>
                       </NavLink>
                     </>
                   ) : null}

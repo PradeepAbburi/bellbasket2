@@ -280,7 +280,7 @@ const CustomerHome = () => {
   const [userDistrict, setUserDistrict] = useState(() => localStorage.getItem('user_district') || '');
   const [userState, setUserState] = useState(() => localStorage.getItem('user_state') || '');
   const [userCountry, setUserCountry] = useState(() => localStorage.getItem('user_country') || '');
-  const [selectedLocationType, setSelectedLocationType] = useState('');
+  const [selectedLocationType, setSelectedLocationType] = useState(() => localStorage.getItem('selected_location_type') || '');
   const [detecting, setDetecting] = useState(false);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [locationSearch, setLocationSearch] = useState('');
@@ -321,7 +321,10 @@ const CustomerHome = () => {
     const distance = getDistanceKm(userLat, userLng, storeLat, storeLng);
 
     if (selectedLocationType === 'country') return true; 
-    if (selectedLocationType === 'state' && userState) return true;
+    if (selectedLocationType === 'state' && userState) {
+        const us = userState.toLowerCase();
+        return (store.state && store.state.toLowerCase() === us) || (store.address && store.address.toLowerCase().includes(us)) || distance <= maxDistance;
+    }
 
     if (selectedLocationType === 'district' && userDistrict) {
       const ud = userDistrict.toLowerCase();
@@ -460,8 +463,8 @@ const CustomerHome = () => {
     localStorage.setItem('user_district', userDistrict);
     localStorage.setItem('user_state', userState);
     localStorage.setItem('user_country', userCountry);
-    localStorage.removeItem('selected_location_type'); // Clear any stale value
-  }, [userLat, userLng, locationName, userMandal, userDistrict, userState, userCountry]);
+    localStorage.setItem('selected_location_type', selectedLocationType);
+  }, [userLat, userLng, locationName, userMandal, userDistrict, userState, userCountry, selectedLocationType]);
 
   useEffect(() => {
     localStorage.setItem('active_mode', activeMode);

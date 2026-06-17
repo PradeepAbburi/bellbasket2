@@ -20,6 +20,8 @@ interface JobPost {
     workplace: string;
     category: string;
     status: 'active' | 'on_hold';
+    vendorId?: string;
+    vendorName?: string;
 }
 
 const ApplyJob = () => {
@@ -106,6 +108,7 @@ const ApplyJob = () => {
             await addDoc(collection(db, 'job_applications'), {
                 jobId: job.id,
                 jobTitle: job.title,
+                vendorId: job.vendorId || null,
                 ...formData,
                 resumeUrl: resumeData || formData.portfolioLink,
                 appliedAt: serverTimestamp(),

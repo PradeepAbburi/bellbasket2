@@ -146,8 +146,21 @@ service cloud.firestore {
       allow read, update, delete: if isAdmin() || 
                                     (isAuth() && (
                                       request.auth.token.email == 'careers@bellbasket.com' || 
-                                      get(/databases/$(database)/documents/job_posts/$(resource.data.jobId)).data.vendorId == request.auth.uid
+                                      resource.data.vendorId == request.auth.uid
                                     ));
+    }
+
+    // --- BELLJOBS (LOCALITY JOB BOARD) RULES ---
+    match /bell_jobs/{jobId} {
+      allow read: if true;
+      allow create: if isAuth() && request.resource.data.vendorId == request.auth.uid;
+      allow update, delete: if isAuth() && resource.data.vendorId == request.auth.uid;
+    }
+
+    match /bell_job_applications/{appId} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin() || 
+                                    (isAuth() && resource.data.vendorId == request.auth.uid);
     }
   }
 }
