@@ -176,7 +176,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'customer' | 'vendor' | 'admin' | 'hr';
+  role: 'customer' | 'vendor' | 'admin' | 'hr' | 'delivery';
   isVerified?: boolean;
   phone?: string;
   hasSetupStore?: boolean;
