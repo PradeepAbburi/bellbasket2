@@ -16,6 +16,7 @@ interface MobileMenuProps {
   onClose: () => void;
   logout: () => void;
   initAudio: () => void;
+  activeMode: 'product' | 'service';
 }
 
 const MobileMenu = ({
@@ -31,7 +32,8 @@ const MobileMenu = ({
   unreadCount,
   onClose,
   logout,
-  initAudio
+  initAudio,
+  activeMode
 }: MobileMenuProps) => {
   const navigate = useNavigate();
 
@@ -42,12 +44,13 @@ const MobileMenu = ({
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: 'auto' }}
           exit={{ opacity: 0, height: 0 }}
-          className="md:hidden bg-white dark:bg-[#202020] border-b border-border overflow-hidden"
+          className="bg-white dark:bg-[#202020] border-b border-border overflow-hidden"
         >
-          <div className="p-4 space-y-2">
+          <div className="max-w-6xl mx-auto p-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-1 md:gap-2">
             {isAdminView ? (
               <>
-                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground px-4 py-2">Admin Tools</p>
+                <p className="col-span-full text-[10px] font-black uppercase tracking-widest text-muted-foreground px-4 py-2">Admin Tools</p>
                 <Link
                   to={user?.role === 'hr' ? "/hr" : "/admin"}
                   onClick={() => { initAudio(); onClose(); }}
@@ -59,7 +62,7 @@ const MobileMenu = ({
               </>
             ) : isVendorView ? (
               <>
-                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground px-4 py-2">Vendor Tools</p>
+                <p className="col-span-full text-[10px] font-black uppercase tracking-widest text-muted-foreground px-4 py-2">Vendor Tools</p>
                     {hasValidPlan ? (
                       <>
                         <Link
@@ -155,7 +158,7 @@ const MobileMenu = ({
                     <span className="font-bold text-sm">Home</span>
                   </Link>
                   <Link
-                    to="/deals"
+                    to={activeMode === 'service' ? '/deals/services' : '/deals'}
                     onClick={() => { initAudio(); onClose(); }}
                     className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-primary/5 text-foreground transition-colors"
                   >
@@ -226,8 +229,9 @@ const MobileMenu = ({
                   </Link>
                 </>
             )}
+            </div>
 
-            <div className="h-px bg-border my-2 mx-4" />
+            <div className="h-px bg-border my-2" />
 
             {user ? (
               <>

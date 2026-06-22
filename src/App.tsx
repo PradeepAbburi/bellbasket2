@@ -237,7 +237,8 @@ const AppContent = () => {
             <Route path="/receipt/:id" element={<ErrorBoundary name="ReceiptDetail"><ReceiptDetail /></ErrorBoundary>} />
             <Route path="/profile" element={<ErrorBoundary name="Profile"><ProtectedRoute><Profile /></ProtectedRoute></ErrorBoundary>} />
             <Route path="/notifications" element={<ErrorBoundary name="Notifications"><ProtectedRoute><NotificationsPage /></ProtectedRoute></ErrorBoundary>} />
-            <Route path="/deals" element={<ErrorBoundary name="CustomerDeals"><CustomerDeals /></ErrorBoundary>} />
+            <Route path="/deals" element={<ErrorBoundary name="CustomerDeals"><CustomerDeals mode="product" /></ErrorBoundary>} />
+            <Route path="/deals/services" element={<ErrorBoundary name="CustomerDeals"><CustomerDeals mode="service" /></ErrorBoundary>} />
             <Route path="/saved-stores" element={<ErrorBoundary name="SavedStores"><ProtectedRoute><SavedStores /></ProtectedRoute></ErrorBoundary>} />
             <Route path="/ask" element={<ErrorBoundary name="Ask"><ProtectedRoute><Ask /></ProtectedRoute></ErrorBoundary>} />
             <Route path="/clips" element={<ErrorBoundary name="Clips"><ProtectedRoute><Clips /></ProtectedRoute></ErrorBoundary>} />

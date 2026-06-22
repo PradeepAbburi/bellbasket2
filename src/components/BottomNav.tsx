@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const BottomNav = () => {
-    const { user, cart, orders, serviceBookings, stores, cartSubtotal, isAnyModalOpen, cartConflictItem, productRequests } = useApp();
+    const { user, cart, orders, serviceBookings, stores, cartSubtotal, isAnyModalOpen, cartConflictItem, productRequests, activeMode } = useApp();
     const { t } = useTranslation();
     const location = useLocation();
     const navigate = useNavigate();
@@ -123,7 +123,7 @@ const BottomNav = () => {
                                 label={t('common.home')}
                             />
                             <NavItem
-                                to="/deals"
+                                to={activeMode === 'service' ? '/deals/services' : '/deals'}
                                 icon={Zap}
                                 label={t('common.deals')}
                             />
@@ -223,7 +223,9 @@ const CartConflictModal = ({ item }: { item: any }) => {
 
 const NavItem = memo(({ to, icon: Icon, label, badge, end = false, avatarUrl }: { to: string, icon: any, label: string, badge?: number, end?: boolean, avatarUrl?: string }) => {
     const location = useLocation();
-    const isActive = end ? location.pathname === to : location.pathname.startsWith(to);
+    const isActive = end 
+        ? location.pathname === to 
+        : (to.startsWith('/deals') ? location.pathname.startsWith('/deals') : location.pathname.startsWith(to));
 
     return (
         <NavLink

@@ -52,6 +52,8 @@ interface AppState {
   setIsAnyModalOpen: (isOpen: boolean) => void;
   cartConflictItem: CartItem | null;
   setCartConflictItem: (item: CartItem | null) => void;
+  activeMode: 'product' | 'service';
+  setActiveMode: (mode: 'product' | 'service') => void;
 }
 
 const AppContext = createContext<AppState | undefined>(undefined);
@@ -69,6 +71,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [isAnyModalOpen, setIsAnyModalOpen] = useState(false);
   const [cartConflictItem, setCartConflictItem] = useState<CartItem | null>(null);
+  const [activeMode, setActiveModeState] = useState<'product' | 'service'>(
+    () => (localStorage.getItem('active_mode') as 'product' | 'service') || 'product'
+  );
+
+  const setActiveMode = (mode: 'product' | 'service') => {
+    setActiveModeState(mode);
+    localStorage.setItem('active_mode', mode);
+  };
 
   // Theme auto-lock to dark
   useEffect(() => {
@@ -1261,7 +1271,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     isAnyModalOpen,
     setIsAnyModalOpen,
     cartConflictItem,
-    setCartConflictItem
+    setCartConflictItem,
+    activeMode,
+    setActiveMode
   }), [
     user, cart, orders, serviceBookings, stores, allProducts, loading,
     login, logout, refreshUser, addToCart, removeFromCart, updateQuantity,
@@ -1276,7 +1288,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     isAnyModalOpen,
     setIsAnyModalOpen,
     cartConflictItem,
-    setCartConflictItem
+    setCartConflictItem,
+    activeMode,
+    setActiveMode
   ]);
 
 

@@ -265,7 +265,7 @@ const ProductCard = memo(({ p, count, onAdd, onUpdate, onRemove, onClick, t, mod
 });
 
 const CustomerHome = () => {
-  const { user, loading, stores: allStores, allProducts, addToCart, removeFromCart, updateQuantity, cart, orders, refreshData, requestPushNotifications } = useApp();
+  const { user, loading, stores: allStores, allProducts, addToCart, removeFromCart, updateQuantity, cart, orders, refreshData, requestPushNotifications, activeMode, setActiveMode } = useApp();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -294,7 +294,7 @@ const CustomerHome = () => {
   const [activeSearch, setActiveSearch] = useState('');
   const [showAllCategories, setShowAllCategories] = useState(false);
   const [mobileCategoryPage, setMobileCategoryPage] = useState(0);
-  const [activeMode, setActiveMode] = useState<'product' | 'service'>(() => (localStorage.getItem('active_mode') as 'product' | 'service') || 'product');
+  const [pendingMode, setPendingMode] = useState<'product' | 'service' | null>(null);
   const [priceSort, setPriceSort] = useState<'none' | 'low-high' | 'high-low'>('none');
   const [ratingSort, setRatingSort] = useState<'none' | 'top-rated' | 'low-rated'>('none');
   const [maxDistance, setMaxDistance] = useState<number>(20);
@@ -466,15 +466,13 @@ const CustomerHome = () => {
     localStorage.setItem('selected_location_type', selectedLocationType);
   }, [userLat, userLng, locationName, userMandal, userDistrict, userState, userCountry, selectedLocationType]);
 
-  useEffect(() => {
-    localStorage.setItem('active_mode', activeMode);
-  }, [activeMode]);
+
 
 
   // Hide BottomBar when any modal/popup is open
   useEffect(() => {
     const bottomNav = document.getElementById('bottom-nav');
-    const isModalOpen = !!(showLocationPicker || variantSelectorProduct);
+    const isModalOpen = !!(showLocationPicker || variantSelectorProduct || pendingMode);
     
     if (bottomNav) {
       bottomNav.style.display = isModalOpen ? 'none' : '';
@@ -482,7 +480,7 @@ const CustomerHome = () => {
     return () => {
       if (bottomNav) bottomNav.style.display = '';
     };
-  }, [showLocationPicker, variantSelectorProduct]);
+  }, [showLocationPicker, variantSelectorProduct, pendingMode]);
 
   useEffect(() => {
     const searchQuery = searchParams.get('q');
@@ -955,10 +953,17 @@ const CustomerHome = () => {
   };
 
   const handleModeChange = (mode: 'product' | 'service') => {
+    if (mode === activeMode) return;
+    setPendingMode(mode);
+  };
+
+  const confirmModeChange = () => {
+    if (!pendingMode) return;
     setSelectedStoreId(null);
-    setActiveMode(mode);
+    setActiveMode(pendingMode);
     setSelectedCategory(null);
     setMobileCategoryPage(0);
+    setPendingMode(null);
   };
 
   if (loading) {
@@ -1795,6 +1800,67 @@ const CustomerHome = () => {
                 setVariantSelectorProduct(null);
             }}
           />
+        )}
+      </AnimatePresence>
+
+      {/* Mode Switch Confirmation - Bottom Sheet */}
+      <AnimatePresence>
+        {pendingMode && (
+          <>
+            {/* Mode Switch Confirmation - Professional Dialog */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/60 backdrop-blur-md z-[60]"
+              onClick={() => setPendingMode(null)}
+            />
+            <div className="fixed inset-0 flex items-center justify-center p-4 z-[61] pointer-events-none">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.92, y: 15 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.92, y: 15 }}
+                transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+                className="bg-white dark:bg-[#18181b] rounded-[24px] shadow-2xl border border-slate-100 dark:border-zinc-800 w-full max-w-md overflow-hidden pointer-events-auto p-6 space-y-6"
+              >
+                <div className="flex flex-col items-center text-center space-y-4">
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center ${pendingMode === 'service' ? 'bg-blue-500/10 text-blue-500' : 'bg-primary/10 text-primary'}`}>
+                    {pendingMode === 'service' ? (
+                      <Clock className="w-6 h-6" />
+                    ) : (
+                      <Package2 className="w-6 h-6" />
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-zinc-50">
+                      Switch to {pendingMode === 'service' ? 'Services' : 'Products'}?
+                    </h3>
+                    <p className="text-sm text-slate-500 dark:text-zinc-400 leading-relaxed px-2">
+                      {pendingMode === 'service' 
+                        ? <>This will switch the home feed to show service stores, appointments, and bookings. Your active orders page will also show service bookings.</>
+                        : <>This will switch the home feed to show product stores, items, and deals. Your active orders page will also show product orders.</>
+                      }
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setPendingMode(null)}
+                    className="flex-1 px-4 py-3 rounded-xl text-sm font-semibold text-slate-600 dark:text-zinc-300 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700/80 transition-all active:scale-[0.98]"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={confirmModeChange}
+                    className="flex-1 px-4 py-3 rounded-xl text-sm font-semibold text-white bg-primary hover:bg-primary/90 transition-all active:scale-[0.98]"
+                  >
+                    Switch
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          </>
         )}
       </AnimatePresence>
     </div>

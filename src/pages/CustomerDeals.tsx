@@ -44,7 +44,7 @@ const CountdownTimer = ({ endTime }: { endTime: string }) => {
 
 import ProductDetailModal from '@/components/ProductDetailModal';
 
-const CustomerDeals = () => {
+const CustomerDeals = ({ mode = 'product' }: { mode?: 'product' | 'service' }) => {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { user, cart, addToCart, updateQuantity, setIsAnyModalOpen } = useApp();
@@ -205,6 +205,9 @@ const CustomerDeals = () => {
         
         if (store.isBlocked || !store.plan || store.plan === 'none') return false;
 
+        const storeType = store.storeType || 'product';
+        if (storeType !== mode) return false;
+
         if (user?.lat && user?.lng) {
             const dist = calculateDistance(user.lat, user.lng, store.lat, store.lng);
             if (dist > maxDistance) return false;
@@ -295,7 +298,9 @@ const CustomerDeals = () => {
                     <Zap className="w-32 h-32 lg:w-44 lg:h-44 text-black" />
                 </div>
                 
-                <h1 className="text-2xl lg:text-3xl font-black tracking-tighter uppercase leading-none text-black">Limited Time Deals</h1>
+                <h1 className="text-2xl lg:text-3xl font-black tracking-tighter uppercase leading-none text-black">
+                  Limited Time {mode === 'service' ? 'Service' : 'Product'} Deals
+                </h1>
                 <p className="text-[10px] lg:text-xs text-black/70 font-medium max-w-xs">Grab your favorites at unbeatable prices!</p>
                 </motion.div>
             </div>
@@ -357,7 +362,7 @@ const CustomerDeals = () => {
                         <MapPin className="w-4 h-4 lg:w-5 lg:h-5 text-primary shrink-0" />
                         <div className="min-w-0">
                             <h2 className="text-lg md:text-xl font-black text-foreground tracking-tight truncate leading-none uppercase">
-                                {activeSearch ? `Results for "${activeSearch}"` : 'Deals Nearby'}
+                                {activeSearch ? `Results for "${activeSearch}"` : `${mode === 'service' ? 'Service' : 'Product'} Deals Nearby`}
                             </h2>
                             <p className="hidden md:block text-[9px] lg:text-[10px] font-bold uppercase tracking-widest text-muted-foreground mt-1">
                                 {processedDeals.length} local offers active

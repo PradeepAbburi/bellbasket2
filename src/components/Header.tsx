@@ -1,7 +1,7 @@
 import { useApp } from '@/context/AppContext';
 import { getAvatarUrl } from '@/utils/avatars';
 import { NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
-import { ShoppingCart, Bell, User, LogOut, Store, Menu, X, Search, ShoppingBag, Package, TrendingUp, Crown, Shield, BellRing, FileText, Zap, Settings, Users, Play, Briefcase } from 'lucide-react';
+import { ShoppingCart, Bell, User, LogOut, Store, Menu, X, Search, ShoppingBag, Package, TrendingUp, Crown, Shield, BellRing, FileText, Zap, Settings, Users, Play, Briefcase, Home } from 'lucide-react';
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -11,7 +11,7 @@ import DesktopBackground from './DesktopBackground';
 import { getAudioStatus, onAudioStatusChange, initAudio, playBellSound } from '@/utils/notifications';
 
 const Header = ({ solid = false }: { solid?: boolean }) => {
-  const { user, cart, orders, serviceBookings, logout, notifications, markAllNotificationsRead, stores, requestPushNotifications, isAnyModalOpen } = useApp();
+  const { user, cart, orders, serviceBookings, logout, notifications, markAllNotificationsRead, stores, requestPushNotifications, isAnyModalOpen, activeMode } = useApp();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
@@ -87,13 +87,13 @@ const Header = ({ solid = false }: { solid?: boolean }) => {
 
 
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
-          <Link to={user?.role === 'hr' ? "/hr" : (user?.role === 'admin' ? "/admin" : (user?.role === 'vendor' ? "/vendor" : "/browse"))} className="group flex-shrink-0">
+          <Link to={user?.role === 'hr' ? "/hr" : (user?.role === 'admin' ? "/admin" : (user?.role === 'vendor' ? "/vendor" : "/"))} className="group flex-shrink-0">
             <span className="font-black text-2xl tracking-tighter text-foreground hover:text-primary transition-colors">BellBasket</span>
           </Link>
 
           {/* Right Side Navigation Group */}
           <div className="flex items-center gap-1 sm:gap-2">
-            <nav className="hidden md:flex items-center gap-1 lg:gap-2">
+            <nav className="hidden items-center gap-1 lg:gap-2">
               {isAdminView ? (
                 <NavLink to={user?.role === 'hr' ? "/hr" : "/admin"} className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}>
                   <Shield className="w-5 h-5" />
@@ -102,18 +102,27 @@ const Header = ({ solid = false }: { solid?: boolean }) => {
               ) : !isVendorView ? (
                 <>
                   <NavLink 
+                    to="/" 
+                    end
+                    className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}
+                  >
+                    <Home className="w-5 h-5" />
+                    <span className="hidden lg:inline">Home</span>
+                  </NavLink>
+
+                  <NavLink 
                     to="/browse" 
                     onMouseEnter={() => onHoverPrefetch('browse')}
                     className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}
                   >
                     <Search className="w-5 h-5" />
-                    <span className="hidden lg:inline">{t('home.welcome')}</span>
+                    <span className="hidden lg:inline">Browse</span>
                   </NavLink>
 
                   <NavLink 
-                    to="/deals" 
+                    to={activeMode === 'service' ? '/deals/services' : '/deals'} 
                     onMouseEnter={() => onHoverPrefetch('deals')}
-                    className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}
+                    className={({ isActive }) => `${buttonBase} ${(isActive || location.pathname.startsWith('/deals')) ? activeBtn : normalBtn}`}
                   >
                     <Zap className="w-5 h-5" />
                     <span className="hidden lg:inline">{t('common.deals')}</span>
@@ -244,7 +253,7 @@ const Header = ({ solid = false }: { solid?: boolean }) => {
 
             {/* User Auth Section */}
             <div className="flex items-center gap-1">
-              <div className="w-px h-6 bg-border mx-2 hidden md:block" />
+
               {user ? (
                 <div className="flex items-center gap-1">
                   <div className="relative">
@@ -349,7 +358,7 @@ const Header = ({ solid = false }: { solid?: boolean }) => {
                   <NavLink 
                     to="/profile" 
                     onMouseEnter={() => onHoverPrefetch('profile')}
-                    className={({ isActive }) => `hidden md:flex items-center gap-2.5 px-3 py-1.5 rounded-xl transition-all group ${isActive ? 'bg-primary/5' : 'hover:bg-primary/5'}`}
+                    className={({ isActive }) => `hidden items-center gap-2.5 px-3 py-1.5 rounded-xl transition-all group ${isActive ? 'bg-primary/5' : 'hover:bg-primary/5'}`}
                   >
                     <div className={`w-9 h-9 rounded-full overflow-hidden flex items-center justify-center transition-all ${location.pathname === '/profile' ? 'ring-2 ring-primary shadow-md shadow-primary/20 scale-105' : 'bg-primary/10 group-hover:bg-primary'}`}>
                       <img 
@@ -370,7 +379,7 @@ const Header = ({ solid = false }: { solid?: boolean }) => {
                       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth < 768;
                       navigate('/'); 
                     }}
-                    className="hidden md:flex p-2.5 text-red-600 bg-white hover:bg-red-50 rounded-xl transition-all active:scale-95 border border-red-50"
+                    className="hidden p-2.5 text-red-600 bg-white hover:bg-red-50 rounded-xl transition-all active:scale-95 border border-red-50"
                     title="Sign Out"
                   >
                     <LogOut className="w-4.5 h-4.5" />
@@ -388,7 +397,7 @@ const Header = ({ solid = false }: { solid?: boolean }) => {
             {/* Mobile Menu Button */}
             <button
                 onClick={() => { initAudio(); setMenuOpen(!menuOpen); }}
-                className="md:hidden p-2 rounded-xl hover:bg-secondary transition-colors"
+                className="p-2 rounded-xl hover:bg-secondary transition-colors"
                 aria-label={menuOpen ? "Close Menu" : "Open Menu"}
                 aria-expanded={menuOpen}
             >
@@ -413,6 +422,7 @@ const Header = ({ solid = false }: { solid?: boolean }) => {
             onClose={() => setMenuOpen(false)}
             logout={logout}
             initAudio={initAudio}
+            activeMode={activeMode}
           />
         </Suspense>
       </header>

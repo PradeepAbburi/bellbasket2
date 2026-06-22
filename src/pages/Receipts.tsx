@@ -49,7 +49,8 @@ const Receipts = () => {
   const cartSymbol = getCurrencySymbol(cartStore?.country, cartStore?.address);
   const navigate = useNavigate();
   const [view, setView] = useState<'active' | 'history'>('active');
-  const [filterType, setFilterType] = useState<'orders' | 'bookings'>('orders');
+  const activeMode = localStorage.getItem('active_mode') || 'product';
+  const filterType = activeMode === 'service' ? 'bookings' : 'orders';
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedOrderId = searchParams.get('orderId');
   const selectedBookingId = searchParams.get('bookingId');
@@ -421,7 +422,7 @@ const Receipts = () => {
       <PullToRefresh onRefresh={refreshData} className="pt-20 pb-32 px-4 max-w-4xl mx-auto">
         <AnimatePresence mode="wait">
           {!selectedOrderId && !selectedBookingId ? (
-            <motion.div
+          <motion.div
               key="list"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -455,10 +456,13 @@ const Receipts = () => {
                 </motion.div>
               )}
 
+              {/* Section Header + Controls */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="space-y-1">
                   <div className="flex items-center gap-3">
-                    <h1 className="text-2xl font-bold text-foreground">{filterType === 'orders' ? t('common.receipts.title') : 'Service Bookings'}</h1>
+                    <h1 className="text-2xl font-bold text-foreground">
+                      {filterType === 'orders' ? t('common.receipts.title') : 'Service Bookings'}
+                    </h1>
                     <button 
                       onClick={handleRefresh}
                       disabled={isRefreshing}
@@ -467,6 +471,12 @@ const Receipts = () => {
                       <RefreshCcw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
                     </button>
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    {filterType === 'orders' 
+                      ? `${activeOrders.length} active · ${pastOrders.length} completed`
+                      : `${activeBookings.length} active · ${pastBookings.length} completed`
+                    }
+                  </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   {notificationPermission === 'denied' && (
@@ -487,14 +497,6 @@ const Receipts = () => {
                       <BellRing className="w-3 h-3" /> Enable Alerts
                     </button>
                   )}
-                  <div className="bg-secondary p-1 rounded-xl flex items-center gap-1 w-fit">
-                    <button onClick={() => setFilterType('orders')} className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${filterType === 'orders' ? 'bg-white dark:bg-primary shadow-sm text-foreground dark:text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
-                      Orders ({view === 'active' ? activeOrders.length : pastOrders.length})
-                    </button>
-                    <button onClick={() => setFilterType('bookings')} className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${filterType === 'bookings' ? 'bg-white dark:bg-primary shadow-sm text-foreground dark:text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
-                      Bookings ({view === 'active' ? activeBookings.length : pastBookings.length})
-                    </button>
-                  </div>
                   <div className="bg-secondary p-1 rounded-xl flex items-center gap-1 w-fit">
                     <button onClick={() => setView('active')} className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${view === 'active' ? 'bg-white dark:bg-primary shadow-sm text-foreground dark:text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
                       {t('common.active')}
@@ -523,60 +525,70 @@ const Receipts = () => {
                 )}
               </AnimatePresence>
 
-              {displayOrders.length === 0 && displayBookings.length === 0 ? (
-                <div className="glass rounded-2xl p-12 text-center">
-                  <Package className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
-                  <p className="text-muted-foreground">{t('common.receipts.no_orders')}</p>
-                </div>
+              {/* Content Area */}
+              {filterType === 'orders' ? (
+                /* Products View */
+                displayOrders.length === 0 ? (
+                  <div className="glass rounded-2xl p-12 text-center">
+                    <Package className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
+                    <p className="font-bold text-foreground mb-1">No Product Orders</p>
+                    <p className="text-sm text-muted-foreground">{view === 'active' ? 'You have no active product orders right now.' : 'No past product orders to show.'}</p>
+                  </div>
+                ) : (
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {displayOrders.map((order, i) => (
+                      <RenderOrderCard
+                        key={order.id}
+                        order={order} i={i}
+                        review={reviews[order.id] || (order.review ? { ...order.review, submitted: true } : { rating: 0, text: '', submitted: false, isAnonymous: false })}
+                        onRate={(star) => handleRating(order.id, star)}
+                        onReviewChange={(text) => setReviews(prev => ({ ...prev, [order.id]: { ...(prev[order.id] || { rating: 0, submitted: false, isAnonymous: false }), text } }))}
+                        onAnonymous={(anon) => handleAnonymous(order.id, anon)}
+                        onSubmit={() => handleReviewSubmit(order.id, 'order')}
+                        t={t} storePhone={getStoreForOrder(order.storeId)?.phone}
+                        vendorInfo={vendorInfoState[order.storeId]} getStoreForOrder={getStoreForOrder}
+                        userCoords={userCoords} isSelected={selectedIds.includes(order.id)}
+                        onToggleSelect={() => toggleSelect(order.id)} onLongPress={() => toggleSelect(order.id)}
+                        showSelection={view === 'history' && selectedIds.length > 0}
+                        hasReviewedStore={Array.isArray(getStoreForOrder(order.storeId)?.reviews) && getStoreForOrder(order.storeId)!.reviews!.some((r: any) => r.userId === user?.id)}
+                        onClick={() => { 
+                          navigate(`/receipt/${order.id}`); 
+                        }}
+                      />
+                    ))}
+                  </div>
+                )
               ) : (
-                <div className="space-y-8">
-                  {filterType === 'orders' ? (
-                    <div className="grid md:grid-cols-2 gap-4">
-                      {displayOrders.map((order, i) => (
-                        <RenderOrderCard
-                          key={order.id}
-                          order={order} i={i}
-                          review={reviews[order.id] || (order.review ? { ...order.review, submitted: true } : { rating: 0, text: '', submitted: false, isAnonymous: false })}
-                          onRate={(star) => handleRating(order.id, star)}
-                          onReviewChange={(text) => setReviews(prev => ({ ...prev, [order.id]: { ...(prev[order.id] || { rating: 0, submitted: false, isAnonymous: false }), text } }))}
-                          onAnonymous={(anon) => handleAnonymous(order.id, anon)}
-                          onSubmit={() => handleReviewSubmit(order.id, 'order')}
-                          t={t} storePhone={getStoreForOrder(order.storeId)?.phone}
-                          vendorInfo={vendorInfoState[order.storeId]} getStoreForOrder={getStoreForOrder}
-                          userCoords={userCoords} isSelected={selectedIds.includes(order.id)}
-                          onToggleSelect={() => toggleSelect(order.id)} onLongPress={() => toggleSelect(order.id)}
-                          showSelection={view === 'history' && selectedIds.length > 0}
-                          hasReviewedStore={Array.isArray(getStoreForOrder(order.storeId)?.reviews) && getStoreForOrder(order.storeId)!.reviews!.some((r: any) => r.userId === user?.id)}
-                          onClick={() => { 
-                            navigate(`/receipt/${order.id}`); 
-                          }}
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="grid md:grid-cols-2 gap-4">
-                      {displayBookings.map((booking, i) => (
-                        <RenderBookingCard
-                          key={booking.id} booking={booking} i={i}
-                          review={reviews[booking.id] || (booking.review ? { ...booking.review, submitted: true } : { rating: 0, text: '', submitted: false, isAnonymous: false })}
-                          onRate={(star) => handleRating(booking.id, star)}
-                          onReviewChange={(text) => setReviews(prev => ({ ...prev, [booking.id]: { ...(prev[booking.id] || { rating: 0, submitted: false, isAnonymous: false }), text } }))}
-                          onAnonymous={(anon) => handleAnonymous(booking.id, anon)}
-                          onSubmit={() => handleReviewSubmit(booking.id, 'booking')}
-                          t={t} storePhone={getStoreForOrder(booking.storeId)?.phone}
-                          vendorInfo={vendorInfoState[booking.storeId]} getStoreForOrder={getStoreForOrder}
-                          userCoords={userCoords} isSelected={selectedIds.includes(booking.id)}
-                          onToggleSelect={() => toggleSelect(booking.id)} onLongPress={() => toggleSelect(booking.id)}
-                          showSelection={view === 'history' && selectedIds.length > 0}
-                          hasReviewedStore={Array.isArray(getStoreForOrder(booking.storeId)?.reviews) && getStoreForOrder(booking.storeId)!.reviews!.some((r: any) => r.userId === user?.id)}
-                          onClick={() => { 
-                            navigate(`/receipt/${booking.id}`); 
-                          }}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
+                /* Services View */
+                displayBookings.length === 0 ? (
+                  <div className="glass rounded-2xl p-12 text-center">
+                    <Clock className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
+                    <p className="font-bold text-foreground mb-1">No Service Bookings</p>
+                    <p className="text-sm text-muted-foreground">{view === 'active' ? 'You have no active service bookings right now.' : 'No past service bookings to show.'}</p>
+                  </div>
+                ) : (
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {displayBookings.map((booking, i) => (
+                      <RenderBookingCard
+                        key={booking.id} booking={booking} i={i}
+                        review={reviews[booking.id] || (booking.review ? { ...booking.review, submitted: true } : { rating: 0, text: '', submitted: false, isAnonymous: false })}
+                        onRate={(star) => handleRating(booking.id, star)}
+                        onReviewChange={(text) => setReviews(prev => ({ ...prev, [booking.id]: { ...(prev[booking.id] || { rating: 0, submitted: false, isAnonymous: false }), text } }))}
+                        onAnonymous={(anon) => handleAnonymous(booking.id, anon)}
+                        onSubmit={() => handleReviewSubmit(booking.id, 'booking')}
+                        t={t} storePhone={getStoreForOrder(booking.storeId)?.phone}
+                        vendorInfo={vendorInfoState[booking.storeId]} getStoreForOrder={getStoreForOrder}
+                        userCoords={userCoords} isSelected={selectedIds.includes(booking.id)}
+                        onToggleSelect={() => toggleSelect(booking.id)} onLongPress={() => toggleSelect(booking.id)}
+                        showSelection={view === 'history' && selectedIds.length > 0}
+                        hasReviewedStore={Array.isArray(getStoreForOrder(booking.storeId)?.reviews) && getStoreForOrder(booking.storeId)!.reviews!.some((r: any) => r.userId === user?.id)}
+                        onClick={() => { 
+                          navigate(`/receipt/${booking.id}`); 
+                        }}
+                      />
+                    ))}
+                  </div>
+                )
               )}
             </motion.div>
           ) : (
