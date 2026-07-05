@@ -1586,7 +1586,7 @@ const CustomerHome = () => {
                                               setPendingCategory(cat?.name);
                                             }
                                           }}
-                                          className="flex flex-col items-center group transition-all"
+                                          className="flex flex-col items-center gap-2 group transition-all"
                                         >
                                           <div 
                                             className={`w-12 h-12 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-sm border relative overflow-hidden ${selectedCategory === cat?.name ? 'border-primary ring-4 ring-primary/20 scale-105 shadow-lg shadow-primary/10' : 'border-border group-hover:border-primary/30 group-hover:shadow-md'}`} 
