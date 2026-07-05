@@ -71,11 +71,11 @@ const StoreCard = memo(({ store, onClick, t }: { store: Store & { distance?: num
       onTouchStart={prefetch}
       className={`glass rounded-2xl overflow-hidden cursor-pointer hover:shadow-lg transition-all group relative will-change-transform ${store.plan === 'pro' ? 'border-2 border-primary shadow-lg shadow-primary/20' : ''}`}
     >
-      <div className="relative h-40 overflow-hidden">
+      <div className="relative h-28 sm:h-40 overflow-hidden">
         <img loading="lazy" src={store.image} alt={store.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-        <div className="absolute top-3 right-3 flex items-center gap-2">
-          <span className={`text-[9.5px] font-black px-2.5 py-1.5 rounded-full shadow-lg backdrop-blur-md border border-black/5 uppercase tracking-widest bg-white text-black flex items-center gap-1.5`}>
-            <div className={`w-1.5 h-1.5 rounded-full ${store.isOpen ? 'bg-green-500' : 'bg-red-500'} animate-pulse`} />
+        <div className="absolute top-2 right-2 sm:top-3 sm:right-3 flex items-center gap-1.5">
+          <span className={`text-[8px] sm:text-[9.5px] font-black px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-full shadow-lg backdrop-blur-md border border-black/5 uppercase tracking-widest bg-white text-black flex items-center gap-1 sm:gap-1.5`}>
+            <div className={`w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full ${store.isOpen ? 'bg-green-500' : 'bg-red-500'} animate-pulse`} />
             {store.isOpen ? t('home.open_now') : t('home.closed')}
           </span>
           <button
@@ -83,52 +83,50 @@ const StoreCard = memo(({ store, onClick, t }: { store: Store & { distance?: num
               e.stopPropagation();
               toggleSaveStore(store.id);
             }}
-            className={`p-2 rounded-full shadow-lg backdrop-blur-md border transition-all active:scale-90 ${
+            className={`p-1.5 sm:p-2 rounded-full shadow-lg backdrop-blur-md border transition-all active:scale-90 ${
               isStoreSaved(store.id)
                 ? 'bg-pink-500 text-white border-pink-400'
                 : 'bg-white/80 text-black border-black/5 hover:bg-white'
             }`}
             aria-label={isStoreSaved(store.id) ? "Unsave Store" : "Save Store"}
           >
-            <Heart className={`w-3.5 h-3.5 ${isStoreSaved(store.id) ? 'fill-current' : ''}`} />
+            <Heart className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${isStoreSaved(store.id) ? 'fill-current' : ''}`} />
           </button>
         </div>
-        <div className="absolute top-3 left-3 flex items-center gap-2 z-10">
-            <span className="text-[9.5px] font-black px-2.5 py-1 rounded-full shadow-lg backdrop-blur-md flex items-center gap-1 border border-black/5 bg-white text-black">
+        <div className="absolute top-2 left-2 sm:top-3 sm:left-3 flex items-center gap-2 z-10">
+            <span className="text-[8px] sm:text-[9.5px] font-black px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full shadow-lg backdrop-blur-md flex items-center gap-1 border border-black/5 bg-white text-black">
                 {CATEGORY_METADATA[store.category]?.icon && (() => {
                     const Icon = CATEGORY_METADATA[store.category].icon;
-                    return <Icon className="w-3 h-3" style={{ color: CATEGORY_METADATA[store.category]?.color || 'inherit' }} />;
+                    return <Icon className="w-2.5 h-2.5 sm:w-3 sm:h-3" style={{ color: CATEGORY_METADATA[store.category]?.color || 'inherit' }} />;
                 })()}
                 <span className="uppercase tracking-widest">{t(`categories.${store.category}`, { defaultValue: store.category })}</span>
             </span>
         </div>
       </div>
-      <div className="p-4">
-        <div className="flex items-start justify-between mb-1">
-          <div className="flex flex-col min-w-0 flex-1">
-            <h3 className="font-bold text-white truncate drop-shadow-sm">{store.name}</h3>
-            <div className="flex items-center gap-1 text-[11px] text-yellow-400 font-semibold truncate mt-0.5">
-              <MapPin className="w-3 h-3 text-yellow-400" />
-              <span className="truncate">{store.address ? (store.address.split(',')[1]?.trim() || store.address.split(',')[0]) : 'Local Area'}</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-1 shrink-0 bg-black/20 backdrop-blur-sm px-2 py-1 rounded-lg border border-white/10 ml-2">
-            <Star className="w-3 h-3 fill-current text-amber-400" />
-            <span className="text-[11px] font-black leading-none text-amber-400">{store.effectiveRating?.toFixed(1) || store.rating || '0.0'}</span>
+      <div className="p-3 sm:p-4">
+        <div className="flex items-start justify-between mb-1 gap-1">
+          <h3 className="font-bold text-white text-xs sm:text-sm truncate max-w-[65%] drop-shadow-sm">{store.name}</h3>
+          <div className="flex items-center gap-0.5 sm:gap-1 shrink-0 bg-black/20 backdrop-blur-sm px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-lg border border-white/10">
+            <Star className="w-2.5 h-2.5 sm:w-3 sm:h-3 fill-current text-amber-400" />
+            <span className="text-[9px] sm:text-[11px] font-black leading-none text-amber-400">{store.effectiveRating?.toFixed(1) || store.rating || '0.0'}</span>
             {store.reviews && store.reviews.length > 0 && (
-              <span className="text-[9px] font-bold text-white/60 leading-none">({store.reviews.length})</span>
+              <span className="text-[8px] sm:text-[9px] font-bold text-white/60 leading-none">({store.reviews.length})</span>
             )}
           </div>
         </div>
-        <div className="flex items-center justify-between mt-2">
-          <div className="flex flex-col gap-1 min-w-0 flex-1">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mt-2 gap-1.5">
+          <div className="flex flex-col gap-0.5 sm:gap-1 min-w-0 flex-1">
             {store.description && (
-              <p className="text-[10px] text-white/50 line-clamp-2 leading-relaxed mb-1 italic">
+              <p className="text-[9px] sm:text-[10px] text-white/50 line-clamp-1 sm:line-clamp-2 leading-relaxed italic mb-0.5">
                 {store.description}
               </p>
             )}
+            <div className="flex items-center gap-1 text-[10px] sm:text-xs text-white/90 font-bold truncate">
+              <MapPin className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-white/60" />
+              <span className="truncate">{store.address ? (store.address.split(',')[1]?.trim() || store.address.split(',')[0]) : 'Local Area'}</span>
+            </div>
           </div>
-          <span className="text-[10px] font-black text-primary bg-primary/10 px-2 py-0.5 rounded-lg shrink-0 ml-2">
+          <span className="text-[8px] sm:text-[10px] font-black text-primary bg-primary/10 px-1.5 py-0.5 rounded-lg shrink-0 w-fit">
             {store.distance?.toFixed(1)} km
           </span>
         </div>
@@ -1706,7 +1704,7 @@ const CustomerHome = () => {
               )}
             </div>
 
-            <div className={!selectedStoreId && (activeSearch || selectedCategory) ? "w-full pb-20 space-y-8" : "grid sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-20"}>
+            <div className={!selectedStoreId && (activeSearch || selectedCategory) ? "w-full pb-20 space-y-8" : "grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 pb-20"}>
               {!selectedStoreId && (activeSearch || selectedCategory) ? (
                 <>
                   {/* Matching Stores Section - stores that match search or have matching products */}
@@ -1719,7 +1717,7 @@ const CustomerHome = () => {
                         </div>
                         <span className="text-[10px] font-bold text-muted-foreground">{filteredStores.length} found</span>
                       </div>
-                      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
                         {filteredStores.map((store, i) => (
                           <StoreCard
                             key={store.id + i}
