@@ -101,6 +101,22 @@ const BellJobs = () => {
   // ── State ──
   const [jobs, setJobs] = useState<BellJob[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userApplications, setUserApplications] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!user) {
+      setUserApplications([]);
+      return;
+    }
+    const q = query(collection(db, 'bell_job_applications'), where('userId', '==', user.id));
+    const unsub = onSnapshot(q, (snap) => {
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setUserApplications(list);
+    }, (error) => {
+      console.error("Error fetching user applications:", error);
+    });
+    return () => unsub();
+  }, [user]);
 
   const hasValidPlan = useMemo(() => {
     if (!user) return false;
@@ -385,10 +401,7 @@ const BellJobs = () => {
         {/* Top Nav Row (Hidden on scroll) */}
         <div className={`flex items-center justify-between transition-all duration-300 ${isScrolled ? 'opacity-0 h-0 overflow-hidden pointer-events-none -mt-6' : 'opacity-100 h-10 mb-4'}`}>
           <div className="flex items-center gap-3">
-            <button onClick={() => {
-              if (activeVendorId || window.history.length > 2) navigate(-1);
-              else navigate('/');
-            }} className="flex items-center gap-2 text-muted-foreground hover:text-foreground">
+            <button onClick={() => navigate('/browse')} className="flex items-center gap-2 text-muted-foreground hover:text-foreground">
               <ArrowLeft className="w-5 h-5" /> <span className="text-sm font-bold">Back</span>
             </button>
             {activeVendorName && (
@@ -431,10 +444,7 @@ const BellJobs = () => {
           <div className="flex items-center gap-2 md:gap-3">
             {isScrolled && (
               <div className="flex items-center gap-3">
-                <button onClick={() => {
-                  if (activeVendorId || window.history.length > 2) navigate(-1);
-                  else navigate('/');
-                }} className="flex-shrink-0 w-10 h-10 md:w-auto md:px-4 flex items-center justify-center gap-2 rounded-xl bg-secondary/50 hover:bg-secondary text-foreground transition-all">
+                <button onClick={() => navigate('/browse')} className="flex-shrink-0 w-10 h-10 md:w-auto md:px-4 flex items-center justify-center gap-2 rounded-xl bg-secondary/50 hover:bg-secondary text-foreground transition-all">
                   <ArrowLeft className="w-5 h-5 md:w-4 md:h-4" />
                   <span className="hidden md:inline text-sm font-bold">Back</span>
                 </button>
@@ -730,20 +740,47 @@ const BellJobs = () => {
                                 <Trash2 className="w-4.5 h-4.5" />
                               </button>
                             </>
-                          ) : (
-                            <>
-                              {job.contactPhone && (
-                                <a href={`tel:${job.contactPhone}`}
-                                  className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 hover:bg-emerald-500 hover:text-white transition-all text-xs font-black uppercase tracking-widest">
-                                  <Phone className="w-4 h-4" /> Call
-                                </a>
-                              )}
-                              <button onClick={(e) => { e.stopPropagation(); navigate(`/belljobs/${job.id}`); }}
-                                className="flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-105 transition-all active:scale-95">
-                                View Details
-                              </button>
-                            </>
-                          )}
+                          ) : (() => {
+                            const app = userApplications.find(a => a.jobId === job.id);
+                            
+                            return (
+                              <>
+                                {app && (() => {
+                                  const status = app.status || 'pending';
+                                  let statusColor = 'bg-secondary text-muted-foreground border-border';
+                                  let statusLabel = 'Application Pending';
+                                  if (status === 'reviewed') {
+                                    statusColor = 'bg-blue-500/10 text-blue-400 border-blue-500/20';
+                                    statusLabel = 'Under Review';
+                                  } else if (status === 'contacted') {
+                                    statusColor = 'bg-amber-500/10 text-amber-400 border-amber-500/20';
+                                    statusLabel = 'Contacted';
+                                  } else if (status === 'hired') {
+                                    statusColor = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+                                    statusLabel = 'Hired';
+                                  } else if (status === 'rejected') {
+                                    statusColor = 'bg-red-500/10 text-red-400 border-red-500/20';
+                                    statusLabel = 'Not Selected';
+                                  }
+                                  return (
+                                    <span className={`px-4 py-2.5 rounded-xl border text-[10px] font-black uppercase tracking-wider ${statusColor}`}>
+                                      {statusLabel}
+                                    </span>
+                                  );
+                                })()}
+                                {job.contactPhone && (
+                                  <a href={`tel:${job.contactPhone}`}
+                                    className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 hover:bg-emerald-500 hover:text-white transition-all text-xs font-black uppercase tracking-widest">
+                                    <Phone className="w-4 h-4" /> Call
+                                  </a>
+                                )}
+                                <button onClick={(e) => { e.stopPropagation(); navigate(`/belljobs/${job.id}`); }}
+                                  className="flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-105 transition-all active:scale-95">
+                                  View Details
+                                </button>
+                              </>
+                            );
+                          })()}
                         </div>
                       </motion.div>
                     );

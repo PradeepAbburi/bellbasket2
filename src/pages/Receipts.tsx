@@ -10,7 +10,7 @@ import { useApp } from '@/context/AppContext';
 import { getCurrencySymbol } from '@/utils/currency';
 import { doc, updateDoc, arrayUnion, setDoc, getDoc, deleteDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { ServiceBooking, Store, Order } from '@/types';
-import { Trash2, CheckCircle2, Circle, RefreshCcw, Package, Clock, Star, ArrowLeft, MapPin, Navigation, Loader2, EyeOff, KeyRound, Phone, User as UserIcon, BellRing, ShoppingCart, ChevronRight } from 'lucide-react';
+import { Trash2, CheckCircle2, Circle, RefreshCcw, Package, Clock, Star, ArrowLeft, MapPin, Navigation, Loader2, EyeOff, KeyRound, Phone, User as UserIcon, BellRing, ShoppingCart, ChevronRight, Rewind } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { toast } from 'sonner';
 import { sendInAppNotification } from '@/utils/notifications';
@@ -82,6 +82,53 @@ const Receipts = () => {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [vendorInfoState, setVendorInfoState] = useState<Record<string, { phone: string; name: string }>>({});
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [scrollMonthYear, setScrollMonthYear] = useState<string>('');
+  const [showScrollTag, setShowScrollTag] = useState<boolean>(false);
+
+  useEffect(() => {
+    const handleWindowScroll = () => {
+      if (window.scrollY < 80) {
+        setShowScrollTag(false);
+        return;
+      }
+
+      const headers = document.querySelectorAll('.date-section-header');
+      let activeHeader: Element | null = null;
+      
+      for (let i = 0; i < headers.length; i++) {
+        const rect = headers[i].getBoundingClientRect();
+        if (rect.top <= 240) {
+          activeHeader = headers[i];
+        }
+      }
+      
+      if (activeHeader) {
+        const rawDate = activeHeader.getAttribute('data-date');
+        if (rawDate) {
+          const parts = rawDate.split(',');
+          if (parts.length > 1) {
+            const datePart = parts[1].trim();
+            const dateWords = datePart.split(' ');
+            if (dateWords.length >= 3) {
+              setScrollMonthYear(`${dateWords[1]} ${dateWords[2]}`);
+            } else {
+              setScrollMonthYear(datePart);
+            }
+          } else {
+            setScrollMonthYear(rawDate);
+          }
+          setShowScrollTag(true);
+        }
+      } else {
+        setShowScrollTag(false);
+      }
+    };
+
+    window.addEventListener('scroll', handleWindowScroll);
+    return () => {
+      window.removeEventListener('scroll', handleWindowScroll);
+    };
+  }, []);
   
   // Shared Receipts State
   const [sharedOrder, setSharedOrder] = useState<Order | null>(null);
@@ -340,6 +387,26 @@ const Receipts = () => {
   const displayOrders = view === 'active' ? activeOrders : pastOrders;
   const displayBookings = view === 'active' ? activeBookings : pastBookings;
 
+  const groupReceiptsByDate = (items: any[]) => {
+    const groups: Record<string, any[]> = {};
+    const sorted = [...items].sort((a, b) => {
+      const dateA = new Date(a.date || a.bookingDate || a.createdAt || Date.now());
+      const dateB = new Date(b.date || b.bookingDate || b.createdAt || Date.now());
+      return dateB.getTime() - dateA.getTime();
+    });
+
+    sorted.forEach(item => {
+      const dateVal = item.date || item.bookingDate || item.createdAt || new Date().toISOString();
+      const dateObj = new Date(dateVal);
+      const dateKey = dateObj.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' });
+      if (!groups[dateKey]) {
+        groups[dateKey] = [];
+      }
+      groups[dateKey].push(item);
+    });
+    return groups;
+  };
+
 
   const handleDeleteSelected = async () => {
     if (selectedIds.length === 0) return;
@@ -414,6 +481,21 @@ const Receipts = () => {
 
   return (
     <div className="min-h-screen gradient-warm">
+      {/* Floating Month & Year Scroll Indicator */}
+      <AnimatePresence>
+        {showScrollTag && scrollMonthYear && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            className="fixed top-[76px] left-0 right-0 mx-auto w-fit z-50 px-4 py-2 bg-[#202020] text-yellow-400 rounded-full text-[10px] font-black uppercase tracking-widest shadow-xl border border-white/20 backdrop-blur-md flex items-center justify-center gap-2"
+          >
+            <Clock className="w-3.5 h-3.5 animate-pulse text-yellow-400" />
+            {scrollMonthYear}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <Helmet>
         <title>{t('common.receipts.title')} - BellBasket</title>
         <meta name="robots" content="noindex, follow" />
@@ -505,8 +587,12 @@ const Receipts = () => {
                       {t('common.history')}
                     </button>
                   </div>
+
+
                 </div>
               </div>
+
+
 
               <AnimatePresence>
                 {view === 'history' && selectedIds.length > 0 && (
@@ -534,7 +620,45 @@ const Receipts = () => {
                     <p className="font-bold text-foreground mb-1">No Product Orders</p>
                     <p className="text-sm text-muted-foreground">{view === 'active' ? 'You have no active product orders right now.' : 'No past product orders to show.'}</p>
                   </div>
-                ) : (
+                ) : view === 'history' ? (() => {
+                  const grouped = groupReceiptsByDate(displayOrders);
+                  return (
+                    <div className="space-y-6">
+                      {Object.entries(grouped).map(([dateLabel, items]) => (
+                        <div key={dateLabel} className="space-y-3">
+                          <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/75 flex items-center gap-4 date-section-header w-full my-4" data-date={dateLabel}>
+                            <span className="flex-1 h-[1px] bg-primary/40" />
+                            <span>{dateLabel}</span>
+                            <span className="flex-1 h-[1px] bg-primary/40" />
+                          </h3>
+                          <div className="grid md:grid-cols-2 gap-4">
+                            {items.map((order, i) => (
+                              <RenderOrderCard
+                                key={order.id}
+                                order={order} i={i}
+                                onlyShowTime={true}
+                                review={reviews[order.id] || (order.review ? { ...order.review, submitted: true } : { rating: 0, text: '', submitted: false, isAnonymous: false })}
+                                onRate={(star) => handleRating(order.id, star)}
+                                onReviewChange={(text) => setReviews(prev => ({ ...prev, [order.id]: { ...(prev[order.id] || { rating: 0, submitted: false, isAnonymous: false }), text } }))}
+                                onAnonymous={(anon) => handleAnonymous(order.id, anon)}
+                                onSubmit={() => handleReviewSubmit(order.id, 'order')}
+                                t={t} storePhone={getStoreForOrder(order.storeId)?.phone}
+                                vendorInfo={vendorInfoState[order.storeId]} getStoreForOrder={getStoreForOrder}
+                                userCoords={userCoords} isSelected={selectedIds.includes(order.id)}
+                                onToggleSelect={() => toggleSelect(order.id)} onLongPress={() => toggleSelect(order.id)}
+                                showSelection={view === 'history' && selectedIds.length > 0}
+                                hasReviewedStore={Array.isArray(getStoreForOrder(order.storeId)?.reviews) && getStoreForOrder(order.storeId)!.reviews!.some((r: any) => r.userId === user?.id)}
+                                onClick={() => { 
+                                  navigate(`/receipt/${order.id}`); 
+                                }}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })() : (
                   <div className="grid md:grid-cols-2 gap-4">
                     {displayOrders.map((order, i) => (
                       <RenderOrderCard
@@ -566,7 +690,44 @@ const Receipts = () => {
                     <p className="font-bold text-foreground mb-1">No Service Bookings</p>
                     <p className="text-sm text-muted-foreground">{view === 'active' ? 'You have no active service bookings right now.' : 'No past service bookings to show.'}</p>
                   </div>
-                ) : (
+                ) : view === 'history' ? (() => {
+                  const grouped = groupReceiptsByDate(displayBookings);
+                  return (
+                    <div className="space-y-6">
+                      {Object.entries(grouped).map(([dateLabel, items]) => (
+                        <div key={dateLabel} className="space-y-3">
+                          <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/75 flex items-center gap-4 date-section-header w-full my-4" data-date={dateLabel}>
+                            <span className="flex-1 h-[1px] bg-primary/40" />
+                            <span>{dateLabel}</span>
+                            <span className="flex-1 h-[1px] bg-primary/40" />
+                          </h3>
+                          <div className="grid md:grid-cols-2 gap-4">
+                            {items.map((booking, i) => (
+                              <RenderBookingCard
+                                key={booking.id} booking={booking} i={i}
+                                onlyShowTime={true}
+                                review={reviews[booking.id] || (booking.review ? { ...booking.review, submitted: true } : { rating: 0, text: '', submitted: false, isAnonymous: false })}
+                                onRate={(star) => handleRating(booking.id, star)}
+                                onReviewChange={(text) => setReviews(prev => ({ ...prev, [booking.id]: { ...(prev[booking.id] || { rating: 0, submitted: false, isAnonymous: false }), text } }))}
+                                onAnonymous={(anon) => handleAnonymous(booking.id, anon)}
+                                onSubmit={() => handleReviewSubmit(booking.id, 'booking')}
+                                t={t} storePhone={getStoreForOrder(booking.storeId)?.phone}
+                                vendorInfo={vendorInfoState[booking.storeId]} getStoreForOrder={getStoreForOrder}
+                                userCoords={userCoords} isSelected={selectedIds.includes(booking.id)}
+                                onToggleSelect={() => toggleSelect(booking.id)} onLongPress={() => toggleSelect(booking.id)}
+                                showSelection={view === 'history' && selectedIds.length > 0}
+                                hasReviewedStore={Array.isArray(getStoreForOrder(booking.storeId)?.reviews) && getStoreForOrder(booking.storeId)!.reviews!.some((r: any) => r.userId === user?.id)}
+                                onClick={() => { 
+                                  navigate(`/receipt/${booking.id}`); 
+                                }}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })() : (
                   <div className="grid md:grid-cols-2 gap-4">
                     {displayBookings.map((booking, i) => (
                       <RenderBookingCard

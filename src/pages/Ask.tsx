@@ -510,29 +510,42 @@ const AskPage = () => {
     });
 
     // Build system prompt for context-aware bot responses
-    let systemPromptText = `You are Ask, the local conversational assistant built for BellBasket. Currently operating in ${activeMode.toUpperCase()} mode.\n\n`;
+    let systemPromptText = `You are Ask, the smart hyperlocal conversational assistant built for BellBasket, currently operating in ${activeMode.toUpperCase()} mode.
+
+Your goal is to provide highly accurate, friendly, and structured responses based ONLY on the local stores and products provided below.
+
+INSTRUCTIONS:
+1. STRICT GROUNDING: You must ONLY suggest, mention, or recommend stores and products that are explicitly listed in the search results below. Never hallucinate or recommend names of stores, websites, or products not provided in the context.
+2. If no stores or products are provided in the list, you must clearly state that "I couldn't find matching items or stores near your location." Do not make up fake names. Suggest relevant alternative categories if appropriate (e.g. if looking for a specific electronic item, suggest looking at 'Electronics' stores).
+3. If stores or products are found:
+   - Keep your text response engaging and brief.
+   - Point the user to the interactive cards displayed below the chat bubble.
+   - Summarize the top matching stores/products: mention key details like price, store name, distance, and ratings using clean bold text and bullet points.
+4. If a product is out of stock, do not recommend it as a primary choice.
+5. Use markdown formatting like bold (**item**), bullet points (*), and headers (###) to make your response visually appealing and easy to read.
+
+Here are the search results from the user's neighborhood:
+`;
 
     if (matchedStores.length > 0) {
-      systemPromptText += `We have found matching stores near the user:\n`;
+      systemPromptText += `\nMatching Stores near the user:\n`;
       matchedStores.forEach(s => {
-        systemPromptText += `- Store Name: ${s.name}, Category: ${s.category}, Distance: ${s.distance ? s.distance.toFixed(1) : '?'} km away, Rating: ${s.rating || '4.5'}/5.\n`;
+        systemPromptText += `- **${s.name}** (${s.category}): ${s.distance ? s.distance.toFixed(1) : '?'} km away, Rated ${s.rating || '4.5'}/5.\n`;
       });
-      systemPromptText += `\n`;
     }
 
     if (productsDisplay.length > 0) {
-      systemPromptText += `We have found relevant products matching the query:\n`;
+      systemPromptText += `\nRelevant Products matching the query:\n`;
       productsDisplay.forEach(p => {
-        systemPromptText += `- Product: ${p.name}, Price: ₹${p.price}, Store: ${p.storeName}.\n`;
+        systemPromptText += `- **${p.name}** for **₹${p.price}** at store **${p.storeName}** (${p.inStock ? 'In Stock' : 'Out of Stock'}).\n`;
       });
-      systemPromptText += `\n`;
     }
 
     if (matchedStores.length === 0 && productsDisplay.length === 0) {
-      systemPromptText += `CRITICAL: No matching stores or products were found near the user's location. You MUST explicitly state "Not found near you" to the user in your reply. Do not recommend wrong or unrelated products or stores.\n\n`;
+      systemPromptText += `\n[NO LOCAL MATCHES FOUND]: Explicitly state that nothing was found near them. Do not recommend external or wrong products.\n`;
     }
 
-    systemPromptText += `Please help the customer find what they are looking for based on the context above. If we found products or stores, point them to the cards below. Keep it friendly and concise.`;
+    systemPromptText += `\nProvide a concise and helpful response following these rules.`;
 
     let botText = '';
     let botStores = matchedStores;
@@ -768,6 +781,14 @@ const AskPage = () => {
     'oil': ['cooking', 'sunflower', 'mustard', 'coconut', 'olive', 'refined', 'groundnut'],
     'phone': ['mobile', 'smartphone', 'cell', 'handset'],
     'laptop': ['computer', 'notebook', 'pc', 'desktop'],
+    'ac': ['cooler', 'air conditioner', 'conditioner', 'ventilation', 'heating', 'cooling', 'hvac'],
+    'tv': ['television', 'led', 'display', 'screen', 'monitor'],
+    'fridge': ['refrigerator', 'cooler', 'freezer'],
+    'washing': ['dryer', 'laundry', 'washer'],
+    'medicine': ['tablet', 'pill', 'capsule', 'syrup', 'ointment', 'painkiller'],
+    'groceries': ['grocery', 'mart', 'food', 'provisions', 'kirana'],
+    'salon': ['haircut', 'spa', 'massage', 'grooming', 'barber', 'parlor', 'shave'],
+    'repair': ['service', 'fixing', 'maintenance', 'installation', 'plumber', 'electrician', 'mechanic'],
   };
 
   const processLocalProductMatches = (query: string, activeMode: 'products' | 'services'): any[] => {
@@ -816,28 +837,54 @@ const AskPage = () => {
 
       // 1. Check exact product name match (highest priority)
       if (name === lower || name.includes(lower)) {
-        relevanceScore += 25;
+        relevanceScore += 30;
       }
 
       // 2. Score word match relevance
+      let matchedQueryWordsCount = 0;
       for (const qw of uniqueWords) {
+        let matched = false;
         if (name.includes(qw)) {
-          relevanceScore += 10; // Match in product name
+          relevanceScore += 12; // Match in product name
+          matched = true;
         } else if (combined.includes(qw)) {
-          relevanceScore += 5;  // Match in description/category
+          relevanceScore += 6;  // Match in description/category
+          matched = true;
         } else if (combinedWords.some(tw => isFuzzyPhoneticMatch(qw, tw))) {
-          relevanceScore += 3;  // Fuzzy phonetic match
+          relevanceScore += 4;  // Fuzzy phonetic match
+          matched = true;
+        }
+        if (matched) {
+          matchedQueryWordsCount++;
         }
       }
 
-      // 3. Proximity Boost (only apply if the product is relevant to search query)
+      // 3. Multi-word query coverage boost (highly favor products matching multiple parts of query)
+      if (matchedQueryWordsCount > 1) {
+        relevanceScore += matchedQueryWordsCount * 15;
+      }
+
+      // 4. In-stock boost (prioritize active stock)
+      const inStock = p.inStock !== false && (p.stock === undefined || p.stock > 0);
+      if (inStock) {
+        relevanceScore += 10;
+      } else {
+        relevanceScore -= 10; // penalty for out of stock items
+      }
+
+      // 5. Proximity Boost & Store Rating integration
       const store = stores.find(s => s.vendorId === p.vendorId || s.id === p.vendorId);
       if (store) {
         const distance = calculateDistance(userLat, userLng, store.lat, store.lng);
         let finalScore = relevanceScore;
         if (relevanceScore > 0) {
-          if (distance <= 2) finalScore += 5;
-          else if (distance <= 5) finalScore += 2;
+          // Distance weights
+          if (distance <= 2) finalScore += 10;
+          else if (distance <= 5) finalScore += 5;
+          else if (distance <= 10) finalScore += 2;
+
+          // Store rating boost
+          finalScore += (store.rating || 4.0) * 2;
         }
         return { product: p, score: finalScore, distance, store };
       }

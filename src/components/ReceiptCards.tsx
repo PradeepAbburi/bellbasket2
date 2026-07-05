@@ -81,7 +81,8 @@ export const RenderBookingCard = ({
   onLongPress,
   vendorInfo,
   standalone = false,
-  hasReviewedStore = false
+  hasReviewedStore = false,
+  onlyShowTime = false
 }: {
   booking: ServiceBooking;
   i: number;
@@ -102,6 +103,7 @@ export const RenderBookingCard = ({
   vendorInfo?: { phone: string; name: string };
   standalone?: boolean;
   hasReviewedStore?: boolean;
+  onlyShowTime?: boolean;
 }) => {
   const store = getStoreForOrder(booking.storeId);
   const navigate = useNavigate();
@@ -321,7 +323,7 @@ export const RenderBookingCard = ({
       <div className="space-y-2 mt-4 text-sm text-foreground text-left">
         <div className="flex items-center gap-2">
           <Clock className="w-4 h-4 text-primary" />
-          <span className="font-medium">Scheduled for:</span> {booking.date} at {formatTo12Hr(booking.timeSlot)}
+          <span className="font-medium">Scheduled for:</span> {!onlyShowTime && `${booking.date} at `}{formatTo12Hr(booking.timeSlot)}
         </div>
         <div 
           onClick={(e) => {
@@ -415,7 +417,8 @@ export const RenderOrderCard = ({
   onLongPress,
   vendorInfo,
   standalone = false,
-  hasReviewedStore = false
+  hasReviewedStore = false,
+  onlyShowTime = false
 }: {
   order: Order;
   i: number;
@@ -436,6 +439,7 @@ export const RenderOrderCard = ({
   vendorInfo?: { phone: string; name: string };
   standalone?: boolean;
   hasReviewedStore?: boolean;
+  onlyShowTime?: boolean;
 }) => {
   const store = getStoreForOrder(order.storeId);
   const navigate = useNavigate();
@@ -547,8 +551,12 @@ export const RenderOrderCard = ({
             )}
             <h3 className="font-bold text-foreground text-lg leading-tight truncate">{order.storeName}</h3>
             <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest flex items-center gap-1.5 mt-2">
-              {new Date(order.date).toLocaleDateString()}
-              <span className="w-1 h-1 rounded-full bg-border" />
+              {!onlyShowTime && (
+                <>
+                  {new Date(order.date).toLocaleDateString()}
+                  <span className="w-1 h-1 rounded-full bg-border" />
+                </>
+              )}
               {new Date(order.date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
             </p>
           </div>

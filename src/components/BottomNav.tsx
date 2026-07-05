@@ -34,7 +34,6 @@ const BottomNav = () => {
     // Hide if not logged in, not verified, or on auth/setup pages, or for HR/Admin roles
     if (!user || !user.isVerified || user.role === 'hr' || user.role === 'admin' || location.pathname === '/' || location.pathname === '/auth' || location.pathname === '/vendor/setup') return null;
 
-    // Hide BottomNav on add/edit product, subscription, notes, and deals page
     if (
         location.pathname === '/vendor/subscription' || 
         location.pathname === '/vendor/notes' || 
@@ -44,10 +43,11 @@ const BottomNav = () => {
         location.pathname === '/vendor/products/new' ||
         location.pathname.startsWith('/vendor/products/edit/') ||
         location.pathname.endsWith('/reviews') ||
-        location.pathname === '/belljobs' ||
-        location.pathname.endsWith('/jobs') ||
         location.pathname === '/support' ||
-        location.pathname.startsWith('/support/')
+        location.pathname.startsWith('/support/') ||
+        location.pathname.startsWith('/careers/job/') ||
+        location.pathname.startsWith('/careers/apply/') ||
+        location.pathname.startsWith('/belljobs/')
     ) return null;
 
     const isVendor = user.role === 'vendor';

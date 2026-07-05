@@ -293,6 +293,7 @@ const CustomerHome = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [activeSearch, setActiveSearch] = useState('');
   const [showAllCategories, setShowAllCategories] = useState(false);
+  const [showCategories, setShowCategories] = useState(true);
   const [mobileCategoryPage, setMobileCategoryPage] = useState(0);
   const [pendingMode, setPendingMode] = useState<'product' | 'service' | null>(null);
   const [priceSort, setPriceSort] = useState<'none' | 'low-high' | 'high-low'>('none');
@@ -1350,15 +1351,19 @@ const CustomerHome = () => {
             {/* Categories Section */}
             <AnimatePresence>
               {!activeSearch && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="space-y-4 overflow-hidden"
-                >
-                  <div className="flex flex-col gap-3 mb-6">
+                <div className="space-y-4">
+                  <div className="flex flex-col gap-3">
                     <div className="flex items-center justify-between gap-4 flex-wrap">
-                      <h2 className="text-lg md:text-xl font-black text-foreground tracking-tight flex-1 min-w-0">{t('home.shop_by_category')}</h2>
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <h2 className="text-sm font-bold text-foreground tracking-tight">{t('home.categories', { defaultValue: 'Categories' })}</h2>
+                        <button
+                          onClick={() => setShowCategories(!showCategories)}
+                          className="p-1 rounded-lg hover:bg-secondary/80 text-muted-foreground transition-all duration-300 flex items-center justify-center border border-border/40 shadow-sm"
+                          aria-label={showCategories ? "Hide categories" : "Show categories"}
+                        >
+                          <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-300 ${showCategories ? 'rotate-180' : ''}`} />
+                        </button>
+                      </div>
                       
                       <div className="flex bg-secondary/80 backdrop-blur-sm p-1 rounded-xl items-center gap-1 border border-border shadow-inner w-fit shrink-0">
                         <button
@@ -1375,207 +1380,221 @@ const CustomerHome = () => {
                         </button>
                       </div>
                     </div>
+                  </div>
 
-                    {selectedCategory && (
-                      <button
-                        onClick={() => setSelectedCategory(null)}
-                        className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-primary bg-primary/10 hover:bg-primary/20 px-3 md:px-4 py-1.5 rounded-xl transition-all active:scale-95 border border-primary/20 shadow-sm w-fit inline-flex items-center gap-1.5 h-auto group"
+                  <AnimatePresence initial={false}>
+                    {showCategories && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.3, ease: 'easeInOut' }}
+                        className="space-y-4 overflow-hidden"
                       >
-                        <X className="w-2.5 h-2.5 text-primary group-hover:rotate-90 transition-transform duration-300" />
-                        {t('home.clear_filter')}
-                      </button>
+                        {selectedCategory && (
+                          <div className="mb-2">
+                            <button
+                              onClick={() => setSelectedCategory(null)}
+                              className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-primary bg-primary/10 hover:bg-primary/20 px-3 md:px-4 py-1.5 rounded-xl transition-all active:scale-95 border border-primary/20 shadow-sm w-fit inline-flex items-center gap-1.5 h-auto group"
+                            >
+                              <X className="w-2.5 h-2.5 text-primary group-hover:rotate-90 transition-transform duration-300" />
+                              {t('home.clear_filter')}
+                            </button>
+                          </div>
+                        )}
+
+                        <div className="relative">
+                          {/* Desktop View - Paginated Carousel */}
+                          <motion.div
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="hidden md:block relative group/nav"
+                          >
+                            <div
+                              className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-2"
+                              ref={categoryRef}
+                              onScroll={(e) => {
+                                const target = e.currentTarget;
+                                const page = Math.round(target.scrollLeft / target.clientWidth);
+                                if (!isNaN(page) && page !== mobileCategoryPage) {
+                                  setMobileCategoryPage(page);
+                                }
+                              }}
+                            >
+                              {[...Array(Math.ceil((1 + categories.length) / 16))].map((_, pageIndex) => {
+                                const allItems = [{ type: 'all', data: null }, ...categories.map(c => ({ type: 'category', data: c }))];
+                                const pageItems = allItems.slice(pageIndex * 16, (pageIndex + 1) * 16);
+
+                                if (pageItems.length === 0) return null;
+
+                                return (
+                                  <div key={pageIndex} className="min-w-full flex-none grid grid-cols-8 grid-rows-2 gap-x-6 gap-y-6 px-1 snap-center">
+                                    {pageItems.map((item, idx) => {
+                                      if (item.type === 'all') {
+                                        return (
+                                          <motion.button
+                                            key="all"
+                                            whileTap={{ scale: 0.95 }}
+                                            onClick={() => setSelectedCategory(null)}
+                                            className="flex flex-col items-center gap-2 group transition-all"
+                                          >
+                                            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-300 ${!selectedCategory ? 'bg-gradient-to-br from-yellow-400 to-amber-500 text-black shadow-lg shadow-yellow-500/20 scale-105' : 'bg-yellow-400 text-black shadow-sm hover:bg-yellow-500 border border-yellow-300'}`}>
+                                              <StoreIcon className="w-7 h-7" />
+                                            </div>
+                                            <span className={`text-[9px] font-black uppercase tracking-wider text-center transition-colors ${!selectedCategory ? 'text-primary' : 'text-muted-foreground group-hover:text-primary'}`}>{activeMode === 'product' ? t('home.all_shops') : 'All Services'}</span>
+                                          </motion.button>
+                                        );
+                                      }
+
+                                      const cat = item.data;
+                                      const Icon = cat?.icon;
+                                      return (
+                                        <motion.button
+                                          key={cat?.name}
+                                          initial={{ opacity: 0, scale: 0.9 }}
+                                          animate={{ opacity: 1, scale: 1 }}
+                                          transition={{ delay: idx * 0.001 }}
+                                          whileTap={{ scale: 0.95 }}
+                                          onClick={() => setSelectedCategory(selectedCategory === cat?.name ? null : cat?.name)}
+                                          className="flex flex-col items-center gap-2 group transition-all"
+                                        >
+                                          <div 
+                                            className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-sm border relative overflow-hidden ${selectedCategory === cat?.name ? 'border-primary ring-4 ring-primary/20 scale-105 shadow-lg shadow-primary/10' : 'border-border/40 group-hover:border-primary/30 group-hover:shadow-md'}`} 
+                                            style={{ 
+                                              backgroundColor: selectedCategory === cat?.name ? cat?.color : `${cat?.color}15`,
+                                              borderColor: selectedCategory === cat?.name ? cat?.color : undefined
+                                            }}
+                                          >
+                                            <div className={`absolute inset-0 opacity-10 bg-gradient-to-br ${cat?.gradient}`} />
+                                            <div 
+                                              className={`relative z-10 transition-all duration-300 ${selectedCategory === cat?.name ? 'text-white scale-110' : ''}`} 
+                                              style={{ color: selectedCategory === cat?.name ? '#fff' : cat?.color }}
+                                            >
+                                              {Icon && <Icon className="w-5.5 h-5.5" />}
+                                            </div>
+                                          </div>
+                                          <span 
+                                            className={`text-[9px] font-black uppercase tracking-wider text-center leading-tight transition-colors line-clamp-2 max-w-[70px] ${selectedCategory === cat?.name ? 'text-primary' : 'text-muted-foreground'}`}
+                                            style={selectedCategory === cat?.name ? { color: cat?.color } : {}}
+                                          >
+                                            {t(`categories.${cat?.name}`, { defaultValue: cat?.name.split(' & ')[0] })}
+                                          </span>
+                                        </motion.button>
+                                      );
+                                    })}
+                                  </div>
+                                );
+                              })}
+                            </div>
+
+                            {/* Dots */}
+                            <div className="flex justify-center items-center gap-1.5 mt-2">
+                              {[...Array(Math.ceil((1 + categories.length) / 16))].map((_, i) => (
+                                <div
+                                  key={i}
+                                  className={`h-1.5 rounded-full transition-all duration-300 ${i === mobileCategoryPage ? 'w-4 bg-primary' : 'w-1.5 bg-primary/20'}`}
+                                />
+                              ))}
+                            </div>
+                          </motion.div>
+
+                          {/* Mobile View - Paginated Carousel */}
+                          <motion.div
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="md:hidden"
+                          >
+                            <div
+                              className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-2"
+                              onScroll={(e) => {
+                                const target = e.currentTarget;
+                                const page = Math.round(target.scrollLeft / target.clientWidth);
+                                if (!isNaN(page) && page !== mobileCategoryPage) {
+                                  setMobileCategoryPage(page);
+                                }
+                              }}
+                            >
+                              {[...Array(Math.ceil((1 + categories.length) / 10))].map((_, pageIndex) => {
+                                const allItems = [{ type: 'all', data: null }, ...categories.map(c => ({ type: 'category', data: c }))];
+                                const pageItems = allItems.slice(pageIndex * 10, (pageIndex + 1) * 10);
+
+                                if (pageItems.length === 0) return null;
+
+                                return (
+                                  <div key={pageIndex} className="min-w-full flex-none grid grid-cols-5 grid-rows-2 gap-x-2 gap-y-4 px-1 snap-center">
+                                    {pageItems.map((item, idx) => {
+                                      if (item.type === 'all') {
+                                        return (
+                                          <motion.button
+                                            key="all"
+                                            whileTap={{ scale: 0.95 }}
+                                            onClick={() => setSelectedCategory(null)}
+                                            className="flex flex-col items-center gap-2 group transition-all"
+                                          >
+                                            <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center transition-all duration-300 ${!selectedCategory ? 'bg-gradient-to-br from-yellow-400 to-amber-500 text-black shadow-lg shadow-yellow-500/20 scale-105' : 'bg-yellow-400 text-black shadow-sm hover:bg-yellow-500 border border-yellow-300'}`}>
+                                              <StoreIcon className="w-5 h-5 sm:w-7 sm:h-7" />
+                                            </div>
+                                            <span className={`text-[8px] font-black uppercase tracking-wider text-center transition-colors ${!selectedCategory ? 'text-primary' : 'text-muted-foreground group-hover:text-primary'}`}>{activeMode === 'product' ? t('home.all_shops') : 'All Services'}</span>
+                                          </motion.button>
+                                        );
+                                      }
+
+                                      const cat = item.data;
+                                      const Icon = cat?.icon;
+                                      return (
+                                        <motion.button
+                                          key={cat?.name}
+                                          initial={{ opacity: 0, scale: 0.9 }}
+                                          animate={{ opacity: 1, scale: 1 }}
+                                          transition={{ delay: idx * 0.002 }}
+                                          whileTap={{ scale: 0.95 }}
+                                          onClick={() => setSelectedCategory(selectedCategory === cat?.name ? null : cat?.name)}
+                                          className="flex flex-col items-center gap-2 group transition-all"
+                                        >
+                                          <div 
+                                            className={`w-12 h-12 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-sm border relative overflow-hidden ${selectedCategory === cat?.name ? 'border-primary ring-4 ring-primary/20 scale-105 shadow-lg shadow-primary/10' : 'border-border group-hover:border-primary/30 group-hover:shadow-md'}`} 
+                                            style={{ 
+                                              backgroundColor: selectedCategory === cat?.name ? cat?.color : `${cat?.color}15`,
+                                              borderColor: selectedCategory === cat?.name ? cat?.color : undefined
+                                            }}
+                                          >
+                                            <div className={`absolute inset-0 opacity-10 bg-gradient-to-br ${cat?.gradient}`} />
+                                            <div 
+                                              className={`relative z-10 transition-all duration-300 ${selectedCategory === cat?.name ? 'text-white scale-110' : ''}`} 
+                                              style={{ color: selectedCategory === cat?.name ? '#fff' : cat?.color }}
+                                            >
+                                              {Icon && <Icon className="w-5 h-5 sm:w-7 sm:h-7" />}
+                                            </div>
+                                          </div>
+                                          <span 
+                                            className={`text-[8px] font-black uppercase tracking-wider text-center leading-tight transition-colors line-clamp-2 max-w-[64px] ${selectedCategory === cat?.name ? 'text-primary' : 'text-muted-foreground'}`} 
+                                            style={selectedCategory === cat?.name ? { color: cat?.color } : {}}
+                                          >
+                                            {t(`categories.${cat?.name}`, { defaultValue: cat?.name.split(' & ')[0] })}
+                                          </span>
+                                        </motion.button>
+                                      );
+                                    })}
+                                  </div>
+                                );
+                              })}
+                            </div>
+
+                            {/* Dots */}
+                            <div className="flex justify-center items-center gap-1.5 mt-2">
+                              {[...Array(Math.ceil((1 + categories.length) / 10))].map((_, i) => (
+                                <div
+                                  key={i}
+                                  className={`h-1.5 rounded-full transition-all duration-300 ${i === mobileCategoryPage ? 'w-4 bg-primary' : 'w-1.5 bg-primary/20'}`}
+                                />
+                              ))}
+                            </div>
+                          </motion.div>
+                        </div>
+                      </motion.div>
                     )}
-                  </div>
-
-                  <div className="relative">
-                    {/* Desktop View - Paginated Carousel */}
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="hidden md:block relative group/nav"
-                    >
-                      <div
-                        className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-2"
-                        ref={categoryRef}
-                        onScroll={(e) => {
-                          const target = e.currentTarget;
-                          const page = Math.round(target.scrollLeft / target.clientWidth);
-                          if (!isNaN(page) && page !== mobileCategoryPage) {
-                            setMobileCategoryPage(page);
-                          }
-                        }}
-                      >
-                        {[...Array(Math.ceil((1 + categories.length) / 16))].map((_, pageIndex) => {
-                          const allItems = [{ type: 'all', data: null }, ...categories.map(c => ({ type: 'category', data: c }))];
-                          const pageItems = allItems.slice(pageIndex * 16, (pageIndex + 1) * 16);
-
-                          if (pageItems.length === 0) return null;
-
-                          return (
-                            <div key={pageIndex} className="min-w-full flex-none grid grid-cols-8 grid-rows-2 gap-x-6 gap-y-6 px-1 snap-center">
-                              {pageItems.map((item, idx) => {
-                                if (item.type === 'all') {
-                                  return (
-                                    <motion.button
-                                      key="all"
-                                      whileTap={{ scale: 0.95 }}
-                                      onClick={() => setSelectedCategory(null)}
-                                      className="flex flex-col items-center gap-2 group transition-all"
-                                    >
-                                      <div className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-300 ${!selectedCategory ? 'bg-gradient-to-br from-yellow-400 to-amber-500 text-black shadow-lg shadow-yellow-500/20 scale-105' : 'bg-yellow-400 text-black shadow-sm hover:bg-yellow-500 border border-yellow-300'}`}>
-                                        <StoreIcon className="w-7 h-7" />
-                                      </div>
-                                      <span className={`text-[9px] font-black uppercase tracking-wider text-center transition-colors ${!selectedCategory ? 'text-primary' : 'text-muted-foreground group-hover:text-primary'}`}>{activeMode === 'product' ? t('home.all_shops') : 'All Services'}</span>
-                                    </motion.button>
-                                  );
-                                }
-
-                                const cat = item.data;
-                                const Icon = cat?.icon;
-                                return (
-                                  <motion.button
-                                    key={cat?.name}
-                                    initial={{ opacity: 0, scale: 0.9 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    transition={{ delay: idx * 0.001 }}
-                                    whileTap={{ scale: 0.95 }}
-                                    onClick={() => setSelectedCategory(selectedCategory === cat?.name ? null : cat?.name)}
-                                    className="flex flex-col items-center gap-2 group transition-all"
-                                  >
-                                    <div 
-                                      className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-sm border relative overflow-hidden ${selectedCategory === cat?.name ? 'border-primary ring-4 ring-primary/20 scale-105 shadow-lg shadow-primary/10' : 'border-border/40 group-hover:border-primary/30 group-hover:shadow-md'}`} 
-                                      style={{ 
-                                        backgroundColor: selectedCategory === cat?.name ? cat?.color : `${cat?.color}15`,
-                                        borderColor: selectedCategory === cat?.name ? cat?.color : undefined
-                                      }}
-                                    >
-                                      <div className={`absolute inset-0 opacity-10 bg-gradient-to-br ${cat?.gradient}`} />
-                                      <div 
-                                        className={`relative z-10 transition-all duration-300 ${selectedCategory === cat?.name ? 'text-white scale-110' : ''}`} 
-                                        style={{ color: selectedCategory === cat?.name ? '#fff' : cat?.color }}
-                                      >
-                                        {Icon && <Icon className="w-5.5 h-5.5" />}
-                                      </div>
-                                    </div>
-                                    <span 
-                                      className={`text-[9px] font-black uppercase tracking-wider text-center leading-tight transition-colors line-clamp-2 max-w-[70px] ${selectedCategory === cat?.name ? 'text-primary' : 'text-muted-foreground'}`}
-                                      style={selectedCategory === cat?.name ? { color: cat?.color } : {}}
-                                    >
-                                      {t(`categories.${cat?.name}`, { defaultValue: cat?.name.split(' & ')[0] })}
-                                    </span>
-                                  </motion.button>
-                                );
-                              })}
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      {/* Dots */}
-                      <div className="flex justify-center items-center gap-1.5 mt-2">
-                        {[...Array(Math.ceil((1 + categories.length) / 16))].map((_, i) => (
-                          <div
-                            key={i}
-                            className={`h-1.5 rounded-full transition-all duration-300 ${i === mobileCategoryPage ? 'w-4 bg-primary' : 'w-1.5 bg-primary/20'}`}
-                          />
-                        ))}
-                      </div>
-                    </motion.div>
-
-                    {/* Mobile View - Paginated Carousel */}
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="md:hidden"
-                    >
-                      <div
-                        className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-2"
-                        onScroll={(e) => {
-                          const target = e.currentTarget;
-                          const page = Math.round(target.scrollLeft / target.clientWidth);
-                          if (!isNaN(page) && page !== mobileCategoryPage) {
-                            setMobileCategoryPage(page);
-                          }
-                        }}
-                      >
-                        {[...Array(Math.ceil((1 + categories.length) / 10))].map((_, pageIndex) => {
-                          const allItems = [{ type: 'all', data: null }, ...categories.map(c => ({ type: 'category', data: c }))];
-                          const pageItems = allItems.slice(pageIndex * 10, (pageIndex + 1) * 10);
-
-                          if (pageItems.length === 0) return null;
-
-                          return (
-                            <div key={pageIndex} className="min-w-full flex-none grid grid-cols-5 grid-rows-2 gap-x-2 gap-y-4 px-1 snap-center">
-                              {pageItems.map((item, idx) => {
-                                if (item.type === 'all') {
-                                  return (
-                                    <motion.button
-                                      key="all"
-                                      whileTap={{ scale: 0.95 }}
-                                      onClick={() => setSelectedCategory(null)}
-                                      className="flex flex-col items-center gap-2 group transition-all"
-                                    >
-                                      <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center transition-all duration-300 ${!selectedCategory ? 'bg-gradient-to-br from-yellow-400 to-amber-500 text-black shadow-lg shadow-yellow-500/20 scale-105' : 'bg-yellow-400 text-black shadow-sm hover:bg-yellow-500 border border-yellow-300'}`}>
-                                        <StoreIcon className="w-5 h-5 sm:w-7 sm:h-7" />
-                                      </div>
-                                      <span className={`text-[8px] font-black uppercase tracking-wider text-center transition-colors ${!selectedCategory ? 'text-primary' : 'text-muted-foreground group-hover:text-primary'}`}>{activeMode === 'product' ? t('home.all_shops') : 'All Services'}</span>
-                                    </motion.button>
-                                  );
-                                }
-
-                                const cat = item.data;
-                                const Icon = cat?.icon;
-                                return (
-                                  <motion.button
-                                    key={cat?.name}
-                                    initial={{ opacity: 0, scale: 0.9 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    transition={{ delay: idx * 0.002 }}
-                                    whileTap={{ scale: 0.95 }}
-                                    onClick={() => setSelectedCategory(selectedCategory === cat?.name ? null : cat?.name)}
-                                    className="flex flex-col items-center gap-2 group transition-all"
-                                  >
-                                    <div 
-                                      className={`w-12 h-12 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-sm border relative overflow-hidden ${selectedCategory === cat?.name ? 'border-primary ring-4 ring-primary/20 scale-105 shadow-lg shadow-primary/10' : 'border-border group-hover:border-primary/30 group-hover:shadow-md'}`} 
-                                      style={{ 
-                                        backgroundColor: selectedCategory === cat?.name ? cat?.color : `${cat?.color}15`,
-                                        borderColor: selectedCategory === cat?.name ? cat?.color : undefined
-                                      }}
-                                    >
-                                      <div className={`absolute inset-0 opacity-10 bg-gradient-to-br ${cat?.gradient}`} />
-                                      <div 
-                                        className={`relative z-10 transition-all duration-300 ${selectedCategory === cat?.name ? 'text-white scale-110' : ''}`} 
-                                        style={{ color: selectedCategory === cat?.name ? '#fff' : cat?.color }}
-                                      >
-                                        {Icon && <Icon className="w-5 h-5 sm:w-7 sm:h-7" />}
-                                      </div>
-                                    </div>
-                                    <span 
-                                      className={`text-[8px] font-black uppercase tracking-wider text-center leading-tight transition-colors line-clamp-2 max-w-[64px] ${selectedCategory === cat?.name ? 'text-primary' : 'text-muted-foreground'}`} 
-                                      style={selectedCategory === cat?.name ? { color: cat?.color } : {}}
-                                    >
-                                      {t(`categories.${cat?.name}`, { defaultValue: cat?.name.split(' & ')[0] })}
-                                    </span>
-                                  </motion.button>
-                                );
-                              })}
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      {/* Dots */}
-                      <div className="flex justify-center items-center gap-1.5 mt-2">
-                        {[...Array(Math.ceil((1 + categories.length) / 10))].map((_, i) => (
-                          <div
-                            key={i}
-                            className={`h-1.5 rounded-full transition-all duration-300 ${i === mobileCategoryPage ? 'w-4 bg-primary' : 'w-1.5 bg-primary/20'}`}
-                          />
-                        ))}
-                      </div>
-                    </motion.div>
-                  </div>
-                </motion.div>
+                  </AnimatePresence>
+                </div>
               )}
             </AnimatePresence>
 

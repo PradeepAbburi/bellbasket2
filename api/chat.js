@@ -46,7 +46,7 @@ export default async function handler(req, res) {
           },
           generationConfig: {
             maxOutputTokens: 1200,
-            temperature: 0.75
+            temperature: 0.3
           }
         })
       });
@@ -119,19 +119,58 @@ export default async function handler(req, res) {
 
     // ─── STORE/PRODUCT CONTEXT-AWARE RESPONSES ───
     if (hasStoreMatches && hasProductMatches) {
-      responseText = `Great news! I found stores and products matching your search right here on BellBasket! 🎉\n\nCheck out the store and product cards below — you can visit the store pages or add items directly to your cart. Tap on any card to explore more!`;
+      let storesList = [];
+      let productsList = [];
+      const promptLines = systemPrompt ? systemPrompt.split('\n') : [];
+      for (const line of promptLines) {
+        if (line.startsWith('- **') && line.includes('km away')) {
+          storesList.push(line);
+        } else if (line.startsWith('- **') && line.includes('₹')) {
+          productsList.push(line);
+        }
+      }
+      responseText = `Great news! I found matching stores and products in your area! 🎉\n\n`;
+      if (storesList.length > 0) {
+        responseText += `### Stores Found Nearby:\n` + storesList.join('\n') + `\n\n`;
+      }
+      if (productsList.length > 0) {
+        responseText += `### Products Found Nearby:\n` + productsList.join('\n') + `\n\n`;
+      }
+      responseText += `You can explore the store and product cards below to shop directly!`;
       res.setHeader('Access-Control-Allow-Origin', '*');
       return res.status(200).json({ text: responseText });
     }
 
     if (hasStoreMatches) {
-      responseText = `I found some great matches near you! 📍\n\nI've listed the best options below based on your search. Each card shows ratings, distance, and recent reviews. Tap any store to explore their full catalog or book a service!`;
+      let storesList = [];
+      const promptLines = systemPrompt ? systemPrompt.split('\n') : [];
+      for (const line of promptLines) {
+        if (line.startsWith('- **') && line.includes('km away')) {
+          storesList.push(line);
+        }
+      }
+      responseText = `I found matching stores/services near you! 📍\n\n`;
+      if (storesList.length > 0) {
+        responseText += storesList.join('\n') + `\n\n`;
+      }
+      responseText += `Tap on any store card below to visit their store page or book their service!`;
       res.setHeader('Access-Control-Allow-Origin', '*');
       return res.status(200).json({ text: responseText });
     }
 
     if (hasProductMatches) {
-      responseText = `I found products matching your search! 🛒\n\nCheck out the product cards below — you can see prices, store names, and add items directly to your cart with one tap!`;
+      let productsList = [];
+      const promptLines = systemPrompt ? systemPrompt.split('\n') : [];
+      for (const line of promptLines) {
+        if (line.startsWith('- **') && line.includes('₹')) {
+          productsList.push(line);
+        }
+      }
+      responseText = `I found matching products in your neighborhood! 🛒\n\n`;
+      if (productsList.length > 0) {
+        responseText += productsList.join('\n') + `\n\n`;
+      }
+      responseText += `Check out the product cards below to add them to your cart!`;
       res.setHeader('Access-Control-Allow-Origin', '*');
       return res.status(200).json({ text: responseText });
     }

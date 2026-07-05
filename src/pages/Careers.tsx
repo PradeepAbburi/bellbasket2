@@ -70,6 +70,23 @@ const Careers = () => {
     const [appTab, setAppTab] = useState<'pending' | 'review' | 'interview' | 'hired'>('pending');
     const [appSort, setAppSort] = useState<'date' | 'experience' | 'degree'>('date');
     const [showPostModal, setShowPostModal] = useState(false);
+    const [userApplications, setUserApplications] = useState<any[]>([]);
+
+    useEffect(() => {
+        if (!globalUser) {
+            setUserApplications([]);
+            return;
+        }
+        const q = query(collection(db, 'job_applications'), where('userId', '==', globalUser.id));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const list = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+            setUserApplications(list);
+        });
+        return () => unsubscribe();
+    }, [globalUser]);
 
     // New Job Form
     const [newJob, setNewJob] = useState({
@@ -570,14 +587,49 @@ const Careers = () => {
                                                                 Details
                                                             </button>
                                                         </>
-                                                    ) : (
-                                                        <button 
-                                                            onClick={() => navigate(`/careers/job/${job.id}`)}
-                                                            className="whitespace-nowrap bg-primary text-white px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-widest group-hover:scale-105 transition-all active:scale-95"
-                                                        >
-                                                            Apply Now
-                                                        </button>
-                                                    );
+                                                    ) : (() => {
+                                                        const app = userApplications.find(a => a.jobId === job.id);
+                                                        if (app) {
+                                                            const status = app.status || 'pending';
+                                                            let statusColor = 'bg-secondary text-muted-foreground border-border';
+                                                            let statusLabel = 'Application Pending';
+                                                            if (status === 'review' || status === 'reviewed') {
+                                                                statusColor = 'bg-blue-500/10 text-blue-400 border-blue-500/20';
+                                                                statusLabel = 'Under Review';
+                                                            } else if (status === 'interview' || status === 'contacted') {
+                                                                statusColor = 'bg-amber-500/10 text-amber-400 border-amber-500/20';
+                                                                statusLabel = 'Interviewing';
+                                                            } else if (status === 'hired') {
+                                                                statusColor = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+                                                                statusLabel = 'Hired';
+                                                            } else if (status === 'rejected') {
+                                                                statusColor = 'bg-red-500/10 text-red-400 border-red-500/20';
+                                                                statusLabel = 'Not Selected';
+                                                            }
+
+                                                            return (
+                                                                <div className="flex items-center gap-3">
+                                                                    <span className={`px-4 py-2 rounded-xl border text-[10px] font-black uppercase tracking-wider ${statusColor}`}>
+                                                                        {statusLabel}
+                                                                    </span>
+                                                                    <button 
+                                                                        onClick={() => navigate(`/careers/job/${job.id}`)}
+                                                                        className="whitespace-nowrap bg-secondary text-foreground hover:bg-secondary/80 px-5 py-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+                                                                    >
+                                                                        Details
+                                                                    </button>
+                                                                </div>
+                                                            );
+                                                        }
+                                                        return (
+                                                            <button 
+                                                                onClick={() => navigate(`/careers/job/${job.id}`)}
+                                                                className="whitespace-nowrap bg-primary text-white px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-widest group-hover:scale-105 transition-all active:scale-95"
+                                                            >
+                                                                Apply Now
+                                                            </button>
+                                                        );
+                                                    })()
                                                 })()}
                                             </div>
                                         </motion.div>

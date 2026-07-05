@@ -8,9 +8,10 @@ import {
 } from 'lucide-react';
 import { Helmet } from 'react-helmet';
 import { db, storage } from '../lib/firebase';
-import { doc, getDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, addDoc, collection, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { toast } from 'sonner';
+import { useApp } from '../context/AppContext';
 
 interface JobPost {
     id: string;
@@ -27,8 +28,11 @@ interface JobPost {
 const ApplyJob = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { user, loading: userLoading } = useApp();
     const [job, setJob] = useState<JobPost | null>(null);
     const [loading, setLoading] = useState(true);
+    const [checkingApplication, setCheckingApplication] = useState(true);
+    const [hasApplied, setHasApplied] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [resumeFile, setResumeFile] = useState<File | null>(null);
     const [uploadProgress, setUploadProgress] = useState(0);
@@ -52,6 +56,39 @@ const ApplyJob = () => {
     });
 
     useEffect(() => {
+        if (user) {
+            setFormData(prev => ({
+                ...prev,
+                fullName: prev.fullName || user.name || '',
+                email: prev.email || user.email || '',
+                phone: prev.phone || user.phone || ''
+            }));
+        }
+    }, [user]);
+
+    useEffect(() => {
+        const checkApplicationStatus = async () => {
+            if (!id || !user) {
+                setCheckingApplication(false);
+                return;
+            }
+            try {
+                const q = query(
+                    collection(db, 'job_applications'),
+                    where('jobId', '==', id),
+                    where('userId', '==', user.id)
+                );
+                const querySnapshot = await getDocs(q);
+                if (!querySnapshot.empty) {
+                    setHasApplied(true);
+                }
+            } catch (err) {
+                console.error("Error checking application status:", err);
+            } finally {
+                setCheckingApplication(false);
+            }
+        };
+
         const fetchJob = async () => {
             if (!id) return;
             try {
@@ -75,8 +112,10 @@ const ApplyJob = () => {
                 setLoading(false);
             }
         };
+
         fetchJob();
-    }, [id, navigate]);
+        checkApplicationStatus();
+    }, [id, user, navigate]);
 
     const handleApply = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -109,6 +148,7 @@ const ApplyJob = () => {
                 jobId: job.id,
                 jobTitle: job.title,
                 vendorId: job.vendorId || null,
+                userId: user?.id || null,
                 ...formData,
                 resumeUrl: resumeData || formData.portfolioLink,
                 appliedAt: serverTimestamp(),
@@ -116,6 +156,7 @@ const ApplyJob = () => {
             });
 
             toast.success('Application submitted successfully!');
+            setHasApplied(true);
             navigate('/careers');
         } catch (err: any) {
             toast.error(err.message || 'Failed to submit application');
@@ -172,7 +213,24 @@ const ApplyJob = () => {
                 </div>
 
                 {/* Main Form */}
-                <form onSubmit={handleApply} className="space-y-8">
+                {hasApplied ? (
+                    <div className="glass p-12 text-center rounded-[3rem] border border-white/40 space-y-6">
+                        <div className="w-16 h-16 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <CheckCircle2 className="w-8 h-8" />
+                        </div>
+                        <h2 className="text-2xl font-black text-foreground">Application Already Submitted</h2>
+                        <p className="text-muted-foreground text-sm font-medium max-w-md mx-auto">
+                            You have already applied for this role. The hiring team is currently reviewing your profile.
+                        </p>
+                        <button
+                            onClick={() => navigate('/careers')}
+                            className="bg-primary text-white px-8 py-4 rounded-xl text-xs font-bold uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-primary/20"
+                        >
+                            Explore Other Careers
+                        </button>
+                    </div>
+                ) : (
+                    <form onSubmit={handleApply} className="space-y-8">
                     {/* Personal Info */}
                     <div className="glass p-8 md:p-10 rounded-[3rem] border border-white/40 space-y-8">
                         <h2 className="text-xl font-black tracking-tight flex items-center gap-3">
@@ -443,6 +501,7 @@ const ApplyJob = () => {
                         </p>
                     </div>
                 </form>
+                )}
             </div>
         </div>
     );

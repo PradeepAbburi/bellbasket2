@@ -8,9 +8,10 @@ import {
 } from 'lucide-react';
 import { Helmet } from 'react-helmet';
 import { db, storage } from '../lib/firebase';
-import { doc, getDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, addDoc, collection, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { toast } from 'sonner';
+import { useApp } from '../context/AppContext';
 
 interface JobPost {
     id: string;
@@ -30,10 +31,50 @@ interface JobPost {
 const JobDetail = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { user } = useApp();
     const [job, setJob] = useState<JobPost | null>(null);
     const [loading, setLoading] = useState(true);
+    const [hasApplied, setHasApplied] = useState(false);
+    const [applicationStatus, setApplicationStatus] = useState<string>('pending');
+
+    const getStatusStyle = (status: string) => {
+        switch (status) {
+            case 'review':
+            case 'reviewed':
+                return { colorClass: 'bg-blue-500/20 text-blue-400 border-blue-500/30', label: 'Under Review' };
+            case 'interview':
+            case 'contacted':
+                return { colorClass: 'bg-amber-500/20 text-amber-400 border-amber-500/30', label: 'Interviewing' };
+            case 'hired':
+                return { colorClass: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', label: 'Hired' };
+            case 'rejected':
+                return { colorClass: 'bg-red-500/20 text-red-400 border-red-500/30', label: 'Not Selected' };
+            case 'pending':
+            default:
+                return { colorClass: 'bg-secondary/40 text-muted-foreground border-border/30', label: 'Application Pending' };
+        }
+    };
 
     useEffect(() => {
+        const checkApplicationStatus = async () => {
+            if (!id || !user) return;
+            try {
+                const q = query(
+                    collection(db, 'job_applications'),
+                    where('jobId', '==', id),
+                    where('userId', '==', user.id)
+                );
+                const querySnapshot = await getDocs(q);
+                if (!querySnapshot.empty) {
+                    setHasApplied(true);
+                    const appData = querySnapshot.docs[0].data();
+                    setApplicationStatus(appData.status || 'pending');
+                }
+            } catch (err) {
+                console.error("Error checking application status:", err);
+            }
+        };
+
         const fetchJob = async () => {
             if (!id) return;
             try {
@@ -58,8 +99,10 @@ const JobDetail = () => {
                 setLoading(false);
             }
         };
+
         fetchJob();
-    }, [id, navigate]);
+        checkApplicationStatus();
+    }, [id, user, navigate]);
 
     if (loading) {
         return (
@@ -80,11 +123,17 @@ const JobDetail = () => {
             <div className="pt-8 pb-32 px-4 max-w-4xl mx-auto space-y-12">
                 {/* Back Button */}
                 <button
-                    onClick={() => navigate('/careers')}
-                    className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-all group"
+                    onClick={() => {
+                        if (window.history.length > 1) {
+                            navigate(-1);
+                        } else {
+                            navigate('/careers');
+                        }
+                    }}
+                    className="flex items-center gap-2.5 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md px-5 py-3 rounded-2xl border border-border/50 text-foreground hover:bg-white dark:hover:bg-zinc-900 transition-all group shadow-md active:scale-95 self-start"
                 >
-                    <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-                    <span className="text-sm font-bold">Back to Careers</span>
+                    <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform text-primary" />
+                    <span className="text-xs font-black uppercase tracking-wider">Back to Careers</span>
                 </button>
 
                 {/* Job Header */}
@@ -116,12 +165,24 @@ const JobDetail = () => {
                         </div>
                     </div>
 
-                    <button 
-                        onClick={() => navigate(`/careers/apply/${id}`)}
-                        className="w-full md:w-auto bg-primary text-white px-10 py-5 rounded-2xl text-sm font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all active:scale-95"
-                    >
-                        Apply for this Role
-                    </button>
+                    {hasApplied ? (() => {
+                        const style = getStatusStyle(applicationStatus);
+                        return (
+                            <button 
+                                disabled
+                                className={`w-full md:w-auto px-10 py-5 rounded-2xl text-sm font-black uppercase tracking-widest cursor-not-allowed flex items-center justify-center gap-2 ${style.colorClass}`}
+                            >
+                                <CheckCircle2 className="w-4 h-4" /> {style.label}
+                            </button>
+                        );
+                    })() : (
+                        <button 
+                            onClick={() => navigate(`/careers/apply/${id}`)}
+                            className="w-full md:w-auto bg-primary text-white px-10 py-5 rounded-2xl text-sm font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all active:scale-95"
+                        >
+                            Apply for this Role
+                        </button>
+                    )}
                 </div>
 
                 {/* Job Content */}
@@ -176,12 +237,24 @@ const JobDetail = () => {
                     <p className="text-muted-foreground font-medium max-w-sm mx-auto">
                         Join a team that values speed, intensity, and deep ownership.
                     </p>
-                    <button 
-                        onClick={() => navigate(`/careers/apply/${id}`)}
-                        className="bg-primary text-white px-10 py-5 rounded-2xl text-sm font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all"
-                    >
-                        Apply Now
-                    </button>
+                    {hasApplied ? (() => {
+                        const style = getStatusStyle(applicationStatus);
+                        return (
+                            <button 
+                                disabled
+                                className={`w-full md:w-auto px-10 py-5 rounded-2xl text-sm font-black uppercase tracking-widest cursor-not-allowed flex items-center justify-center gap-2 ${style.colorClass}`}
+                            >
+                                <CheckCircle2 className="w-4 h-4" /> {style.label}
+                            </button>
+                        );
+                    })() : (
+                        <button 
+                            onClick={() => navigate(`/careers/apply/${id}`)}
+                            className="bg-primary text-white px-10 py-5 rounded-2xl text-sm font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all"
+                        >
+                            Apply Now
+                        </button>
+                    )}
                 </div>
             </div>
         </div>

@@ -11,6 +11,7 @@ import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, onSnapshot, limit } from 'firebase/firestore';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
+import { CATEGORY_METADATA } from '@/constants/categories';
 
 const CountdownTimer = ({ endTime }: { endTime: string }) => {
   const [timeLeft, setTimeLeft] = useState<{h:number, m:number, s:number} | null>(null);
@@ -61,6 +62,11 @@ const CustomerDeals = ({ mode = 'product' }: { mode?: 'product' | 'service' }) =
   const [selectedProductForDetail, setSelectedProductForDetail] = useState<{ product: Product; store: Store; deal: Deal } | null>(null);
   const [maxDistance, setMaxDistance] = useState<number>(() => Number(localStorage.getItem('user_deals_distance')) || 20);
   const [isSearching, setIsSearching] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState('All');
+
+  const categories = useMemo(() => {
+    return ['All', ...Object.keys(CATEGORY_METADATA).filter(cat => CATEGORY_METADATA[cat].type === mode)];
+  }, [mode]);
 
   useEffect(() => {
     // Real-time listener for active deals
@@ -229,6 +235,14 @@ const CustomerDeals = ({ mode = 'product' }: { mode?: 'product' | 'service' }) =
         });
     }
 
+    // Category Filter
+    if (selectedCategory && selectedCategory !== 'All') {
+        result = result.filter(deal => {
+            const product = products[deal.productId];
+            return product?.category === selectedCategory;
+        });
+    }
+
     // Default distance sort (Always Nearest First by default)
     if (user?.lat && user?.lng) {
         result.sort((a, b) => {
@@ -262,7 +276,7 @@ const CustomerDeals = ({ mode = 'product' }: { mode?: 'product' | 'service' }) =
     }
 
     return result;
-  }, [deals, products, storesMap, user?.lat, user?.lng, activeSearch, priceSort, ratingSort, maxDistance]);
+  }, [deals, products, storesMap, user?.lat, user?.lng, activeSearch, priceSort, ratingSort, maxDistance, selectedCategory]);
 
   const handleSearchTrigger = () => {
     setIsSearching(true);
@@ -352,6 +366,30 @@ const CustomerDeals = ({ mode = 'product' }: { mode?: 'product' | 'service' }) =
                     >
                         {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Search'}
                     </button>
+                </div>
+
+                {/* Categories Carousel */}
+                <div className="flex gap-2 overflow-x-auto pb-1.5 pt-3.5 -mx-4 px-4 sm:-mx-6 sm:px-6 scrollbar-none scrollbar-hide">
+                    {categories.map((cat) => {
+                        const isSelected = selectedCategory === cat;
+                        const metadata = CATEGORY_METADATA[cat];
+                        const Icon = metadata?.icon;
+                        
+                        return (
+                            <button
+                                key={cat}
+                                onClick={() => setSelectedCategory(cat)}
+                                className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest shrink-0 transition-all active:scale-95 border ${
+                                    isSelected
+                                        ? 'bg-primary text-white border-primary shadow-md'
+                                        : 'bg-secondary text-muted-foreground border-border/30 hover:bg-secondary/80'
+                                }`}
+                            >
+                                {Icon && <Icon className="w-3.5 h-3.5" />}
+                                <span>{cat}</span>
+                            </button>
+                        );
+                    })}
                 </div>
             </div>
 
