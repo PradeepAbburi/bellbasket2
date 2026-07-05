@@ -41,6 +41,11 @@ export default async function handler(req, res) {
               parts: [{ text: prompt }]
             }
           ],
+          tools: [
+            {
+              googleSearch: {}
+            }
+          ],
           systemInstruction: {
             parts: [{ text: systemPrompt || 'You are Ask, the local conversational assistant built for BellBasket.' }]
           },

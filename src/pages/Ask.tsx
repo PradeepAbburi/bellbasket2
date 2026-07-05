@@ -821,8 +821,8 @@ Here are the search results from the user's neighborhood:
 
     const uniqueWords = [...new Set(expandedWords)];
 
-    const userLat = user?.lat || parseFloat(localStorage.getItem('user_lat') || '17.6868');
-    const userLng = user?.lng || parseFloat(localStorage.getItem('user_lng') || '83.2185');
+    const userLat = user?.lat || parseFloat(localStorage.getItem('user_lat') || '16.9891');
+    const userLng = user?.lng || parseFloat(localStorage.getItem('user_lng') || '82.2475');
 
     // Score products
     const scored = allProducts.map(p => {
@@ -891,7 +891,7 @@ Here are the search results from the user's neighborhood:
       
       return { product: p, score: 0, distance: 999, store: null };
     })
-    .filter(item => item.score > 0 && item.store && !item.store.isBlocked && item.distance <= 15);
+    .filter(item => item.score > 0 && item.store && !item.store.isBlocked && item.distance <= 50);
 
     // Sort by score descending, then by distance ascending
     scored.sort((a, b) => {
@@ -938,8 +938,8 @@ Here are the search results from the user's neighborhood:
       matches = matches.filter(s => s.storeType === 'service' || SERVICE_CATEGORIES.includes(s.category || ''));
     }
 
-    const userLat = user?.lat || parseFloat(localStorage.getItem('user_lat') || '17.6868');
-    const userLng = user?.lng || parseFloat(localStorage.getItem('user_lng') || '83.2185');
+    const userLat = user?.lat || parseFloat(localStorage.getItem('user_lat') || '16.9891');
+    const userLng = user?.lng || parseFloat(localStorage.getItem('user_lng') || '82.2475');
 
     const scored = matches.map(s => {
       const name = (s.name || '').toLowerCase();
@@ -980,7 +980,7 @@ Here are the search results from the user's neighborhood:
 
       return { store: s, score: finalScore, distance };
     })
-    .filter(item => item.score > 0 && item.distance <= 15);
+    .filter(item => item.score > 0 && item.distance <= 50);
 
     // Sort by score descending
     scored.sort((a, b) => b.score - a.score);
