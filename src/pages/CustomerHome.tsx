@@ -105,8 +105,14 @@ const StoreCard = memo(({ store, onClick, t }: { store: Store & { distance?: num
       </div>
       <div className="p-4">
         <div className="flex items-start justify-between mb-1">
-          <h3 className="font-bold text-white truncate max-w-[70%] drop-shadow-sm">{store.name}</h3>
-          <div className="flex items-center gap-1 shrink-0 bg-black/20 backdrop-blur-sm px-2 py-1 rounded-lg border border-white/10">
+          <div className="flex flex-col min-w-0 flex-1">
+            <h3 className="font-bold text-white truncate drop-shadow-sm">{store.name}</h3>
+            <div className="flex items-center gap-1 text-[11px] text-yellow-400 font-semibold truncate mt-0.5">
+              <MapPin className="w-3 h-3 text-yellow-400" />
+              <span className="truncate">{store.address ? (store.address.split(',')[1]?.trim() || store.address.split(',')[0]) : 'Local Area'}</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-1 shrink-0 bg-black/20 backdrop-blur-sm px-2 py-1 rounded-lg border border-white/10 ml-2">
             <Star className="w-3 h-3 fill-current text-amber-400" />
             <span className="text-[11px] font-black leading-none text-amber-400">{store.effectiveRating?.toFixed(1) || store.rating || '0.0'}</span>
             {store.reviews && store.reviews.length > 0 && (
@@ -121,10 +127,6 @@ const StoreCard = memo(({ store, onClick, t }: { store: Store & { distance?: num
                 {store.description}
               </p>
             )}
-            <div className="flex items-center gap-1.5 text-xs text-white/90 font-bold truncate">
-              <MapPin className="w-3.5 h-3.5 text-white/60" />
-              <span className="truncate">{store.address ? (store.address.split(',')[1]?.trim() || store.address.split(',')[0]) : 'Local Area'}</span>
-            </div>
           </div>
           <span className="text-[10px] font-black text-primary bg-primary/10 px-2 py-0.5 rounded-lg shrink-0 ml-2">
             {store.distance?.toFixed(1)} km
