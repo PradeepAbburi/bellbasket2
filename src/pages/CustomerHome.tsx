@@ -474,7 +474,7 @@ const CustomerHome = () => {
   // Hide BottomBar when any modal/popup is open
   useEffect(() => {
     const bottomNav = document.getElementById('bottom-nav');
-    const isModalOpen = !!(showLocationPicker || variantSelectorProduct || pendingMode);
+    const isModalOpen = !!(showLocationPicker || variantSelectorProduct || pendingMode || pendingCategory);
     
     if (bottomNav) {
       bottomNav.style.display = isModalOpen ? 'none' : '';
@@ -482,7 +482,7 @@ const CustomerHome = () => {
     return () => {
       if (bottomNav) bottomNav.style.display = '';
     };
-  }, [showLocationPicker, variantSelectorProduct, pendingMode]);
+  }, [showLocationPicker, variantSelectorProduct, pendingMode, pendingCategory]);
 
   useEffect(() => {
     const searchQuery = searchParams.get('q');
