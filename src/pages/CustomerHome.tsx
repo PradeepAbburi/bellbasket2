@@ -1940,6 +1940,7 @@ const CustomerHome = () => {
                     onClick={() => {
                       setSelectedCategory(pendingCategory);
                       setPendingCategory(null);
+                      setShowCategories(false);
                     }}
                     className="flex-1 px-4 py-3 rounded-xl text-sm font-semibold text-white bg-primary hover:bg-primary/90 transition-all active:scale-[0.98]"
                   >
