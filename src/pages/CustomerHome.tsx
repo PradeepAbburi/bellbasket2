@@ -1395,7 +1395,10 @@ const CustomerHome = () => {
                         {selectedCategory && (
                           <div className="mb-2">
                             <button
-                              onClick={() => setSelectedCategory(null)}
+                              onClick={() => {
+                                setSelectedCategory(null);
+                                setShowCategories(false);
+                              }}
                               className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-primary bg-primary/10 hover:bg-primary/20 px-3 md:px-4 py-1.5 rounded-xl transition-all active:scale-95 border border-primary/20 shadow-sm w-fit inline-flex items-center gap-1.5 h-auto group"
                             >
                               <X className="w-2.5 h-2.5 text-primary group-hover:rotate-90 transition-transform duration-300" />
@@ -1436,7 +1439,10 @@ const CustomerHome = () => {
                                           <motion.button
                                             key="all"
                                             whileTap={{ scale: 0.95 }}
-                                            onClick={() => setSelectedCategory(null)}
+                                            onClick={() => {
+                                              setSelectedCategory(null);
+                                              setShowCategories(false);
+                                            }}
                                             className="flex flex-col items-center gap-2 group transition-all"
                                           >
                                             <div className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-300 ${!selectedCategory ? 'bg-gradient-to-br from-yellow-400 to-amber-500 text-black shadow-lg shadow-yellow-500/20 scale-105' : 'bg-yellow-400 text-black shadow-sm hover:bg-yellow-500 border border-yellow-300'}`}>
@@ -1535,7 +1541,10 @@ const CustomerHome = () => {
                                           <motion.button
                                             key="all"
                                             whileTap={{ scale: 0.95 }}
-                                            onClick={() => setSelectedCategory(null)}
+                                            onClick={() => {
+                                              setSelectedCategory(null);
+                                              setShowCategories(false);
+                                            }}
                                             className="flex flex-col items-center gap-2 group transition-all"
                                           >
                                             <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center transition-all duration-300 ${!selectedCategory ? 'bg-gradient-to-br from-yellow-400 to-amber-500 text-black shadow-lg shadow-yellow-500/20 scale-105' : 'bg-yellow-400 text-black shadow-sm hover:bg-yellow-500 border border-yellow-300'}`}>
