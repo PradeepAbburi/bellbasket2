@@ -1718,34 +1718,14 @@ const CustomerHome = () => {
                 </div>
               </div>
 
-              {activeSearch && !selectedCategory && (
-                <div className="flex items-center gap-1 bg-secondary/30 p-1 rounded-xl border border-border/40 overflow-hidden w-fit shrink-0">
-                  {[
-                    { id: 'all', label: 'All' },
-                    { id: 'stores', label: 'Stores' },
-                    { id: 'products', label: 'Products' }
-                  ].map(opt => (
-                    <button
-                      key={opt.id}
-                      onClick={() => setSearchResultType(opt.id as any)}
-                      className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
-                        searchResultType === opt.id 
-                          ? 'bg-primary text-white shadow-lg' 
-                          : 'text-muted-foreground hover:bg-white/10'
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              )}
+
             </div>
 
             <div className={!selectedStoreId && (activeSearch || selectedCategory) ? "w-full pb-20 space-y-8" : "grid sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-20"}>
               {!selectedStoreId && (activeSearch || selectedCategory) ? (
                 <>
-                  {/* Matching Stores Section - stores that match search or have matching products */}
-                  {(activeSearch || selectedCategory) && filteredStores.length > 0 && (searchResultType === 'all' || searchResultType === 'stores') && (
+                  {/* Matching Stores Section - stores that match category filter */}
+                  {!activeSearch && selectedCategory && filteredStores.length > 0 && (
                     <div className="space-y-4">
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
@@ -1768,7 +1748,7 @@ const CustomerHome = () => {
                   )}
 
                   {/* Products Section - Show only when searching */}
-                  {activeSearch && (searchResultType === 'all' || searchResultType === 'products') && (
+                  {activeSearch && (
                     <div className="space-y-4">
                       <div className="flex items-center gap-2">
                         <div className="w-1 h-4 bg-primary rounded-full" />
