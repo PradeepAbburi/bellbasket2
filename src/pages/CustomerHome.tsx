@@ -474,13 +474,25 @@ const CustomerHome = () => {
   // Hide BottomBar when any modal/popup is open
   useEffect(() => {
     const bottomNav = document.getElementById('bottom-nav');
-    const isModalOpen = !!(showLocationPicker || variantSelectorProduct || pendingMode || pendingCategory);
+    const isModalOpen = !!(showLocationPicker || variantSelectorProduct || pendingMode);
+    const isCategoryPopupOpen = !!pendingCategory;
     
     if (bottomNav) {
-      bottomNav.style.display = isModalOpen ? 'none' : '';
+      if (isModalOpen) {
+        bottomNav.style.display = 'none';
+      } else if (isCategoryPopupOpen) {
+        bottomNav.style.display = '';
+        bottomNav.style.zIndex = '50';
+      } else {
+        bottomNav.style.display = '';
+        bottomNav.style.zIndex = '';
+      }
     }
     return () => {
-      if (bottomNav) bottomNav.style.display = '';
+      if (bottomNav) {
+        bottomNav.style.display = '';
+        bottomNav.style.zIndex = '';
+      }
     };
   }, [showLocationPicker, variantSelectorProduct, pendingMode, pendingCategory]);
 
