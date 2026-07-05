@@ -41,32 +41,7 @@ const LOCATION_PRESETS = [
   { name: 'Mandapeta', lat: 16.8628, lng: 81.9286 },
 ];
 
-const CATEGORY_IMAGES: Record<string, string> = {
-  "Grocery": "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=150&q=80",
-  "Dairy & Eggs": "https://images.unsplash.com/photo-1528750901443-e986c7ada960?auto=format&fit=crop&w=150&q=80",
-  "Fruits & Vegetables": "https://images.unsplash.com/photo-1573244514212-2b3efd4acc5c?auto=format&fit=crop&w=150&q=80",
-  "Food": "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=150&q=80",
-  "Meat & Seafood": "https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?auto=format&fit=crop&w=150&q=80",
-  "Beverages": "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&w=150&q=80",
-  "Pharmacy": "https://images.unsplash.com/photo-1586015555751-63bb77f4322a?auto=format&fit=crop&w=150&q=80",
-  "Household": "https://images.unsplash.com/photo-1583847268964-b28dc8f51f92?auto=format&fit=crop&w=150&q=80",
-  "Electrical": "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=150&q=80",
-  "Computers & Accessories": "https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?auto=format&fit=crop&w=150&q=80",
-  "Hardware": "https://images.unsplash.com/photo-1581244277943-fe4a9c777189?auto=format&fit=crop&w=150&q=80",
-  "Clothes & Accessories": "https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=150&q=80",
-  "Stationery": "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?auto=format&fit=crop&w=150&q=80",
-  "Pest Control": "https://images.unsplash.com/photo-1587334206574-35113ab63065?auto=format&fit=crop&w=150&q=80",
-  "Cleaning": "https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=150&q=80",
-  "Painting": "https://images.unsplash.com/photo-1562259949-e8e7689d7828?auto=format&fit=crop&w=150&q=80",
-  "AC Repair": "https://images.unsplash.com/photo-1581094288338-2314dddb7ecc?auto=format&fit=crop&w=150&q=80",
-  "Electrician": "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=150&q=80",
-  "Plumber": "https://images.unsplash.com/photo-1504328345606-18bbc8c9d7d1?auto=format&fit=crop&w=150&q=80",
-  "Mobile Repair": "https://images.unsplash.com/photo-1597740985671-2a8a3b80682d?auto=format&fit=crop&w=150&q=80",
-  "Laptop Repair": "https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?auto=format&fit=crop&w=150&q=80",
-  "Saloon & Spa": "https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=150&q=80",
-  "Pet": "https://images.unsplash.com/photo-1450778869180-41d0601e046e?auto=format&fit=crop&w=150&q=80",
-  "Sports": "https://images.unsplash.com/photo-1461896836934-ffe607ba8211?auto=format&fit=crop&w=150&q=80"
-};
+
 
 function getDistanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371;
@@ -331,7 +306,7 @@ const CustomerHome = () => {
   const [localProducts, setLocalProducts] = useState<Product[]>([]);
   const [isSearchingProducts, setIsSearchingProducts] = useState(false);
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [searchResultType, setSearchResultType] = useState<'all' | 'stores' | 'products'>('all');
+  const [searchResultType, setSearchResultType] = useState<'stores' | 'products'>('products');
   const [variantSelectorProduct, setVariantSelectorProduct] = useState<Product | null>(null);
   const [notificationPermission, setNotificationPermission] = useState<string>(
     typeof Notification !== 'undefined' ? Notification.permission : 'default'
@@ -986,6 +961,7 @@ const CustomerHome = () => {
 
   const handleSearchTrigger = (val?: string) => {
     setSelectedStoreId(null);
+    setSearchResultType('products');
     const query = val !== undefined ? val : search;
     // Removed artificial timeout - using direct transition for 'instant' feel
     startTransition(() => {
@@ -1482,22 +1458,12 @@ const CustomerHome = () => {
                                               setSelectedCategory(null);
                                               setShowCategories(false);
                                             }}
-                                            className="flex flex-col items-center group transition-all"
+                                            className="flex flex-col items-center gap-2 group transition-all"
                                           >
-                                            <div className={`w-20 h-20 sm:w-24 sm:h-24 rounded-2xl flex flex-col items-center justify-center transition-all duration-300 shadow-sm border relative overflow-hidden ${!selectedCategory ? 'border-primary ring-4 ring-primary/20 scale-105 shadow-lg shadow-primary/10' : 'border-border/40 group-hover:border-primary/30 group-hover:shadow-md'}`}>
-                                              <img 
-                                                src="https://images.unsplash.com/photo-1533900298318-6b8da08a523e?auto=format&fit=crop&w=150&q=80" 
-                                                alt="" 
-                                                className="absolute inset-0 w-full h-full object-cover" 
-                                              />
-                                              <div className="absolute inset-0 bg-black/25 dark:bg-black/35 backdrop-blur-[0.5px] transition-colors group-hover:bg-black/15" />
-                                              <div className="relative z-10 text-white mb-1">
-                                                <StoreIcon className="w-5.5 h-5.5 drop-shadow-md" />
-                                              </div>
-                                              <span className="relative z-10 text-[8px] sm:text-[9.5px] font-black uppercase tracking-wider text-center leading-tight text-white drop-shadow-lg px-1.5 line-clamp-1 max-w-full">
-                                                {activeMode === 'product' ? t('home.all_shops') : 'All Services'}
-                                              </span>
+                                            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-300 ${!selectedCategory ? 'bg-gradient-to-br from-yellow-400 to-amber-500 text-black shadow-lg shadow-yellow-500/20 scale-105' : 'bg-yellow-400 text-black shadow-sm hover:bg-yellow-500 border border-yellow-300'}`}>
+                                              <StoreIcon className="w-7 h-7" />
                                             </div>
+                                            <span className={`text-[9px] font-black uppercase tracking-wider text-center transition-colors ${!selectedCategory ? 'text-primary' : 'text-muted-foreground group-hover:text-primary'}`}>{activeMode === 'product' ? t('home.all_shops') : 'All Services'}</span>
                                           </motion.button>
                                         );
                                       }
@@ -1518,24 +1484,29 @@ const CustomerHome = () => {
                                               setPendingCategory(cat?.name);
                                             }
                                           }}
-                                          className="flex flex-col items-center group transition-all"
-                                        >
-                                          <div 
-                                            className={`w-20 h-20 sm:w-24 sm:h-24 rounded-2xl flex flex-col items-center justify-center transition-all duration-300 shadow-sm border relative overflow-hidden ${selectedCategory === cat?.name ? 'border-primary ring-4 ring-primary/20 scale-105 shadow-lg shadow-primary/10' : 'border-border/40 group-hover:border-primary/30 group-hover:shadow-md'}`} 
+                                            className="flex flex-col items-center gap-2 group transition-all"
                                           >
-                                            <img 
-                                              src={CATEGORY_IMAGES[cat?.name] || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=150&q=80'} 
-                                              alt="" 
-                                              className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
-                                            />
-                                            <div className="absolute inset-0 bg-black/25 dark:bg-black/35 backdrop-blur-[0.5px] transition-colors group-hover:bg-black/15" />
-                                            <div className="relative z-10 text-white transition-transform duration-300 group-hover:scale-110 mb-1">
-                                              {Icon && <Icon className="w-5.5 h-5.5 drop-shadow-md" />}
+                                            <div 
+                                              className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-sm border relative overflow-hidden ${selectedCategory === cat?.name ? 'border-primary ring-4 ring-primary/20 scale-105 shadow-lg shadow-primary/10' : 'border-border/40 group-hover:border-primary/30 group-hover:shadow-md'}`} 
+                                              style={{ 
+                                                backgroundColor: selectedCategory === cat?.name ? cat?.color : `${cat?.color}15`,
+                                                borderColor: selectedCategory === cat?.name ? cat?.color : undefined
+                                              }}
+                                            >
+                                              <div className={`absolute inset-0 opacity-10 bg-gradient-to-br ${cat?.gradient}`} />
+                                              <div 
+                                                className={`relative z-10 transition-all duration-300 ${selectedCategory === cat?.name ? 'text-white scale-110' : ''}`} 
+                                                style={{ color: selectedCategory === cat?.name ? '#fff' : cat?.color }}
+                                              >
+                                                {Icon && <Icon className="w-5.5 h-5.5" />}
+                                              </div>
                                             </div>
-                                            <span className="relative z-10 text-[8px] sm:text-[9.5px] font-black uppercase tracking-wider text-center leading-tight text-white drop-shadow-lg px-1.5 line-clamp-2 max-w-full">
+                                            <span 
+                                              className={`text-[9px] font-black uppercase tracking-wider text-center leading-tight transition-colors line-clamp-2 max-w-[70px] ${selectedCategory === cat?.name ? 'text-primary' : 'text-muted-foreground'}`}
+                                              style={selectedCategory === cat?.name ? { color: cat?.color } : {}}
+                                            >
                                               {t(`categories.${cat?.name}`, { defaultValue: cat?.name.split(' & ')[0] })}
                                             </span>
-                                          </div>
                                         </motion.button>
                                       );
                                     })}
@@ -1589,22 +1560,12 @@ const CustomerHome = () => {
                                               setSelectedCategory(null);
                                               setShowCategories(false);
                                             }}
-                                            className="flex flex-col items-center group transition-all"
+                                            className="flex flex-col items-center gap-2 group transition-all"
                                           >
-                                            <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-2xl flex flex-col items-center justify-center transition-all duration-300 shadow-sm border relative overflow-hidden ${!selectedCategory ? 'border-primary ring-4 ring-primary/20 scale-105 shadow-lg shadow-primary/10' : 'border-border group-hover:border-primary/30 group-hover:shadow-md'}`}>
-                                              <img 
-                                                src="https://images.unsplash.com/photo-1533900298318-6b8da08a523e?auto=format&fit=crop&w=150&q=80" 
-                                                alt="" 
-                                                className="absolute inset-0 w-full h-full object-cover" 
-                                              />
-                                              <div className="absolute inset-0 bg-black/25 dark:bg-black/35 backdrop-blur-[0.5px] transition-colors group-hover:bg-black/15" />
-                                              <div className="relative z-10 text-white mb-0.5">
-                                                <StoreIcon className="w-4 h-4 sm:w-5 sm:h-5 drop-shadow-md" />
-                                              </div>
-                                              <span className="relative z-10 text-[6.5px] sm:text-[7.5px] font-black uppercase tracking-wider text-center leading-none text-white drop-shadow-lg px-1 line-clamp-1 max-w-full">
-                                                {activeMode === 'product' ? t('home.all_shops') : 'All Services'}
-                                              </span>
+                                            <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center transition-all duration-300 ${!selectedCategory ? 'bg-gradient-to-br from-yellow-400 to-amber-500 text-black shadow-lg shadow-yellow-500/20 scale-105' : 'bg-yellow-400 text-black shadow-sm hover:bg-yellow-500 border border-yellow-300'}`}>
+                                              <StoreIcon className="w-5 h-5 sm:w-7 sm:h-7" />
                                             </div>
+                                            <span className={`text-[8px] font-black uppercase tracking-wider text-center transition-colors ${!selectedCategory ? 'text-primary' : 'text-muted-foreground group-hover:text-primary'}`}>{activeMode === 'product' ? t('home.all_shops') : 'All Services'}</span>
                                           </motion.button>
                                         );
                                       }
@@ -1628,21 +1589,26 @@ const CustomerHome = () => {
                                           className="flex flex-col items-center group transition-all"
                                         >
                                           <div 
-                                            className={`w-12 h-12 sm:w-16 sm:h-16 rounded-2xl flex flex-col items-center justify-center transition-all duration-300 shadow-sm border relative overflow-hidden ${selectedCategory === cat?.name ? 'border-primary ring-4 ring-primary/20 scale-105 shadow-lg shadow-primary/10' : 'border-border group-hover:border-primary/30 group-hover:shadow-md'}`} 
+                                            className={`w-12 h-12 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-sm border relative overflow-hidden ${selectedCategory === cat?.name ? 'border-primary ring-4 ring-primary/20 scale-105 shadow-lg shadow-primary/10' : 'border-border group-hover:border-primary/30 group-hover:shadow-md'}`} 
+                                            style={{ 
+                                              backgroundColor: selectedCategory === cat?.name ? cat?.color : `${cat?.color}15`,
+                                              borderColor: selectedCategory === cat?.name ? cat?.color : undefined
+                                            }}
                                           >
-                                            <img 
-                                              src={CATEGORY_IMAGES[cat?.name] || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=150&q=80'} 
-                                              alt="" 
-                                              className="absolute inset-0 w-full h-full object-cover" 
-                                            />
-                                            <div className="absolute inset-0 bg-black/25 dark:bg-black/35 backdrop-blur-[0.5px] transition-colors group-hover:bg-black/15" />
-                                            <div className="relative z-10 text-white mb-0.5">
-                                              {Icon && <Icon className="w-4 h-4 sm:w-5 sm:h-5 drop-shadow-md" />}
+                                            <div className={`absolute inset-0 opacity-10 bg-gradient-to-br ${cat?.gradient}`} />
+                                            <div 
+                                              className={`relative z-10 transition-all duration-300 ${selectedCategory === cat?.name ? 'text-white scale-110' : ''}`} 
+                                              style={{ color: selectedCategory === cat?.name ? '#fff' : cat?.color }}
+                                            >
+                                              {Icon && <Icon className="w-5 h-5 sm:w-7 sm:h-7" />}
                                             </div>
-                                            <span className="relative z-10 text-[6.5px] sm:text-[7.5px] font-black uppercase tracking-wider text-center leading-none text-white drop-shadow-lg px-1 line-clamp-2 max-w-full">
-                                              {t(`categories.${cat?.name}`, { defaultValue: cat?.name.split(' & ')[0] })}
-                                            </span>
                                           </div>
+                                          <span 
+                                            className={`text-[8px] font-black uppercase tracking-wider text-center leading-tight transition-colors line-clamp-2 max-w-[64px] ${selectedCategory === cat?.name ? 'text-primary' : 'text-muted-foreground'}`} 
+                                            style={selectedCategory === cat?.name ? { color: cat?.color } : {}}
+                                          >
+                                            {t(`categories.${cat?.name}`, { defaultValue: cat?.name.split(' & ')[0] })}
+                                          </span>
                                         </motion.button>
                                       );
                                     })}
@@ -1718,14 +1684,29 @@ const CustomerHome = () => {
                 </div>
               </div>
 
-
+              {activeSearch && !selectedCategory && (
+                <div className="flex bg-secondary/80 backdrop-blur-sm p-1 rounded-xl items-center gap-1 border border-border shadow-inner w-fit shrink-0">
+                  <button
+                    onClick={() => setSearchResultType('products')}
+                    className={`px-3 md:px-4 py-1.5 rounded-lg text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${searchResultType === 'products' ? 'bg-primary text-black shadow-md scale-105' : 'text-muted-foreground hover:text-foreground'}`}
+                  >
+                    Products
+                  </button>
+                  <button
+                    onClick={() => setSearchResultType('stores')}
+                    className={`px-3 md:px-4 py-1.5 rounded-lg text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${searchResultType === 'stores' ? 'bg-primary text-black shadow-md scale-105' : 'text-muted-foreground hover:text-foreground'}`}
+                  >
+                    Stores
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className={!selectedStoreId && (activeSearch || selectedCategory) ? "w-full pb-20 space-y-8" : "grid sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-20"}>
               {!selectedStoreId && (activeSearch || selectedCategory) ? (
                 <>
-                  {/* Matching Stores Section - stores that match category filter */}
-                  {!activeSearch && selectedCategory && filteredStores.length > 0 && (
+                  {/* Matching Stores Section - stores that match category filter or search filter */}
+                  {((!activeSearch && selectedCategory) || (activeSearch && searchResultType === 'stores')) && filteredStores.length > 0 && (
                     <div className="space-y-4">
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
@@ -1748,7 +1729,7 @@ const CustomerHome = () => {
                   )}
 
                   {/* Products Section - Show only when searching */}
-                  {activeSearch && (
+                  {activeSearch && searchResultType === 'products' && (
                     <div className="space-y-4">
                       <div className="flex items-center gap-2">
                         <div className="w-1 h-4 bg-primary rounded-full" />
