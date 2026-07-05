@@ -293,7 +293,7 @@ const CustomerHome = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [activeSearch, setActiveSearch] = useState('');
   const [showAllCategories, setShowAllCategories] = useState(false);
-  const [showCategories, setShowCategories] = useState(true);
+  const [showCategories, setShowCategories] = useState(false);
   const [mobileCategoryPage, setMobileCategoryPage] = useState(0);
   const [pendingMode, setPendingMode] = useState<'product' | 'service' | null>(null);
   const [priceSort, setPriceSort] = useState<'none' | 'low-high' | 'high-low'>('none');
