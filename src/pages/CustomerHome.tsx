@@ -296,6 +296,7 @@ const CustomerHome = () => {
   const [showCategories, setShowCategories] = useState(false);
   const [mobileCategoryPage, setMobileCategoryPage] = useState(0);
   const [pendingMode, setPendingMode] = useState<'product' | 'service' | null>(null);
+  const [pendingCategory, setPendingCategory] = useState<string | null>(null);
   const [priceSort, setPriceSort] = useState<'none' | 'low-high' | 'high-low'>('none');
   const [ratingSort, setRatingSort] = useState<'none' | 'top-rated' | 'low-rated'>('none');
   const [maxDistance, setMaxDistance] = useState<number>(20);
@@ -1455,7 +1456,13 @@ const CustomerHome = () => {
                                           animate={{ opacity: 1, scale: 1 }}
                                           transition={{ delay: idx * 0.001 }}
                                           whileTap={{ scale: 0.95 }}
-                                          onClick={() => setSelectedCategory(selectedCategory === cat?.name ? null : cat?.name)}
+                                          onClick={() => {
+                                            if (selectedCategory === cat?.name) {
+                                              setSelectedCategory(null);
+                                            } else {
+                                              setPendingCategory(cat?.name);
+                                            }
+                                          }}
                                           className="flex flex-col items-center gap-2 group transition-all"
                                         >
                                           <div 
@@ -1548,7 +1555,13 @@ const CustomerHome = () => {
                                           animate={{ opacity: 1, scale: 1 }}
                                           transition={{ delay: idx * 0.002 }}
                                           whileTap={{ scale: 0.95 }}
-                                          onClick={() => setSelectedCategory(selectedCategory === cat?.name ? null : cat?.name)}
+                                          onClick={() => {
+                                            if (selectedCategory === cat?.name) {
+                                              setSelectedCategory(null);
+                                            } else {
+                                              setPendingCategory(cat?.name);
+                                            }
+                                          }}
                                           className="flex flex-col items-center gap-2 group transition-all"
                                         >
                                           <div 
@@ -1875,6 +1888,62 @@ const CustomerHome = () => {
                     className="flex-1 px-4 py-3 rounded-xl text-sm font-semibold text-white bg-primary hover:bg-primary/90 transition-all active:scale-[0.98]"
                   >
                     Switch
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Category Selection Confirmation Dialog */}
+      <AnimatePresence>
+        {pendingCategory && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/60 backdrop-blur-md z-[60]"
+              onClick={() => setPendingCategory(null)}
+            />
+            <div className="fixed inset-0 flex items-center justify-center p-4 z-[61] pointer-events-none">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.92, y: 15 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.92, y: 15 }}
+                transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+                className="bg-white dark:bg-[#18181b] rounded-[24px] shadow-2xl border border-slate-100 dark:border-zinc-800 w-full max-w-md overflow-hidden pointer-events-auto p-6 space-y-6"
+              >
+                <div className="flex flex-col items-center text-center space-y-4">
+                  <div className="w-12 h-12 rounded-full flex items-center justify-center bg-primary/10 text-primary">
+                    <ShoppingBasket className="w-6 h-6" />
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-zinc-50">
+                      Shop in {t(`categories.${pendingCategory}`, { defaultValue: pendingCategory })}?
+                    </h3>
+                    <p className="text-sm text-slate-500 dark:text-zinc-400 leading-relaxed px-2">
+                      Would you like to filter shops and items to show only {t(`categories.${pendingCategory}`, { defaultValue: pendingCategory })}?
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setPendingCategory(null)}
+                    className="flex-1 px-4 py-3 rounded-xl text-sm font-semibold text-slate-600 dark:text-zinc-300 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700/80 transition-all active:scale-[0.98]"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedCategory(pendingCategory);
+                      setPendingCategory(null);
+                    }}
+                    className="flex-1 px-4 py-3 rounded-xl text-sm font-semibold text-white bg-primary hover:bg-primary/90 transition-all active:scale-[0.98]"
+                  >
+                    Confirm
                   </button>
                 </div>
               </motion.div>
