@@ -485,7 +485,7 @@ const BellJobs = () => {
 
             {isScrolled && hasValidPlan && (
               <button onClick={() => navigate('/vendor/jobs/new')}
-                className="hidden sm:flex flex-shrink-0 items-center gap-2 bg-primary text-white px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest hover:scale-105 transition-all shadow-lg shadow-primary/20">
+                className="hidden sm:flex flex-shrink-0 items-center gap-2 bg-primary text-white px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest hover:scale-105 transition-all shadow-sm">
                 <Plus className="w-3.5 h-3.5" /> Post Job
               </button>
             )}
@@ -775,7 +775,7 @@ const BellJobs = () => {
                                   </a>
                                 )}
                                 <button onClick={(e) => { e.stopPropagation(); navigate(`/belljobs/${job.id}`); }}
-                                  className="flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-105 transition-all active:scale-95">
+                                  className="flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest hover:scale-105 transition-all active:scale-95 shadow-sm">
                                   View Details
                                 </button>
                               </>
@@ -797,7 +797,7 @@ const BellJobs = () => {
                   Become a vendor on BellBasket to post jobs in your locality and reach people nearby.
                 </p>
                 <button onClick={() => navigate('/vendor/setup')}
-                  className="inline-flex items-center gap-2 bg-primary text-white px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-105 transition-all">
+                  className="inline-flex items-center gap-2 bg-primary text-white px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-widest hover:scale-105 transition-all shadow-sm">
                   <UserCheck className="w-4 h-4" /> Become a Vendor
                 </button>
               </div>

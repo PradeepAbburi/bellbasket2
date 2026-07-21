@@ -132,12 +132,14 @@ const StoreDetail = () => {
 
   useEffect(() => {
     if (!store?.id) return;
+    const locationStr = store.district || store.mandal || (store.address ? store.address.split(',')[0] : '');
+    document.title = `${store.name}${locationStr ? `, ${locationStr}` : ''} - Contact Details, Address, Products, Timings & Reviews | BellBasket`;
     const q = query(collection(db, 'bell_jobs'), where('vendorId', '==', store.id), where('status', '==', 'active'));
     const unsub = onSnapshot(q, (snap) => {
       setActiveJobsCount(snap.docs.length);
     });
     return () => unsub();
-  }, [store?.id]);
+  }, [store?.id, store?.name, store?.district, store?.mandal, store?.address]);
 
   // Cart banner: compute store-specific item count & total
   const storeCartItems = useMemo(() => cart.filter(c => c.storeId === store?.id), [cart, store?.id]);
@@ -608,18 +610,18 @@ const StoreDetail = () => {
   return (
     <div className="min-h-screen gradient-warm">
       <Helmet>
-        <title>{store.name} | {store.category} in {store.district || store.mandal || (store.address ? store.address.split(',')[0] : 'Local')} - BellBasket</title>
-        <meta name="description" content={`Order ${store.category} and daily essentials from ${store.name} in ${store.district || store.mandal || (store.address ? store.address.split(',')[0] : 'Local')}. Trusted local partner for quick pickup via BellBasket.`} />
-        <meta name="keywords" content={`${store.name}, ${store.category} in ${store.district}, ${store.mandal} stores, buy ${store.category} near me, ${store.address ? store.address.split(',')[0] : 'Local'}, BellBasket, local shops`} />
+        <title>{`${store.name}${store.district || store.mandal || (store.address ? store.address.split(',')[0] : '') ? `, ${store.district || store.mandal || store.address.split(',')[0]}` : ''} - Contact Details, Address, Products, Timings & Reviews | BellBasket`}</title>
+        <meta name="description" content={`Find ${store.name} in ${store.district || store.mandal || (store.address ? store.address.split(',')[0] : 'your locality')}. View store contact details, phone number (${store.phone || 'N/A'}), full address (${store.address || ''}), products, prices & customer ratings on BellBasket.`} />
+        <meta name="keywords" content={`${store.name}, ${store.name} contact number, ${store.name} address, ${store.name} products, ${store.category} in ${store.district || store.mandal || 'local'}, stores near me, shop online BellBasket`} />
 
-        <meta property="og:title" content={`${store.name} - ${store.category} in ${store.district || (store.address ? store.address.split(',')[0] : 'Local')}`} />
-        <meta property="og:description" content={`Shop from ${store.name} on BellBasket. Quality ${store.category} items in ${store.district || (store.address ? store.address.split(',')[0] : 'Local')}.`} />
+        <meta property="og:title" content={`${store.name}${store.district ? `, ${store.district}` : ''} - Contact Details, Address & Products | BellBasket`} />
+        <meta property="og:description" content={`Find ${store.name} in ${store.district || (store.address ? store.address.split(',')[0] : 'your neighborhood')}. View contact details, full address, products & prices on BellBasket.`} />
         <meta property="og:image" content={store.image} />
         <meta property="og:url" content={window.location.href} />
 
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content={`${store.name} on BellBasket`} />
-        <meta name="twitter:description" content={`Quality ${store.category} items from ${store.name} in ${store.address ? store.address.split(',')[0] : 'Local'}.`} />
+        <meta name="twitter:title" content={`${store.name} - Contact Details & Address | BellBasket`} />
+        <meta name="twitter:description" content={`View contact details, phone number, address, and products for ${store.name} on BellBasket.`} />
         
         <link rel="canonical" href={store.slug ? `https://bellbasket.com/stores/${store.slug}` : `https://bellbasket.com/store/${store.id}`} />
 

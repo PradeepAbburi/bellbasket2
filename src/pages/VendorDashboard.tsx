@@ -927,7 +927,7 @@ const VendorDashboard = () => {
             </div>
 
             {/* Deals Manager */}
-            {user?.plan === 'pro' ? (
+            {['growth', 'pro'].includes(user?.plan || '') ? (
                 <div 
                 onClick={() => navigate('/vendor/deals')}
                 className="bg-white dark:bg-[#202020] rounded-3xl p-6 text-center border-teal-500/20 bg-teal-500/5 cursor-pointer   transition-all group border flex flex-col items-center justify-center"
@@ -947,12 +947,12 @@ const VendorDashboard = () => {
                 <div className="flex flex-col items-center justify-center text-center relative z-10">
                     <Zap className="w-8 h-8 text-teal-600 mb-3 grayscale group-hover:grayscale-0 transition-all" />
                     <h3 className="text-sm font-black text-foreground mb-1">{t('vendor_dashboard.flash_deals')}</h3>
-                    <p className="text-[10px] text-muted-foreground mb-4">{t('vendor_dashboard.deals_desc_locked')}</p>
+                    <p className="text-[10px] text-muted-foreground mb-4">Available on Growth & Pro Plans</p>
                     <button
                         onClick={() => navigate('/vendor/subscription')}
                         className="bg-teal-600 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest opacity-80"
                     >
-                        {t('common.pro_feature')}
+                        Growth Feature
                     </button>
                     <Lock className="absolute top-2 right-2 w-4 h-4 text-teal-500/30" />
                 </div>

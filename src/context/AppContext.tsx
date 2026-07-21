@@ -206,12 +206,60 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     return () => unsubscribe();
   }, [user]);
 
-  // Save cart to local storage
+  // Save cart to local storage with safe serialization & QuotaExceededError protection
   useEffect(() => {
     if (cart.length > 0) {
-      localStorage.setItem('bellbasket_cart', JSON.stringify(cart));
+      try {
+        const cleanCart = cart.map(item => {
+          const p = item.product;
+          const isBase64Img = (img?: string) => img && (img.startsWith('data:') || img.length > 500);
+          return {
+            ...item,
+            product: {
+              ...p,
+              image: isBase64Img(p.image) ? '' : p.image,
+              image2: isBase64Img(p.image2) ? '' : p.image2,
+              comboItemsData: undefined // Do not persist heavy nested combo products in storage
+            }
+          };
+        });
+        localStorage.setItem('bellbasket_cart', JSON.stringify(cleanCart));
+      } catch (e) {
+        console.warn("⚠️ [AppContext] localStorage quota exceeded while saving cart. Using fallback minimal serializer.", e);
+        try {
+          // Minimal fallback serializer if localStorage is low on space
+          const minimalCart = cart.map(item => ({
+            product: {
+              id: item.product.id,
+              name: item.product.name,
+              price: item.product.price,
+              discountedPrice: item.product.discountedPrice,
+              category: item.product.category || '',
+              description: '',
+              inStock: item.product.inStock ?? true,
+              vendorId: item.product.vendorId || item.storeId,
+              storeName: item.product.storeName || item.storeName
+            },
+            selectedVariant: item.selectedVariant ? {
+              id: item.selectedVariant.id,
+              quantity: item.selectedVariant.quantity,
+              price: item.selectedVariant.price,
+              discountedPrice: item.selectedVariant.discountedPrice
+            } : undefined,
+            storeId: item.storeId,
+            storeName: item.storeName,
+            storePhone: item.storePhone,
+            quantity: item.quantity
+          }));
+          localStorage.setItem('bellbasket_cart', JSON.stringify(minimalCart));
+        } catch (fallbackError) {
+          console.error("❌ [AppContext] Storage failed completely:", fallbackError);
+        }
+      }
     } else {
-      localStorage.removeItem('bellbasket_cart');
+      try {
+        localStorage.removeItem('bellbasket_cart');
+      } catch (e) {}
     }
   }, [cart]);
 
@@ -998,14 +1046,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const addToCart = React.useCallback((item: CartItem, force: boolean = false): boolean => {
-    if (!user) {
-      toast.info("Please login first", {
-        description: "You need to be signed in to add items to your cart."
-      });
-      window.location.href = '/auth';
-      return false;
-    }
-
     if (!force && cart.length > 0 && cart[0].storeId !== item.storeId) {
       setCartConflictItem(item);
       return false;
@@ -1028,23 +1068,19 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       }
       return [...prev, item];
     });
+    toast.success(`${item.product.name} added to cart`, { duration: 1500 });
     setCartConflictItem(null);
     return true;
-  }, [user, cart]);
+  }, [cart]);
 
   const removeFromCart = React.useCallback((productId: string, variantId?: string) => {
     setCart(prev => prev.filter(c => !(c.product.id === productId && c.selectedVariant?.id === variantId)));
   }, []);
 
   const updateQuantity = React.useCallback((productId: string, quantity: number, variantId?: string) => {
-    if (!user) {
-      toast.info("Please login first");
-      window.location.href = '/auth';
-      return;
-    }
     if (quantity <= 0) return removeFromCart(productId, variantId);
     setCart(prev => prev.map(c => (c.product.id === productId && c.selectedVariant?.id === variantId) ? { ...c, quantity } : c));
-  }, [user, removeFromCart]);
+  }, [removeFromCart]);
 
   const clearCart = React.useCallback(() => {
     setCart(() => []);

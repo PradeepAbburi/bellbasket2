@@ -411,7 +411,7 @@ const SupportChat = () => {
                                 {id === 'bot' && (
                                     <button
                                         onClick={handleConnectLive}
-                                        className="flex items-center gap-1 px-3 py-1 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[10px] font-bold shadow-lg hover:scale-105 transition-all animate-pulse"
+                                        className="flex items-center gap-1 px-3 py-1 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[10px] font-bold shadow-lg hover:scale-105 transition-all"
                                     >
                                         <Shield className="w-3 h-3" /> Connect Live
                                     </button>

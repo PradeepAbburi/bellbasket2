@@ -50,9 +50,10 @@ const VendorDeals = () => {
       navigate('/auth');
       return;
     }
-    if (user.plan !== 'pro') {
-      toast.error("Pro Plan Required", {
-        description: "Deals are only available for Pro vendors. Upgrade to unlock this feature."
+    const canAccessDeals = user.plan === 'growth' || user.plan === 'pro';
+    if (!canAccessDeals) {
+      toast.error("Growth or Pro Plan Required", {
+        description: "Deals are available on Growth and Pro plans. Upgrade to create flash deals and discounts."
       });
       navigate('/vendor/subscription');
       return;

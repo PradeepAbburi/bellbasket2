@@ -1,3 +1,5 @@
+require('dotenv').config();
+require('dotenv').config({ path: '.env.local' });
 const express = require('express');
 const cors = require('cors');
 const { SitemapStream, streamToPromise } = require('sitemap');
@@ -6,9 +8,10 @@ const { Readable } = require('stream');
 // Initialize Firebase Admin (must set env variables in Vercel!)
 const admin = require('firebase-admin');
 if (!admin.apps.length) {
+    const projectId = process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID;
     admin.initializeApp({
         credential: admin.credential.cert({
-            projectId: process.env.FIREBASE_PROJECT_ID,
+            projectId: projectId,
             clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
             privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
         }),

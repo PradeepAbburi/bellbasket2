@@ -36,6 +36,14 @@ const VendorPostJob = () => {
     if (loading) return;
     if (!user || user.role !== 'vendor') {
       navigate('/');
+      return;
+    }
+    if (user.plan !== 'pro') {
+      toast.error("Pro Plan Required", {
+        description: "BellJobs (Recruitment & Hiring) is exclusive to Pro Plan members. Upgrade to post jobs."
+      });
+      navigate('/vendor/subscription');
+      return;
     }
   }, [user, loading, navigate]);
 
@@ -72,8 +80,9 @@ const VendorPostJob = () => {
   const handlePostJob = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
-    if (!user.plan || user.plan === 'none') {
-      toast.error('An active subscription is required to post jobs.');
+    if (user.plan !== 'pro') {
+      toast.error('Pro Plan required to post jobs.');
+      navigate('/vendor/subscription');
       return;
     }
     if (!newJob.lat || !newJob.lng) {
@@ -141,11 +150,11 @@ const VendorPostJob = () => {
       <div className="pt-24 px-4 max-w-3xl mx-auto space-y-8">
         <div>
           <button
-            onClick={() => navigate('/vendor/jobs')}
+            onClick={() => navigate('/vendor')}
             className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-all mb-4"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span className="text-sm font-bold">Back to Jobs Dashboard</span>
+            <span className="text-sm font-bold">Back to Vendor Home</span>
           </button>
           <h1 className="text-3xl font-black text-foreground">{isEditing ? 'Edit Job' : 'Post a New Job'}</h1>
           <p className="text-sm text-muted-foreground font-medium mt-1">{isEditing ? 'Update the details below.' : 'Fill out the details below to publish your job listing.'}</p>
@@ -225,7 +234,7 @@ const VendorPostJob = () => {
             </div>
 
             <button type="submit" disabled={posting}
-              className="w-full py-4 mt-2 rounded-2xl bg-primary text-white text-sm font-black uppercase tracking-widest shadow-lg shadow-primary/20 flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-95 transition-all">
+              className="w-full py-4 mt-2 rounded-2xl bg-primary text-white text-sm font-black uppercase tracking-widest shadow-sm flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-95 transition-all">
               {posting ? <Loader2 className="w-5 h-5 animate-spin" /> : isEditing ? <Pencil className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
               {posting ? (isEditing ? 'Updating...' : 'Publishing...') : (isEditing ? 'Update Job' : 'Publish Job')}
             </button>

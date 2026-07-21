@@ -1,8 +1,12 @@
+import dotenv from 'dotenv';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
+dotenv.config();
+dotenv.config({ path: '.env.local' });
+
 // Validate environment variables early
-const projectId = process.env.FIREBASE_PROJECT_ID;
+const projectId = process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID;
 const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
 const privateKey = process.env.FIREBASE_PRIVATE_KEY;
 

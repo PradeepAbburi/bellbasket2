@@ -278,7 +278,7 @@ export const RenderBookingCard = ({
           {!showContact ? (
             <button
               onClick={(e) => { e.stopPropagation(); setShowContact(true); }}
-              className="w-full py-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-[11px] font-black uppercase tracking-widest hover:bg-amber-500/20 transition-all flex items-center justify-center gap-2 animate-pulse"
+              className="w-full py-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-[11px] font-black uppercase tracking-widest hover:bg-amber-500/20 transition-all flex items-center justify-center gap-2"
             >
               <Clock className="w-3.5 h-3.5" />
               {t('common.receipts.acceptance_note')}
@@ -542,6 +542,20 @@ export const RenderOrderCard = ({
           </div>
         )}
 
+        {order.items.some(item => item.status === 'rejected') && (
+          <div className="mb-4 p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-left flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+            <div>
+              <h4 className="text-xs font-black text-amber-600 dark:text-amber-400 uppercase tracking-wider">
+                Partial Item Rejection Notice
+              </h4>
+              <p className="text-[11px] text-muted-foreground font-medium mt-0.5 leading-tight">
+                {order.items.filter(i => i.status === 'rejected').length} item(s) out of stock and rejected by vendor. Bill subtotal updated.
+              </p>
+            </div>
+          </div>
+        )}
+
         <div className={`flex items-start justify-between mb-4`}>
           <div className="flex-1 min-w-0 pr-4 text-left">
             {!onClick && (
@@ -648,7 +662,7 @@ export const RenderOrderCard = ({
               {!showContact ? (
                 <button
                   onClick={(e) => { e.stopPropagation(); setShowContact(true); }}
-                  className="w-full h-full py-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-[10px] font-black uppercase tracking-widest hover:bg-amber-500/20 transition-all flex items-center justify-center gap-2 animate-pulse"
+                  className="w-full h-full py-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-[10px] font-black uppercase tracking-widest hover:bg-amber-500/20 transition-all flex items-center justify-center gap-2"
                 >
                   <Clock className="w-3.5 h-3.5" />
                   {t('common.receipts.acceptance_note')}
@@ -711,7 +725,7 @@ export const RenderOrderCard = ({
               <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-0.5">Total Amount</p>
               <p className="text-xl font-black text-primary leading-none">
                 {storeSymbol}{(() => {
-                  const itemsTotal = order.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+                  const itemsTotal = order.items.reduce((sum, item) => sum + (item.status === 'rejected' ? 0 : item.product.price * item.quantity), 0);
                   return itemsTotal + (order.deliveryFee || 0);
                 })()}
               </p>
@@ -770,16 +784,25 @@ export const RenderOrderCard = ({
           {standalone ? (
             <div className="space-y-2">
               {order.items.map((item, idx) => (
-                <div key={item.product.id} className="flex items-center gap-3 p-3 rounded-[1.5rem] bg-secondary/5 border border-border/20 shadow-sm">
+                <div key={item.product.id} className={`flex items-center gap-3 p-3 rounded-[1.5rem] border shadow-sm ${item.status === 'rejected' ? 'bg-rose-500/10 border-rose-500/30' : 'bg-secondary/5 border-border/20'}`}>
                    <div className="w-14 h-14 bg-white dark:bg-[#1A1A1A] rounded-xl flex items-center justify-center overflow-hidden border border-border/20 shadow-sm p-1 shrink-0">
                       {item.product.image ? (
-                        <img src={item.product.image} alt={item.product.name} className="w-full h-full object-contain rounded-lg" />
+                        <img src={item.product.image} alt={item.product.name} className={`w-full h-full object-contain rounded-lg ${item.status === 'rejected' ? 'grayscale opacity-60' : ''}`} />
                       ) : (
                         <Package className="w-6 h-6 text-muted-foreground opacity-30" />
                       )}
                    </div>
                    <div className="min-w-0 flex-1">
-                      <p className="font-bold text-xs text-foreground leading-tight break-words">{t(`products.${item.product.name}`, { defaultValue: item.product.name })}</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className={`font-bold text-xs leading-tight break-words ${item.status === 'rejected' ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
+                          {t(`products.${item.product.name}`, { defaultValue: item.product.name })}
+                        </p>
+                        {item.status === 'rejected' && (
+                          <span className="text-[9px] font-black text-rose-500 bg-rose-500/10 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                            Rejected / Out of Stock
+                          </span>
+                        )}
+                      </div>
                       {item.product.quantity && (
                         <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest mt-1 opacity-80">{item.product.quantity}</p>
                       )}
@@ -791,8 +814,8 @@ export const RenderOrderCard = ({
                       <div className="font-mono font-black text-sm text-primary bg-primary/5 px-2 py-1 rounded-lg border border-primary/10">
                         x{item.quantity}
                       </div>
-                      <p className="text-[10px] font-bold text-muted-foreground">
-                        {storeSymbol}{item.product.price * item.quantity}
+                      <p className={`text-[10px] font-bold ${item.status === 'rejected' ? 'line-through text-rose-400' : 'text-muted-foreground'}`}>
+                        {item.status === 'rejected' ? `${storeSymbol}0 (Excluded)` : `${storeSymbol}${item.product.price * item.quantity}`}
                       </p>
                    </div>
                 </div>
@@ -801,7 +824,7 @@ export const RenderOrderCard = ({
               {/* Detailed Summary for Standalone Receipts */}
               <div className="p-4 rounded-[1.5rem] bg-primary/5 border border-primary/10 space-y-2 mt-4 mb-6">
                  {(() => {
-                   const itemsTotal = order.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+                   const itemsTotal = order.items.reduce((sum, item) => sum + (item.status === 'rejected' ? 0 : item.product.price * item.quantity), 0);
                    const deliveryFee = order.deliveryFee || 0;
                    return (
                      <>
@@ -828,11 +851,12 @@ export const RenderOrderCard = ({
             <>
               {order.items.slice(0, 2).map(item => (
                 <div key={item.product.id} className="flex justify-between text-sm">
-                  <span className="text-muted-foreground line-clamp-1 flex-1 pr-4">
+                  <span className={`line-clamp-1 flex-1 pr-4 ${item.status === 'rejected' ? 'line-through text-rose-400 opacity-70' : 'text-muted-foreground'}`}>
                     {t(`products.${item.product.name}`, { defaultValue: item.product.name })}
                     {item.product.quantity && <span className="ml-1 text-[10px] opacity-70">({item.product.quantity})</span>}
+                    {item.status === 'rejected' && <span className="ml-1 font-bold text-rose-500">(Rejected)</span>}
                   </span>
-                  <span className="text-foreground font-bold shrink-0">
+                  <span className={`font-bold shrink-0 ${item.status === 'rejected' ? 'text-rose-400 line-through' : 'text-foreground'}`}>
                     × {item.quantity}
                   </span>
                 </div>
@@ -945,20 +969,27 @@ export const RenderOrderCard = ({
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: idx * 0.05 }}
-                    className="flex items-center gap-3 p-3 rounded-[1.5rem] bg-secondary/5 border border-border/20 group hover:bg-secondary/10 transition-all"
+                    className={`flex items-center gap-3 p-3 rounded-[1.5rem] border group transition-all ${item.status === 'rejected' ? 'bg-rose-500/10 border-rose-500/30' : 'bg-secondary/5 border-border/20 hover:bg-secondary/10'}`}
                   >
                     <div className="w-14 h-14 bg-white dark:bg-[#1A1A1A] rounded-xl flex items-center justify-center overflow-hidden border border-border/20 shadow-sm p-1 shrink-0 group-hover:scale-105 transition-transform">
                       {item.product.image ? (
-                        <img src={item.product.image} alt={item.product.name} className="w-full h-full object-contain rounded-lg" />
+                        <img src={item.product.image} alt={item.product.name} className={`w-full h-full object-contain rounded-lg ${item.status === 'rejected' ? 'grayscale opacity-60' : ''}`} />
                       ) : (
                         <Package className="w-6 h-6 text-muted-foreground opacity-20" />
                       )}
                     </div>
                     
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-bold text-xs text-foreground leading-tight truncate">
-                        {t(`products.${item.product.name}`, { defaultValue: item.product.name })}
-                      </h4>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className={`font-bold text-xs leading-tight truncate ${item.status === 'rejected' ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
+                          {t(`products.${item.product.name}`, { defaultValue: item.product.name })}
+                        </h4>
+                        {item.status === 'rejected' && (
+                          <span className="text-[9px] font-black text-rose-500 bg-rose-500/10 px-2 py-0.5 rounded-full uppercase">
+                            Out of Stock
+                          </span>
+                        )}
+                      </div>
                       <div className="flex items-center gap-2 mt-1.5">
                         <span className="text-[9px] font-black text-primary bg-primary/10 px-1.5 py-0.5 rounded-md">
                           {storeSymbol}{item.product.price}
@@ -973,8 +1004,8 @@ export const RenderOrderCard = ({
                       <div className="font-mono font-black text-sm text-foreground bg-secondary/30 px-2 py-0.5 rounded-lg border border-border/30">
                         x{item.quantity}
                       </div>
-                      <p className="text-xs font-black text-foreground">
-                        {storeSymbol}{item.product.price * item.quantity}
+                      <p className={`text-xs font-black ${item.status === 'rejected' ? 'line-through text-rose-400' : 'text-foreground'}`}>
+                        {item.status === 'rejected' ? `${storeSymbol}0 (Excluded)` : `${storeSymbol}${item.product.price * item.quantity}`}
                       </p>
                     </div>
                   </motion.div>
@@ -986,7 +1017,7 @@ export const RenderOrderCard = ({
                 <div className="space-y-3">
                   <div className="flex justify-between items-center text-xs font-bold">
                   <span className="text-muted-foreground uppercase tracking-widest">Items Subtotal</span>
-                  <span className="text-foreground">{storeSymbol}{order.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0)}</span>
+                  <span className="text-foreground">{storeSymbol}{order.items.reduce((sum, item) => sum + (item.status === 'rejected' ? 0 : item.product.price * item.quantity), 0)}</span>
                 </div>
                 {order.deliveryFee > 0 && (
                   <div className="flex justify-between items-center text-xs font-bold">
@@ -998,7 +1029,7 @@ export const RenderOrderCard = ({
                   <div className="space-y-0.5">
                     <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">Total Amount</p>
                     <p className="text-2xl font-black text-foreground leading-none">
-                      {storeSymbol}{order.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0) + (order.deliveryFee || 0)}
+                      {storeSymbol}{order.items.reduce((sum, item) => sum + (item.status === 'rejected' ? 0 : item.product.price * item.quantity), 0) + (order.deliveryFee || 0)}
                     </p>
                   </div>
                 </div>

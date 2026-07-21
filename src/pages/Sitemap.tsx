@@ -38,13 +38,19 @@ const Sitemap = () => {
   </url>`;
 
       stores
-        .filter(store => !store.isBlocked && store.plan && store.plan !== 'none')
+        .filter(store => !store.isBlocked)
         .forEach(store => {
-          const urlId = store.slug || store.id;
-          const path = store.slug ? `/stores/${store.slug}` : `/store/${store.id}`;
+          const mainPath = store.slug ? `/stores/${store.slug}` : `/store/${store.id}`;
+          const reviewPath = store.slug ? `/stores/${store.slug}/reviews` : `/store/${store.id}/reviews`;
           sitemap += `
   <url>
-    <loc>${baseUrl}${path}</loc>
+    <loc>${baseUrl}${mainPath}</loc>
+    <lastmod>${date}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>${baseUrl}${reviewPath}</loc>
     <lastmod>${date}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>

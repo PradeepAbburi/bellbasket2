@@ -93,12 +93,13 @@ const VendorPlans = () => {
             name: 'Growth Plan',
             price: '₹199',
             period: 'for 1 month',
-            description: 'For stores that want more visibility.',
+            description: 'For stores that want more visibility & sales deals.',
             icon: Zap,
             color: 'from-blue-500 to-indigo-600',
             popular: true,
             features: [
                 'Everything in Basic +',
+                'Flash Deals & Special Discounts',
                 '60 Product Listings',
                 'Higher ranking in search',
                 '“Featured Store” badge',
@@ -114,18 +115,19 @@ const VendorPlans = () => {
             name: 'Pro Plan',
             price: '₹399',
             period: 'for 1 month',
-            description: 'For serious supermarkets.',
+            description: 'For stores that want recruitment & maximum growth.',
             icon: Crown,
             color: 'from-amber-400 to-yellow-600',
             features: [
                 'Everything in Growth +',
+                'BellJobs (Post Jobs & Hire Staff)',
+                'Flash Deals & Combo Offers',
                 'Unlimited Product Listings',
                 'Highlighted listing at top',
                 'Sponsored placement',
                 'Store Branding (Logo)',
                 'Customer repeat analytics',
-                'Exportable sales reports',
-                'Custom discount tags'
+                'Exportable sales reports'
             ]
         }
     ];

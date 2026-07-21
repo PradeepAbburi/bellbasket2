@@ -56,6 +56,13 @@ const VendorJobsDashboard = () => {
       navigate('/');
       return;
     }
+    if (user.plan !== 'pro') {
+      toast.error("Pro Plan Required", {
+        description: "BellJobs (Recruitment & Hiring) is exclusive to Pro Plan members. Upgrade to access."
+      });
+      navigate('/vendor/subscription');
+      return;
+    }
 
     // Fetch Vendor Jobs
     const jobsQ = query(collection(db, 'bell_jobs'), where('vendorId', '==', user.id));
@@ -122,7 +129,7 @@ const VendorJobsDashboard = () => {
           </div>
           <button
             onClick={() => navigate('/vendor/jobs/new')}
-            className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all"
+            className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest shadow-sm hover:scale-105 active:scale-95 transition-all"
           >
             <Plus className="w-4 h-4" /> Post New Job
           </button>

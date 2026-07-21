@@ -185,10 +185,14 @@ export const sendInAppNotification = async (
         await addDoc(collection(db, 'notifications'), notificationData);
         console.log(`[Notification] In-app alert queued for user ${targetUserId} (Type: ${notification.type})`);
 
-        // Attempt push notification via backend. 
-        // Note: This 404s on local 'npm run dev' unless 'vercel dev' is used.
-        const isLocal = window.location.hostname === 'localhost';
-        
+        // Attempt push notification via backend on production environment.
+        // On localhost, in-app Firestore notification is saved above.
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        if (isLocal) {
+            console.info('ℹ️ [Notification] Local environment: In-app notification saved to Firestore.');
+            return;
+        }
+
         fetch('/api/notify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -201,21 +205,13 @@ export const sendInAppNotification = async (
             })
         }).then(async (res) => {
             if (!res.ok) {
-                if (res.status === 404 && isLocal) {
-                    console.info('ℹ️ [Push] Backend notified: 404 (Local dev skip). Tip: Run "vercel dev" to test local push notifications.');
-                    return;
-                }
                 const errData = await res.json().catch(() => ({ error: 'Unknown Error' }));
                 console.warn('⚠️ [Push] Backend skipped/failed:', res.status, errData);
             } else {
                 console.log('✅ [Push] Backend notified successfully');
             }
         }).catch(err => {
-            if (isLocal) {
-                console.info('ℹ️ [Push] Backend unreachable (Local dev).');
-            } else {
-                console.error('❌ [Push] Network/Fetch failed:', err);
-            }
+            console.warn('⚠️ [Push] Network/Fetch failed:', err);
         });
 
     } catch (err) {

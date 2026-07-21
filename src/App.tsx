@@ -244,6 +244,7 @@ const AppContent = () => {
             <Route path="/clips" element={<ErrorBoundary name="Clips"><ProtectedRoute><Clips /></ProtectedRoute></ErrorBoundary>} />
 
             <Route path="/vendor" element={<ErrorBoundary name="VendorDashboard"><VendorProtectedRoute><VendorDashboard /></VendorProtectedRoute></ErrorBoundary>} />
+            <Route path="/vendor/dashboard" element={<ErrorBoundary name="VendorDashboard"><VendorProtectedRoute><VendorDashboard /></VendorProtectedRoute></ErrorBoundary>} />
             <Route path="/vendor/products" element={<ErrorBoundary name="VendorProducts"><VendorProtectedRoute><VendorProducts /></VendorProtectedRoute></ErrorBoundary>} />
             <Route path="/vendor/products/new" element={<ErrorBoundary name="VendorNewProduct"><VendorProtectedRoute><VendorEditProduct /></VendorProtectedRoute></ErrorBoundary>} />
             <Route path="/vendor/products/edit/:id" element={<ErrorBoundary name="VendorEditProduct"><VendorProtectedRoute><VendorEditProduct /></VendorProtectedRoute></ErrorBoundary>} />

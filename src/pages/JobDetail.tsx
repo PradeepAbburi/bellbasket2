@@ -178,7 +178,7 @@ const JobDetail = () => {
                     })() : (
                         <button 
                             onClick={() => navigate(`/careers/apply/${id}`)}
-                            className="w-full md:w-auto bg-primary text-white px-10 py-5 rounded-2xl text-sm font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all active:scale-95"
+                            className="w-full md:w-auto bg-primary text-white px-10 py-5 rounded-2xl text-sm font-black uppercase tracking-widest hover:scale-[1.02] transition-all active:scale-95 shadow-sm"
                         >
                             Apply for this Role
                         </button>
@@ -250,7 +250,7 @@ const JobDetail = () => {
                     })() : (
                         <button 
                             onClick={() => navigate(`/careers/apply/${id}`)}
-                            className="bg-primary text-white px-10 py-5 rounded-2xl text-sm font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all"
+                            className="bg-primary text-white px-10 py-5 rounded-2xl text-sm font-black uppercase tracking-widest hover:scale-[1.02] transition-all shadow-sm"
                         >
                             Apply Now
                         </button>

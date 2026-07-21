@@ -211,6 +211,54 @@ const VendorOrders = () => {
     }
   };
 
+  const toggleItemRejection = async (orderId: string, itemProductId: string) => {
+    const order = orders.find(o => o.id === orderId);
+    if (!order) return;
+
+    const updatedItems = order.items.map(item => {
+      if (item.product.id === itemProductId) {
+        const isRejected = item.status === 'rejected';
+        return {
+          ...item,
+          status: isRejected ? 'accepted' : 'rejected',
+          rejectionReason: isRejected ? undefined : 'Out of stock'
+        };
+      }
+      return item;
+    });
+
+    const allRejected = updatedItems.every(item => item.status === 'rejected');
+
+    try {
+      if (allRejected) {
+        await updateDoc(doc(db, 'orders', orderId), {
+          items: updatedItems,
+          status: 'rejected',
+          rejectionReason: 'All items were rejected by vendor (out of stock)',
+          rejectedAt: new Date().toISOString()
+        });
+        toast.info("All items in order rejected. Order marked as rejected.");
+      } else {
+        await updateDoc(doc(db, 'orders', orderId), {
+          items: updatedItems
+        });
+        if (order.userId) {
+          const rejectedCount = updatedItems.filter(i => i.status === 'rejected').length;
+          sendInAppNotification(order.userId, {
+            title: '⚠️ Order Item Status Updated',
+            body: `${rejectedCount} item(s) from ${order.storeName} marked out of stock. Receipt updated.`,
+            url: `/receipt/${orderId}`,
+            type: 'order',
+            id: orderId
+          });
+        }
+        toast.success("Item status updated");
+      }
+    } catch (err) {
+      toast.error("Failed to update item status");
+    }
+  };
+
   const cancelOrderWithPin = async (orderId: string, correctPin: string) => {
     const inputPin = window.prompt("To cancel this order, please enter the Customer's Order PIN:");
 
@@ -440,8 +488,8 @@ const VendorOrders = () => {
                       </div>
                     </div>
                     <p className="font-semibold text-foreground text-sm">
-                      {order.items.length} {t('common.items')} · ₹{(() => {
-                        const itemsTotal = order.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+                      {order.items.filter(i => i.status !== 'rejected').length} of {order.items.length} {t('common.items')} · ₹{(() => {
+                        const itemsTotal = order.items.reduce((sum, item) => sum + (item.status === 'rejected' ? 0 : item.product.price * item.quantity), 0);
                         return itemsTotal + (order.deliveryFee || 0);
                       })()}
                     </p>
@@ -560,7 +608,7 @@ const VendorOrders = () => {
                       <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-0.5">Total Pay</p>
                       <p className="text-xl font-black text-primary leading-none">
                         ₹{(() => {
-                          const itemsTotal = order.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+                          const itemsTotal = order.items.reduce((sum, item) => sum + (item.status === 'rejected' ? 0 : item.product.price * item.quantity), 0);
                           return itemsTotal + (order.deliveryFee || 0);
                         })()}
                       </p>
@@ -752,33 +800,70 @@ const VendorOrders = () => {
                   </div>
                   <div className="space-y-2">
                     {selectedOrder.items.map(item => (
-                      <div key={item.product.id} className="flex justify-between items-center p-3 rounded-[1.5rem] bg-secondary/5 border border-border/20 shadow-sm transition-all hover:bg-secondary/10">
-                        <div className="flex items-center gap-3">
-                          <div className="w-14 h-14 bg-white dark:bg-[#1A1A1A] rounded-xl flex items-center justify-center overflow-hidden border border-border/20 shadow-sm p-1 shrink-0">
-                            {item.product.image ? (
-                              <img src={item.product.image} alt={item.product.name} className="w-full h-full object-contain rounded-lg" />
-                            ) : (
-                              <Package className="w-6 h-6 text-muted-foreground opacity-30" />
-                            )}
+                      <div key={item.product.id} className={`p-3 rounded-[1.5rem] border shadow-sm transition-all ${item.status === 'rejected' ? 'bg-rose-500/10 border-rose-500/30' : 'bg-secondary/5 border-border/20 hover:bg-secondary/10'}`}>
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center gap-3">
+                            <div className="w-14 h-14 bg-white dark:bg-[#1A1A1A] rounded-xl flex items-center justify-center overflow-hidden border border-border/20 shadow-sm p-1 shrink-0">
+                              {item.product.image ? (
+                                <img src={item.product.image} alt={item.product.name} className={`w-full h-full object-contain rounded-lg ${item.status === 'rejected' ? 'grayscale opacity-60' : ''}`} />
+                              ) : (
+                                <Package className="w-6 h-6 text-muted-foreground opacity-30" />
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className={`font-bold text-xs leading-tight break-words ${item.status === 'rejected' ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
+                                  {t(`products.${item.product.name}`, { defaultValue: item.product.name })}
+                                </p>
+                                {item.status === 'rejected' && (
+                                  <span className="text-[9px] font-black text-rose-500 bg-rose-500/10 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                                    Rejected / Out of Stock
+                                  </span>
+                                )}
+                              </div>
+                              {item.product.quantity && (
+                                <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest mt-1 opacity-80">{item.product.quantity}</p>
+                              )}
+                              <p className="text-[9px] font-black text-primary mt-1.5 opacity-90">
+                                ₹{item.product.price} / unit
+                              </p>
+                            </div>
                           </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="font-bold text-xs text-foreground leading-tight break-words">{t(`products.${item.product.name}`, { defaultValue: item.product.name })}</p>
-                            {item.product.quantity && (
-                              <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest mt-1 opacity-80">{item.product.quantity}</p>
-                            )}
-                             <p className="text-[9px] font-black text-primary mt-1.5 opacity-90">
-                               ₹{item.product.price} / unit
-                             </p>
-                           </div>
-                         </div>
-                         <div className="flex flex-col items-end gap-0.5 shrink-0 ml-4">
+                          <div className="flex flex-col items-end gap-0.5 shrink-0 ml-4">
                             <div className="font-mono font-black text-sm text-primary bg-primary/5 px-2 py-1 rounded-lg border border-primary/10">
-                             x{item.quantity}
-                           </div>
-                           <p className="text-[10px] font-bold text-muted-foreground">
-                             ₹{item.product.price * item.quantity}
-                           </p>
-                         </div>
+                              x{item.quantity}
+                            </div>
+                            <p className={`text-[10px] font-bold ${item.status === 'rejected' ? 'line-through text-rose-400' : 'text-muted-foreground'}`}>
+                              {item.status === 'rejected' ? '₹0 (Excluded)' : `₹${item.product.price * item.quantity}`}
+                            </p>
+                          </div>
+                        </div>
+
+                        {!['completed', 'rejected'].includes(selectedOrder.status) && (
+                          <div className="mt-2.5 pt-2 border-t border-border/10 flex justify-between items-center">
+                            <span className="text-[9px] text-muted-foreground font-medium">
+                              {item.status === 'rejected' ? 'Item excluded from bill' : 'Item available in stock'}
+                            </span>
+                            <button
+                              onClick={() => toggleItemRejection(selectedOrder.id, item.product.id)}
+                              className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all flex items-center gap-1 ${
+                                item.status === 'rejected'
+                                  ? 'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20'
+                                  : 'bg-rose-500/10 text-rose-500 hover:bg-rose-500/20'
+                              }`}
+                            >
+                              {item.status === 'rejected' ? (
+                                <>
+                                  <Check className="w-3 h-3" /> Re-include Item
+                                </>
+                              ) : (
+                                <>
+                                  <X className="w-3 h-3" /> Reject Item (Out of Stock)
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -786,7 +871,7 @@ const VendorOrders = () => {
                    {/* Summary Info - In Scroll View */}
                    <div className="p-4 rounded-[1.5rem] bg-primary/5 border border-primary/10 space-y-2 mt-4 mb-6">
                       {(() => {
-                        const itemsTotal = selectedOrder.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+                        const itemsTotal = selectedOrder.items.reduce((sum, item) => sum + (item.status === 'rejected' ? 0 : item.product.price * item.quantity), 0);
                         const deliveryFee = selectedOrder.deliveryFee || 0;
                         return (
                           <>

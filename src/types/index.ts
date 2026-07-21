@@ -99,6 +99,8 @@ export interface CartItem {
   storeName: string;
   storePhone?: string;
   quantity: number;
+  status?: 'accepted' | 'rejected';
+  rejectionReason?: string;
 }
 
 
