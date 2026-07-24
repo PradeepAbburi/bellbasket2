@@ -45,9 +45,19 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode, name: s
   }
 }
 
+import { useIsMobile } from "@/hooks/use-mobile";
+
 // Lazy Loaded Pages
 import Index from "./pages/Index";
 import CustomerHome from "./pages/CustomerHome";
+
+const IndexRoute = () => {
+  const isMobile = useIsMobile();
+  if (isMobile) {
+    return <Navigate to="/browse" replace />;
+  }
+  return <Index />;
+};
 import StoreDetail from "./pages/StoreDetail";
 import Cart from "./pages/Basket";
 import Receipts from "./pages/Receipts";
@@ -220,7 +230,7 @@ const AppContent = () => {
       <div className="flex flex-col min-h-screen">
         <Suspense fallback={<PageLoading />}>
           <Routes>
-            <Route path="/" element={<ErrorBoundary name="Index"><Index /></ErrorBoundary>} />
+            <Route path="/" element={<ErrorBoundary name="Index"><IndexRoute /></ErrorBoundary>} />
             <Route path="/about" element={<ErrorBoundary name="About"><About /></ErrorBoundary>} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/reset-password" element={<ResetPassword />} />
