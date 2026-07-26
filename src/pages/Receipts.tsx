@@ -527,7 +527,7 @@ const Receipts = () => {
                         <ShoppingCart className="w-6 h-6" />
                       </div>
                       <div className="text-left">
-                        <p className="text-xs font-black uppercase tracking-[0.2em] opacity-80 leading-none mb-1">My Active Basket</p>
+                        <p className="text-xs font-black uppercase tracking-[0.2em] opacity-80 leading-none mb-1">My Active Shopping List</p>
                         <p className="text-xl font-black tracking-tight">{cartSymbol}{cartSubtotal}</p>
                       </div>
                     </div>
@@ -673,7 +673,7 @@ const Receipts = () => {
                         vendorInfo={vendorInfoState[order.storeId]} getStoreForOrder={getStoreForOrder}
                         userCoords={userCoords} isSelected={selectedIds.includes(order.id)}
                         onToggleSelect={() => toggleSelect(order.id)} onLongPress={() => toggleSelect(order.id)}
-                        showSelection={view === 'history' && selectedIds.length > 0}
+                        showSelection={false}
                         hasReviewedStore={Array.isArray(getStoreForOrder(order.storeId)?.reviews) && getStoreForOrder(order.storeId)!.reviews!.some((r: any) => r.userId === user?.id)}
                         onClick={() => { 
                           navigate(`/receipt/${order.id}`); 
@@ -741,7 +741,7 @@ const Receipts = () => {
                         vendorInfo={vendorInfoState[booking.storeId]} getStoreForOrder={getStoreForOrder}
                         userCoords={userCoords} isSelected={selectedIds.includes(booking.id)}
                         onToggleSelect={() => toggleSelect(booking.id)} onLongPress={() => toggleSelect(booking.id)}
-                        showSelection={view === 'history' && selectedIds.length > 0}
+                        showSelection={false}
                         hasReviewedStore={Array.isArray(getStoreForOrder(booking.storeId)?.reviews) && getStoreForOrder(booking.storeId)!.reviews!.some((r: any) => r.userId === user?.id)}
                         onClick={() => { 
                           navigate(`/receipt/${booking.id}`); 

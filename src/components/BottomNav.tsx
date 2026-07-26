@@ -84,7 +84,7 @@ const BottomNav = () => {
                                 </div>
                             </div>
                             <div className="flex items-center gap-1.5 bg-white/20 px-3 py-1.5 rounded-xl text-primary-foreground text-[11px] font-black uppercase tracking-widest">
-                                View Cart
+                                View Shopping List
                                 <ChevronRight className="w-3.5 h-3.5" />
                             </div>
                         </div>

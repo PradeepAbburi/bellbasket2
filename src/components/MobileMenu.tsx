@@ -189,7 +189,7 @@ const MobileMenu = ({
                   >
                     <div className="flex items-center gap-3">
                       <ShoppingBag className="w-5 h-5 text-primary" />
-                      <span className="font-bold text-sm">My Orders</span>
+                      <span className="font-bold text-sm">My Shopping Lists</span>
                     </div>
                     {activeReceiptsCount > 0 && (
                       <span className="bg-primary text-white text-[10px] font-black px-2 py-0.5 rounded-full">
@@ -204,7 +204,7 @@ const MobileMenu = ({
                   >
                     <div className="flex items-center gap-3">
                       <ShoppingCart className="w-5 h-5 text-primary" />
-                      <span className="font-bold text-sm">My Cart</span>
+                      <span className="font-bold text-sm">Shopping List</span>
                     </div>
                     {cartCount > 0 && (
                       <span className="bg-primary text-white text-[10px] font-black px-2 py-0.5 rounded-full">

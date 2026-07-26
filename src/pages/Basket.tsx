@@ -69,7 +69,7 @@ const Cart = () => {
   const startOrder = (method: 'online' | 'pickup' | 'delivery') => {
     if (!user) {
       toast.info('Sign in to continue', {
-        description: 'You need an account to place orders.',
+        description: 'You need an account to create shopping lists.',
       });
       navigate('/auth?returnTo=/cart');
       return;
@@ -150,9 +150,9 @@ const Cart = () => {
                     <span className="px-2 py-0.5 rounded-lg bg-primary text-black text-[9px] font-black uppercase tracking-widest">Multi-Store</span>
                     <span className="text-[10px] text-primary font-bold uppercase tracking-widest animate-pulse">Thread Active</span>
                   </div>
-                  <h2 className="text-lg font-black text-foreground tracking-tight leading-none mb-1.5">Thread Order Mode</h2>
+                  <h2 className="text-lg font-black text-foreground tracking-tight leading-none mb-1.5">Multi-Store Shopping List Mode</h2>
                   <p className="text-xs text-muted-foreground font-medium leading-relaxed">
-                    You're ordering from <span className="text-foreground font-black underline decoration-primary/30 decoration-2">{groupIds.length} different stores</span> at once.
+                    You're creating a shopping list from <span className="text-foreground font-black underline decoration-primary/30 decoration-2">{groupIds.length} different stores</span> at once.
                   </p>
                 </div>
                 <div className="flex flex-col items-end gap-1 shrink-0 ml-2">

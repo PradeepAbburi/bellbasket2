@@ -781,6 +781,7 @@ const VendorStoreConfig = () => {
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pb-8">
                             {Object.keys(CATEGORY_METADATA)
                                 .filter(cat => 
+                                    CATEGORY_METADATA[cat].type === tempStoreType &&
                                     (cat.toLowerCase().includes(catSearch.toLowerCase()) || catSearch === '')
                                 )
                                 .map(catName => {

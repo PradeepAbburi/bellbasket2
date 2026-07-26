@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ServiceBooking, Store, Order } from '@/types';
 import { getAvatarUrl } from '@/utils/avatars';
-import { Trash2, CheckCircle2, Circle, Clock, Star, MapPin, Navigation, Phone, User as UserIcon, KeyRound, Package, Share2, Copy, EyeOff, X, AlertCircle } from 'lucide-react';
+import { Trash2, CheckCircle2, Circle, Clock, Star, MapPin, Navigation, Phone, User as UserIcon, KeyRound, Package, Share2, Copy, EyeOff, X, AlertCircle, CheckSquare, Square } from 'lucide-react';
 import MapView from './MapView';
 import { toast } from 'sonner';
 import { useApp } from '@/context/AppContext';
@@ -450,6 +450,26 @@ export const RenderOrderCard = ({
   const { setIsAnyModalOpen } = useApp();
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
 
+  const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>(() => {
+    try {
+      const saved = localStorage.getItem(`receipt_checked_${order.id}`);
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      return {};
+    }
+  });
+
+  const toggleCheckItem = (itemId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setCheckedItems(prev => {
+      const updated = { ...prev, [itemId]: !prev[itemId] };
+      localStorage.setItem(`receipt_checked_${order.id}`, JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const checkedCount = order.items.filter(item => checkedItems[item.product.id]).length;
+
   useEffect(() => {
     setIsAnyModalOpen(showProductsModal);
     return () => setIsAnyModalOpen(false);
@@ -783,43 +803,88 @@ export const RenderOrderCard = ({
           
           {standalone ? (
             <div className="space-y-2">
-              {order.items.map((item, idx) => (
-                <div key={item.product.id} className={`flex items-center gap-3 p-3 rounded-[1.5rem] border shadow-sm ${item.status === 'rejected' ? 'bg-rose-500/10 border-rose-500/30' : 'bg-secondary/5 border-border/20'}`}>
-                   <div className="w-14 h-14 bg-white dark:bg-[#1A1A1A] rounded-xl flex items-center justify-center overflow-hidden border border-border/20 shadow-sm p-1 shrink-0">
-                      {item.product.image ? (
-                        <img src={item.product.image} alt={item.product.name} className={`w-full h-full object-contain rounded-lg ${item.status === 'rejected' ? 'grayscale opacity-60' : ''}`} />
-                      ) : (
-                        <Package className="w-6 h-6 text-muted-foreground opacity-30" />
-                      )}
-                   </div>
-                   <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className={`font-bold text-xs leading-tight break-words ${item.status === 'rejected' ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
-                          {t(`products.${item.product.name}`, { defaultValue: item.product.name })}
-                        </p>
-                        {item.status === 'rejected' && (
-                          <span className="text-[9px] font-black text-rose-500 bg-rose-500/10 px-2 py-0.5 rounded-full uppercase tracking-wider">
-                            Rejected / Out of Stock
-                          </span>
-                        )}
-                      </div>
-                      {item.product.quantity && (
-                        <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest mt-1 opacity-80">{item.product.quantity}</p>
-                      )}
-                      <p className="text-[9px] font-black text-primary mt-1.5 opacity-90">
-                        {storeSymbol}{item.product.price} / unit
-                      </p>
-                   </div>
-                   <div className="flex flex-col items-end gap-0.5 shrink-0 ml-4">
-                      <div className="font-mono font-black text-sm text-primary bg-primary/5 px-2 py-1 rounded-lg border border-primary/10">
-                        x{item.quantity}
-                      </div>
-                      <p className={`text-[10px] font-bold ${item.status === 'rejected' ? 'line-through text-rose-400' : 'text-muted-foreground'}`}>
-                        {item.status === 'rejected' ? `${storeSymbol}0 (Excluded)` : `${storeSymbol}${item.product.price * item.quantity}`}
-                      </p>
-                   </div>
+              {/* Shopping Progress Banner */}
+              <div className="p-3 rounded-2xl bg-blue-500/10 border border-blue-500/20 mb-3 flex flex-col gap-1.5">
+                <div className="flex items-center justify-between text-[11px] font-black">
+                  <span className="text-blue-600 dark:text-blue-400 uppercase tracking-widest flex items-center gap-1.5">
+                    <CheckSquare className="w-3.5 h-3.5" /> Shopping Checklist
+                  </span>
+                  <span className="text-blue-600 dark:text-blue-400 font-mono">
+                    {checkedCount} / {order.items.length} Checked
+                  </span>
                 </div>
-              ))}
+                <div className="w-full h-1.5 bg-blue-500/20 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-blue-500 transition-all duration-300 rounded-full"
+                    style={{ width: `${order.items.length > 0 ? (checkedCount / order.items.length) * 100 : 0}%` }}
+                  />
+                </div>
+              </div>
+
+              {order.items.map((item, idx) => {
+                const isChecked = !!checkedItems[item.product.id];
+                return (
+                  <div 
+                    key={item.product.id} 
+                    onClick={(e) => toggleCheckItem(item.product.id, e)}
+                    className={`flex items-center gap-3 p-3 rounded-[1.5rem] border shadow-sm cursor-pointer transition-all ${
+                      isChecked 
+                        ? 'bg-emerald-500/10 border-emerald-500/40 shadow-emerald-500/5' 
+                        : item.status === 'rejected' ? 'bg-rose-500/10 border-rose-500/30' : 'bg-secondary/5 border-border/20 hover:bg-secondary/10'
+                    }`}
+                  >
+                     <button
+                        type="button"
+                        onClick={(e) => toggleCheckItem(item.product.id, e)}
+                        className="p-1 rounded-lg shrink-0 focus:outline-none"
+                     >
+                       {isChecked ? (
+                         <CheckSquare className="w-5 h-5 text-emerald-500 transition-transform active:scale-90" />
+                       ) : (
+                         <Square className="w-5 h-5 text-muted-foreground/40 hover:text-primary transition-colors active:scale-90" />
+                       )}
+                     </button>
+                     <div className="w-12 h-12 bg-white dark:bg-[#1A1A1A] rounded-xl flex items-center justify-center overflow-hidden border border-border/20 shadow-sm p-1 shrink-0">
+                        {item.product.image ? (
+                          <img src={item.product.image} alt={item.product.name} className={`w-full h-full object-contain rounded-lg ${item.status === 'rejected' ? 'grayscale opacity-60' : isChecked ? 'opacity-70' : ''}`} />
+                        ) : (
+                          <Package className="w-6 h-6 text-muted-foreground opacity-30" />
+                        )}
+                     </div>
+                     <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className={`font-bold text-xs leading-tight break-words ${isChecked ? 'line-through text-emerald-700 dark:text-emerald-400 font-extrabold' : item.status === 'rejected' ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
+                            {t(`products.${item.product.name}`, { defaultValue: item.product.name })}
+                          </p>
+                          {isChecked && (
+                            <span className="text-[9px] font-black text-emerald-600 bg-emerald-500/20 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                              Checked ✓
+                            </span>
+                          )}
+                          {item.status === 'rejected' && (
+                            <span className="text-[9px] font-black text-rose-500 bg-rose-500/10 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                              Rejected / Out of Stock
+                            </span>
+                          )}
+                        </div>
+                        {item.product.quantity && (
+                          <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest mt-1 opacity-80">{item.product.quantity}</p>
+                        )}
+                        <p className="text-[9px] font-black text-primary mt-1.5 opacity-90">
+                          {storeSymbol}{item.product.price} / unit
+                        </p>
+                     </div>
+                     <div className="flex flex-col items-end gap-0.5 shrink-0 ml-2">
+                        <div className="font-mono font-black text-sm text-primary bg-primary/5 px-2 py-1 rounded-lg border border-primary/10">
+                          x{item.quantity}
+                        </div>
+                        <p className={`text-[10px] font-bold ${item.status === 'rejected' ? 'line-through text-rose-400' : isChecked ? 'text-emerald-600' : 'text-muted-foreground'}`}>
+                          {item.status === 'rejected' ? `${storeSymbol}0 (Excluded)` : `${storeSymbol}${item.product.price * item.quantity}`}
+                        </p>
+                     </div>
+                  </div>
+                );
+              })}
               
               {/* Detailed Summary for Standalone Receipts */}
               <div className="p-4 rounded-[1.5rem] bg-primary/5 border border-primary/10 space-y-2 mt-4 mb-6">
@@ -946,12 +1011,17 @@ export const RenderOrderCard = ({
               className="bg-card dark:bg-[#1A1A1A] w-full max-w-lg rounded-[2.5rem] flex flex-col max-h-[90vh] shadow-2xl overflow-hidden border border-border/50"
             >
               {/* Modal Header - Fixed Compact Height */}
-              <div className="h-[70px] px-6 flex items-center justify-between bg-secondary/20 border-b border-border/10 shrink-0">
+              <div className="h-[75px] px-6 flex items-center justify-between bg-secondary/20 border-b border-border/10 shrink-0">
                 <div className="space-y-0.5">
-                  <h2 className="text-lg font-black text-foreground tracking-tight uppercase">Order Items</h2>
-                  <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest bg-background/50 px-2 py-0.5 rounded-md w-fit">
-                    #{order.id.slice(-6).toUpperCase()}
-                  </p>
+                  <h2 className="text-base font-black text-foreground tracking-tight uppercase">Shopping List Checklist</h2>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold uppercase tracking-widest bg-blue-500/10 px-2 py-0.5 rounded-md w-fit">
+                      {checkedCount} / {order.items.length} Checked Off
+                    </span>
+                    <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest bg-background/50 px-2 py-0.5 rounded-md w-fit">
+                      #{order.id.slice(-6).toUpperCase()}
+                    </span>
+                  </div>
                 </div>
                 <button
                   onClick={() => setShowProductsModal(false)}
@@ -961,55 +1031,100 @@ export const RenderOrderCard = ({
                 </button>
               </div>
 
+              {/* Shopping Progress Bar */}
+              <div className="px-4 pt-3 pb-1 shrink-0">
+                <div className="p-3 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between text-[11px] font-black">
+                    <span className="text-blue-600 dark:text-blue-400 uppercase tracking-widest flex items-center gap-1.5">
+                      <CheckSquare className="w-3.5 h-3.5 text-blue-500" /> Checklist Progress
+                    </span>
+                    <span className="text-blue-600 dark:text-blue-400 font-mono">
+                      {checkedCount} of {order.items.length} Items
+                    </span>
+                  </div>
+                  <div className="w-full h-2 bg-blue-500/20 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-blue-500 transition-all duration-300 rounded-full"
+                      style={{ width: `${order.items.length > 0 ? (checkedCount / order.items.length) * 100 : 0}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+
               {/* Scrollable Content Area */}
               <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
-                {order.items.map((item, idx) => (
-                  <motion.div 
-                    key={item.product.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: idx * 0.05 }}
-                    className={`flex items-center gap-3 p-3 rounded-[1.5rem] border group transition-all ${item.status === 'rejected' ? 'bg-rose-500/10 border-rose-500/30' : 'bg-secondary/5 border-border/20 hover:bg-secondary/10'}`}
-                  >
-                    <div className="w-14 h-14 bg-white dark:bg-[#1A1A1A] rounded-xl flex items-center justify-center overflow-hidden border border-border/20 shadow-sm p-1 shrink-0 group-hover:scale-105 transition-transform">
-                      {item.product.image ? (
-                        <img src={item.product.image} alt={item.product.name} className={`w-full h-full object-contain rounded-lg ${item.status === 'rejected' ? 'grayscale opacity-60' : ''}`} />
-                      ) : (
-                        <Package className="w-6 h-6 text-muted-foreground opacity-20" />
-                      )}
-                    </div>
-                    
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h4 className={`font-bold text-xs leading-tight truncate ${item.status === 'rejected' ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
-                          {t(`products.${item.product.name}`, { defaultValue: item.product.name })}
-                        </h4>
-                        {item.status === 'rejected' && (
-                          <span className="text-[9px] font-black text-rose-500 bg-rose-500/10 px-2 py-0.5 rounded-full uppercase">
-                            Out of Stock
-                          </span>
+                {order.items.map((item, idx) => {
+                  const isChecked = !!checkedItems[item.product.id];
+                  return (
+                    <motion.div 
+                      key={item.product.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: idx * 0.05 }}
+                      onClick={(e) => toggleCheckItem(item.product.id, e)}
+                      className={`flex items-center gap-3 p-3 rounded-[1.5rem] border group transition-all cursor-pointer ${
+                        isChecked 
+                          ? 'bg-emerald-500/10 border-emerald-500/40' 
+                          : item.status === 'rejected' ? 'bg-rose-500/10 border-rose-500/30' : 'bg-secondary/5 border-border/20 hover:bg-secondary/10'
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={(e) => toggleCheckItem(item.product.id, e)}
+                        className="p-1 rounded-lg shrink-0 focus:outline-none"
+                      >
+                        {isChecked ? (
+                          <CheckSquare className="w-5 h-5 text-emerald-500 transition-transform active:scale-90" />
+                        ) : (
+                          <Square className="w-5 h-5 text-muted-foreground/40 hover:text-primary transition-colors active:scale-90" />
+                        )}
+                      </button>
+
+                      <div className="w-14 h-14 bg-white dark:bg-[#1A1A1A] rounded-xl flex items-center justify-center overflow-hidden border border-border/20 shadow-sm p-1 shrink-0 group-hover:scale-105 transition-transform">
+                        {item.product.image ? (
+                          <img src={item.product.image} alt={item.product.name} className={`w-full h-full object-contain rounded-lg ${item.status === 'rejected' ? 'grayscale opacity-60' : isChecked ? 'opacity-70' : ''}`} />
+                        ) : (
+                          <Package className="w-6 h-6 text-muted-foreground opacity-20" />
                         )}
                       </div>
-                      <div className="flex items-center gap-2 mt-1.5">
-                        <span className="text-[9px] font-black text-primary bg-primary/10 px-1.5 py-0.5 rounded-md">
-                          {storeSymbol}{item.product.price}
-                        </span>
-                        <span className="text-[9px] font-medium text-muted-foreground uppercase tracking-wider">
-                          per unit
-                        </span>
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className={`font-bold text-xs leading-tight truncate ${isChecked ? 'line-through text-emerald-700 dark:text-emerald-400 font-extrabold' : item.status === 'rejected' ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
+                            {t(`products.${item.product.name}`, { defaultValue: item.product.name })}
+                          </h4>
+                          {isChecked && (
+                            <span className="text-[9px] font-black text-emerald-600 bg-emerald-500/20 px-2 py-0.5 rounded-full uppercase">
+                              Checked ✓
+                            </span>
+                          )}
+                          {item.status === 'rejected' && (
+                            <span className="text-[9px] font-black text-rose-500 bg-rose-500/10 px-2 py-0.5 rounded-full uppercase">
+                              Out of Stock
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 mt-1.5">
+                          <span className="text-[9px] font-black text-primary bg-primary/10 px-1.5 py-0.5 rounded-md">
+                            {storeSymbol}{item.product.price}
+                          </span>
+                          <span className="text-[9px] font-medium text-muted-foreground uppercase tracking-wider">
+                            per unit
+                          </span>
+                        </div>
                       </div>
-                    </div>
 
-                    <div className="flex flex-col items-end gap-0.5 shrink-0">
-                      <div className="font-mono font-black text-sm text-foreground bg-secondary/30 px-2 py-0.5 rounded-lg border border-border/30">
-                        x{item.quantity}
+                      <div className="flex flex-col items-end gap-0.5 shrink-0">
+                        <div className="font-mono font-black text-sm text-foreground bg-secondary/30 px-2 py-0.5 rounded-lg border border-border/30">
+                          x{item.quantity}
+                        </div>
+                        <p className={`text-xs font-black ${item.status === 'rejected' ? 'line-through text-rose-400' : isChecked ? 'text-emerald-600' : 'text-foreground'}`}>
+                          {item.status === 'rejected' ? `${storeSymbol}0 (Excluded)` : `${storeSymbol}${item.product.price * item.quantity}`}
+                        </p>
                       </div>
-                      <p className={`text-xs font-black ${item.status === 'rejected' ? 'line-through text-rose-400' : 'text-foreground'}`}>
-                        {item.status === 'rejected' ? `${storeSymbol}0 (Excluded)` : `${storeSymbol}${item.product.price * item.quantity}`}
-                      </p>
-                    </div>
-                  </motion.div>
-                ))}
+                    </motion.div>
+                  );
+                })}
               </div>
 
               {/* Modal Footer - Compact Sticky */}
