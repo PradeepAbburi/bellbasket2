@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, ArrowRight, Check, Package, Shield, Key, Phone, KeyRound, X, Trash2, RefreshCcw, MapPin, Clock, Share2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Package, Shield, Key, Phone, KeyRound, X, Trash2, RefreshCcw, MapPin, Clock, Share2, CheckSquare, Square } from 'lucide-react';
 
 import PullToRefresh from '@/components/ui/PullToRefresh';
 import { useNavigate } from 'react-router-dom';
@@ -36,6 +36,29 @@ const VendorOrders = () => {
   const [rejectionReasonInput, setRejectionReasonInput] = useState('');
   const [isSubmittingRejection, setIsSubmittingRejection] = useState(false);
   const [rejectionsToHideInSession, setRejectionsToHideInSession] = useState<Set<string>>(new Set());
+
+  const [vendorCheckedItems, setVendorCheckedItems] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (selectedOrderId) {
+      try {
+        const saved = localStorage.getItem(`vendor_checked_${selectedOrderId}`);
+        setVendorCheckedItems(saved ? JSON.parse(saved) : {});
+      } catch (e) {
+        setVendorCheckedItems({});
+      }
+    }
+  }, [selectedOrderId]);
+
+  const toggleVendorCheckItem = (itemId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!selectedOrderId) return;
+    setVendorCheckedItems(prev => {
+      const updated = { ...prev, [itemId]: !prev[itemId] };
+      localStorage.setItem(`vendor_checked_${selectedOrderId}`, JSON.stringify(updated));
+      return updated;
+    });
+  };
 
   // Use global modal state to hide nav elements
   useEffect(() => {
@@ -88,6 +111,46 @@ const VendorOrders = () => {
 
   const displayOrders = view === 'active' ? activeOrders : pastOrders;
   const selectedOrder = orders.find(o => o.id === selectedOrderId) || null;
+
+  const validItems = useMemo(() => {
+    return selectedOrder ? selectedOrder.items.filter(item => item.status !== 'rejected') : [];
+  }, [selectedOrder]);
+
+  const vendorCheckedCount = useMemo(() => {
+    return validItems.filter(item => vendorCheckedItems[item.product.id]).length;
+  }, [validItems, vendorCheckedItems]);
+
+  const isAllPacked = validItems.length > 0 && vendorCheckedCount === validItems.length;
+
+  useEffect(() => {
+    if (!selectedOrder || ['completed', 'rejected'].includes(selectedOrder.status)) return;
+    if (isAllPacked) {
+      const orderIdToComplete = selectedOrder.id;
+      const storeName = selectedOrder.storeName;
+      const customerUserId = selectedOrder.userId;
+
+      const timer = setTimeout(async () => {
+        toast.success("📦 All items checked off! Completing order & sending to receipts...", {
+          icon: <Package className="w-4 h-4 text-emerald-500" />
+        });
+        await updateDoc(doc(db, 'orders', orderIdToComplete), { 
+          status: 'completed',
+          completedAt: new Date().toISOString() 
+        });
+        playBellSound(true);
+        if (customerUserId) {
+          sendInAppNotification(customerUserId, {
+            title: '🎉 Order Completed!',
+            body: `All items in your shopping list from ${storeName} have been packed and sent to receipts!`,
+            url: '/receipts',
+            type: 'order'
+          });
+        }
+        setSelectedOrderId(null);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [isAllPacked, selectedOrder?.id, selectedOrder?.status]);
 
   useEffect(() => {
     const fetchCustomers = async () => {
@@ -792,52 +855,113 @@ const VendorOrders = () => {
                   </div>
                 )}
 
-                {/* Product Review List */}
+                {/* Product Review List & Packing Checklist */}
                 <div className="space-y-3">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Package className="w-4 h-4 text-primary" />
-                    <h3 className="font-black text-[10px] text-foreground uppercase tracking-[0.2em]">Order Products ({selectedOrder.items.length})</h3>
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <Package className="w-4 h-4 text-primary" />
+                      <h3 className="font-black text-[10px] text-foreground uppercase tracking-[0.2em]">Order Products ({selectedOrder.items.length})</h3>
+                    </div>
+                    {!['completed', 'rejected'].includes(selectedOrder.status) && (
+                      <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold uppercase tracking-widest bg-blue-500/10 px-2 py-0.5 rounded-md">
+                        {vendorCheckedCount} / {validItems.length} Packed
+                      </span>
+                    )}
                   </div>
+
+                  {!['completed', 'rejected'].includes(selectedOrder.status) && (
+                    <div className="p-3 rounded-2xl bg-blue-500/10 border border-blue-500/20 mb-3 flex flex-col gap-1.5">
+                      <div className="flex items-center justify-between text-[11px] font-black">
+                        <span className="text-blue-600 dark:text-blue-400 uppercase tracking-widest flex items-center gap-1.5">
+                          <CheckSquare className="w-3.5 h-3.5 text-blue-500" /> Vendor Packing Checklist
+                        </span>
+                        <span className="text-blue-600 dark:text-blue-400 font-mono">
+                          {vendorCheckedCount} of {validItems.length} Items
+                        </span>
+                      </div>
+                      <div className="w-full h-2 bg-blue-500/20 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-blue-500 transition-all duration-300 rounded-full"
+                          style={{ width: `${validItems.length > 0 ? (vendorCheckedCount / validItems.length) * 100 : 0}%` }}
+                        />
+                      </div>
+                      {isAllPacked && (
+                        <div className="mt-1 text-[10px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-500/20 px-2 py-1 rounded-lg text-center uppercase tracking-widest animate-pulse">
+                          ✓ All items checked! Completing & sending to receipts...
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div className="space-y-2">
-                    {selectedOrder.items.map(item => (
-                      <div key={item.product.id} className={`p-3 rounded-[1.5rem] border shadow-sm transition-all ${item.status === 'rejected' ? 'bg-rose-500/10 border-rose-500/30' : 'bg-secondary/5 border-border/20 hover:bg-secondary/10'}`}>
-                        <div className="flex justify-between items-center">
-                          <div className="flex items-center gap-3">
-                            <div className="w-14 h-14 bg-white dark:bg-[#1A1A1A] rounded-xl flex items-center justify-center overflow-hidden border border-border/20 shadow-sm p-1 shrink-0">
-                              {item.product.image ? (
-                                <img src={item.product.image} alt={item.product.name} className={`w-full h-full object-contain rounded-lg ${item.status === 'rejected' ? 'grayscale opacity-60' : ''}`} />
-                              ) : (
-                                <Package className="w-6 h-6 text-muted-foreground opacity-30" />
+                    {selectedOrder.items.map(item => {
+                      const isChecked = !!vendorCheckedItems[item.product.id];
+                      return (
+                        <div 
+                          key={item.product.id} 
+                          onClick={(e) => !['completed', 'rejected'].includes(selectedOrder.status) && item.status !== 'rejected' && toggleVendorCheckItem(item.product.id, e)}
+                          className={`p-3 rounded-[1.5rem] border shadow-sm transition-all ${
+                            isChecked 
+                              ? 'bg-blue-500/10 border-blue-500/40' 
+                              : item.status === 'rejected' ? 'bg-rose-500/10 border-rose-500/30' : 'bg-secondary/5 border-border/20 hover:bg-secondary/10'
+                          } ${!['completed', 'rejected'].includes(selectedOrder.status) && item.status !== 'rejected' ? 'cursor-pointer' : ''}`}
+                        >
+                          <div className="flex justify-between items-center">
+                            <div className="flex items-center gap-3">
+                              {!['completed', 'rejected'].includes(selectedOrder.status) && item.status !== 'rejected' && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => toggleVendorCheckItem(item.product.id, e)}
+                                  className="p-1 rounded-lg shrink-0 focus:outline-none"
+                                >
+                                  {isChecked ? (
+                                    <CheckSquare className="w-5 h-5 text-blue-500 transition-transform active:scale-90" />
+                                  ) : (
+                                    <Square className="w-5 h-5 text-muted-foreground/40 hover:text-primary transition-colors active:scale-90" />
+                                  )}
+                                </button>
                               )}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <p className={`font-bold text-xs leading-tight break-words ${item.status === 'rejected' ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
-                                  {t(`products.${item.product.name}`, { defaultValue: item.product.name })}
-                                </p>
-                                {item.status === 'rejected' && (
-                                  <span className="text-[9px] font-black text-rose-500 bg-rose-500/10 px-2 py-0.5 rounded-full uppercase tracking-wider">
-                                    Rejected / Out of Stock
-                                  </span>
+
+                              <div className="w-14 h-14 bg-white dark:bg-[#1A1A1A] rounded-xl flex items-center justify-center overflow-hidden border border-border/20 shadow-sm p-1 shrink-0">
+                                {item.product.image ? (
+                                  <img src={item.product.image} alt={item.product.name} className={`w-full h-full object-contain rounded-lg ${item.status === 'rejected' ? 'grayscale opacity-60' : isChecked ? 'opacity-70' : ''}`} />
+                                ) : (
+                                  <Package className="w-6 h-6 text-muted-foreground opacity-30" />
                                 )}
                               </div>
-                              {item.product.quantity && (
-                                <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest mt-1 opacity-80">{item.product.quantity}</p>
-                              )}
-                              <p className="text-[9px] font-black text-primary mt-1.5 opacity-90">
-                                ₹{item.product.price} / unit
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className={`font-bold text-xs leading-tight break-words ${isChecked ? 'line-through text-blue-600 dark:text-blue-400 font-extrabold' : item.status === 'rejected' ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
+                                    {t(`products.${item.product.name}`, { defaultValue: item.product.name })}
+                                  </p>
+                                  {isChecked && (
+                                    <span className="text-[9px] font-black text-blue-600 bg-blue-500/20 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                                      Packed ✓
+                                    </span>
+                                  )}
+                                  {item.status === 'rejected' && (
+                                    <span className="text-[9px] font-black text-rose-500 bg-rose-500/10 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                                      Rejected / Out of Stock
+                                    </span>
+                                  )}
+                                </div>
+                                {item.product.quantity && (
+                                  <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest mt-1 opacity-80">{item.product.quantity}</p>
+                                )}
+                                <p className="text-[9px] font-black text-primary mt-1.5 opacity-90">
+                                  ₹{item.product.price} / unit
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex flex-col items-end gap-0.5 shrink-0 ml-4">
+                              <div className="font-mono font-black text-sm text-primary bg-primary/5 px-2 py-1 rounded-lg border border-primary/10">
+                                x{item.quantity}
+                              </div>
+                              <p className={`text-[10px] font-bold ${item.status === 'rejected' ? 'line-through text-rose-400' : isChecked ? 'text-blue-600' : 'text-muted-foreground'}`}>
+                                {item.status === 'rejected' ? '₹0 (Excluded)' : `₹${item.product.price * item.quantity}`}
                               </p>
                             </div>
                           </div>
-                          <div className="flex flex-col items-end gap-0.5 shrink-0 ml-4">
-                            <div className="font-mono font-black text-sm text-primary bg-primary/5 px-2 py-1 rounded-lg border border-primary/10">
-                              x{item.quantity}
-                            </div>
-                            <p className={`text-[10px] font-bold ${item.status === 'rejected' ? 'line-through text-rose-400' : 'text-muted-foreground'}`}>
-                              {item.status === 'rejected' ? '₹0 (Excluded)' : `₹${item.product.price * item.quantity}`}
-                            </p>
-                          </div>
-                        </div>
 
                         {!['completed', 'rejected'].includes(selectedOrder.status) && (
                           <div className="mt-2.5 pt-2 border-t border-border/10 flex justify-between items-center">
@@ -865,8 +989,9 @@ const VendorOrders = () => {
                           </div>
                         )}
                       </div>
-                    ))}
-                  </div>
+                    );
+                  })}
+                </div>
 
                    {/* Summary Info - In Scroll View */}
                    <div className="p-4 rounded-[1.5rem] bg-primary/5 border border-primary/10 space-y-2 mt-4 mb-6">
