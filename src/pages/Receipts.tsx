@@ -334,8 +334,19 @@ const Receipts = () => {
     findNewRejections();
   }, [loading, user, customerOrders.length, serviceBookings.length]);
 
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 3000);
+    return () => clearInterval(interval);
+  }, []);
+
   const activeOrders = customerOrders.filter(o => {
     if (o.status !== 'completed' && o.status !== 'rejected') return true;
+    if (o.status === 'completed') {
+      const completedAt = o.completedAt ? new Date(o.completedAt).getTime() : 0;
+      return completedAt > 0 && (now - completedAt) < 30000;
+    }
     if (o.status === 'rejected') {
       // Hide if timer expired in this session
       if (rejectionsToHideInSession.has(o.id)) return false;
@@ -350,7 +361,10 @@ const Receipts = () => {
   });
 
   const pastOrders = customerOrders.filter(o => {
-    if (o.status === 'completed') return true;
+    if (o.status === 'completed') {
+      const completedAt = o.completedAt ? new Date(o.completedAt).getTime() : 0;
+      return completedAt === 0 || (now - completedAt) >= 30000;
+    }
     if (o.status === 'rejected') {
       // Show if timer expired in this session
       if (rejectionsToHideInSession.has(o.id)) return true;

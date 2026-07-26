@@ -89,22 +89,36 @@ const VendorOrders = () => {
     });
   }, [allOrders, user?.id]);
 
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 3000);
+    return () => clearInterval(interval);
+  }, []);
+
   const activeOrders = orders.filter(o => {
     if (o.status !== 'completed' && o.status !== 'rejected') return true;
+    if (o.status === 'completed') {
+      const completedAt = o.completedAt ? new Date(o.completedAt).getTime() : 0;
+      return completedAt > 0 && (now - completedAt) < 30000;
+    }
     if (o.status === 'rejected') {
       if (rejectionsToHideInSession.has(o.id)) return false;
       const rejectedAt = o.rejectedAt ? new Date(o.rejectedAt).getTime() : 0;
-      return (Date.now() - rejectedAt) < 5000; // Stay in active for 5 seconds or until refresh
+      return (now - rejectedAt) < 5000;
     }
     return false;
   });
 
   const pastOrders = orders.filter(o => {
-    if (o.status === 'completed') return true;
+    if (o.status === 'completed') {
+      const completedAt = o.completedAt ? new Date(o.completedAt).getTime() : 0;
+      return completedAt === 0 || (now - completedAt) >= 30000;
+    }
     if (o.status === 'rejected') {
       if (rejectionsToHideInSession.has(o.id)) return true;
       const rejectedAt = o.rejectedAt ? new Date(o.rejectedAt).getTime() : 0;
-      return (Date.now() - rejectedAt) >= 5000;
+      return (now - rejectedAt) >= 5000;
     }
     return false;
   });
@@ -130,7 +144,7 @@ const VendorOrders = () => {
       const customerUserId = selectedOrder.userId;
 
       const timer = setTimeout(async () => {
-        toast.success("📦 All items checked off! Completing order & sending to receipts...", {
+        toast.success("📦 All items checked off! Completing & moving to history in 30s...", {
           icon: <Package className="w-4 h-4 text-emerald-500" />
         });
         await updateDoc(doc(db, 'orders', orderIdToComplete), { 
@@ -141,7 +155,7 @@ const VendorOrders = () => {
         if (customerUserId) {
           sendInAppNotification(customerUserId, {
             title: '🎉 Order Completed!',
-            body: `All items in your shopping list from ${storeName} have been packed and sent to receipts!`,
+            body: `All items in your shopping list from ${storeName} have been checked off & sent to history!`,
             url: '/receipts',
             type: 'order'
           });
