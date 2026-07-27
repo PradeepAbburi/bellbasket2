@@ -17,6 +17,7 @@ const Cart = () => {
   const [showConfirm, setShowConfirm] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [isPlacing, setIsPlacing] = useState(false);
+  const [pendingMethod, setPendingMethod] = useState<'online' | 'pickup' | 'delivery'>('pickup');
 
   if (loading) return <PageLoading />;
 
@@ -59,15 +60,15 @@ const Cart = () => {
       navigate('/auth?returnTo=/cart');
       return;
     }
-    setPendingMethod('pickup');
+    setPendingMethod(method);
     setShowConfirm(true);
   };
 
   const confirmOrder = async () => {
     if (isPlacing) return;
     setIsPlacing(true);
-    const orderId = await placeOrder('pickup', { 
-      deliveryMethod: 'pickup', 
+    const orderId = await placeOrder(pendingMethod, { 
+      deliveryMethod: pendingMethod, 
       deliveryFee: 0,
       customerName: user?.name || '',
       customerPhone: user?.phone || '',
