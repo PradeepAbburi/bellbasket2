@@ -605,30 +605,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
-  // Directly trigger system/browser native notification prompt on app/website entry
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
 
-    const autoPromptTimer = setTimeout(() => {
-      if ('Notification' in window && Notification.permission === 'default') {
-        requestPushNotifications().catch(() => {});
-      } else {
-        // Trigger Median / GoNative native push prompt bridge if running inside native Android app
-        const win = window as any;
-        if (win.gonative?.onesignal?.register) {
-          win.gonative.onesignal.register();
-        } else if (win.gonative?.push?.register) {
-          win.gonative.push.register();
-        } else if (win.median?.onesignal?.register) {
-          win.median.onesignal.register();
-        } else if (win.median?.push?.register) {
-          win.median.push.register();
-        }
-      }
-    }, 1500);
-
-    return () => clearTimeout(autoPromptTimer);
-  }, [requestPushNotifications]);
 
   const installPWA = async () => {
     if (!installPrompt) {
@@ -1315,6 +1292,31 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       console.error("Error requesting push notifications:", e);
     }
   }, []);
+
+  // Directly trigger system/browser native notification prompt on app/website entry
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const autoPromptTimer = setTimeout(() => {
+      if ('Notification' in window && Notification.permission === 'default') {
+        requestPushNotifications().catch(() => {});
+      } else {
+        // Trigger Median / GoNative native push prompt bridge if running inside native Android app
+        const win = window as any;
+        if (win.gonative?.onesignal?.register) {
+          win.gonative.onesignal.register();
+        } else if (win.gonative?.push?.register) {
+          win.gonative.push.register();
+        } else if (win.median?.onesignal?.register) {
+          win.median.onesignal.register();
+        } else if (win.median?.push?.register) {
+          win.median.push.register();
+        }
+      }
+    }, 1500);
+
+    return () => clearTimeout(autoPromptTimer);
+  }, [requestPushNotifications]);
 
   const isStoreSaved = React.useCallback((storeId: string) => {
     if (!user?.savedStores) return false;
