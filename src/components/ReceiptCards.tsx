@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ServiceBooking, Store, Order } from '@/types';
 import { getAvatarUrl } from '@/utils/avatars';
-import { Trash2, CheckCircle2, Circle, Clock, Star, MapPin, Navigation, Phone, User as UserIcon, KeyRound, Package, Share2, Copy, EyeOff, X, AlertCircle, CheckSquare, Square } from 'lucide-react';
+import { Trash2, CheckCircle2, Circle, Clock, Star, MapPin, Navigation, Phone, User as UserIcon, KeyRound, Package, Share2, Copy, EyeOff, X, AlertCircle, CheckSquare, Square, Loader2 } from 'lucide-react';
 import MapView from './MapView';
 import { toast } from 'sonner';
 import { useApp } from '@/context/AppContext';
 import { getCurrencySymbol } from '@/utils/currency';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 const statusColors: Record<string, string> = {
   pending: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
@@ -17,6 +19,7 @@ const statusColors: Record<string, string> = {
   out_for_delivery: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
   completed: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
   rejected: 'bg-rose-500/10 text-rose-500 border-rose-500/20',
+  cancelled: 'bg-rose-500/10 text-rose-500 border-rose-500/20',
 };
 
 const statusLabels: Record<string, string> = {
@@ -27,6 +30,7 @@ const statusLabels: Record<string, string> = {
   out_for_delivery: 'Out for Delivery',
   completed: 'Completed',
   rejected: 'Order Rejected',
+  cancelled: 'Order Cancelled',
 };
 
 const formatTo12Hr = (timeStr: string) => {
@@ -107,9 +111,34 @@ export const RenderBookingCard = ({
 }) => {
   const store = getStoreForOrder(booking.storeId);
   const navigate = useNavigate();
+  const { refreshData } = useApp();
   const [showContact, setShowContact] = useState(false);
   const [showCancelNote, setShowCancelNote] = useState(false);
+  const [isCancellingBooking, setIsCancellingBooking] = useState(false);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+
+  const handleCancelBooking = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isCancellingBooking) return;
+    if (!window.confirm("Are you sure you want to cancel this booking?")) return;
+    
+    setIsCancellingBooking(true);
+    try {
+      const bookingRef = doc(db, 'serviceBookings', booking.id);
+      await updateDoc(bookingRef, {
+        status: 'cancelled',
+        cancelledAt: new Date().toISOString(),
+        rejectionReason: 'Cancelled by customer'
+      });
+      toast.success("Booking cancelled successfully!");
+      refreshData();
+    } catch (err: any) {
+      console.error("Error cancelling booking:", err);
+      toast.error("Failed to cancel booking");
+    } finally {
+      setIsCancellingBooking(false);
+    }
+  };
 
   return (
     <motion.div
@@ -343,24 +372,16 @@ export const RenderBookingCard = ({
         )}
       </div>
 
-      {!['completed', 'rejected'].includes(booking.status) && (
+      {!['completed', 'rejected', 'cancelled'].includes(booking.status) && (
         <div className="mt-4 px-2">
-          {!showCancelNote ? (
-            <button 
-              onClick={(e) => { e.stopPropagation(); setShowCancelNote(true); }}
-              className="w-full py-3 rounded-xl bg-rose-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-rose-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-rose-600/20"
-            >
-              <X className="w-3.5 h-3.5" />
-              {t('common.receipts.cancel_booking')}
-            </button>
-          ) : (
-            <div className="px-4 py-2.5 rounded-xl bg-rose-500/5 border border-rose-500/10 flex items-center gap-3 text-left animate-in fade-in slide-in-from-top-2 duration-300">
-              <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
-              <p className="text-[10px] font-black text-rose-600 dark:text-rose-400 uppercase tracking-widest leading-tight">
-                {t('common.receipts.cancel_booking_note')}
-              </p>
-            </div>
-          )}
+          <button 
+            onClick={handleCancelBooking}
+            disabled={isCancellingBooking}
+            className="w-full py-3 rounded-xl bg-rose-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-rose-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-rose-600/20 disabled:opacity-50"
+          >
+            {isCancellingBooking ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <X className="w-3.5 h-3.5" />}
+            {t('common.receipts.cancel_booking')}
+          </button>
         </div>
       )}
 
@@ -447,8 +468,32 @@ export const RenderOrderCard = ({
   const [showContact, setShowContact] = useState(false);
   const [showCancelNote, setShowCancelNote] = useState(false);
   const [showProductsModal, setShowProductsModal] = useState(false);
-  const { setIsAnyModalOpen } = useApp();
+  const { setIsAnyModalOpen, refreshData } = useApp();
+  const [isCancellingOrder, setIsCancellingOrder] = useState(false);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+
+  const handleCancelOrder = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isCancellingOrder) return;
+    if (!window.confirm("Are you sure you want to cancel this order?")) return;
+    
+    setIsCancellingOrder(true);
+    try {
+      const orderRef = doc(db, 'orders', order.id);
+      await updateDoc(orderRef, {
+        status: 'cancelled',
+        cancelledAt: new Date().toISOString(),
+        rejectionReason: 'Cancelled by customer'
+      });
+      toast.success("Order cancelled successfully!");
+      refreshData();
+    } catch (err: any) {
+      console.error("Error cancelling order:", err);
+      toast.error("Failed to cancel order");
+    } finally {
+      setIsCancellingOrder(false);
+    }
+  };
 
   const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>(() => {
     try {
@@ -521,12 +566,8 @@ export const RenderOrderCard = ({
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent flex flex-col justify-end p-4">
               <div className="absolute top-4 right-4 z-10">
-                <div className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-2xl flex items-center gap-2 transition-all hover:scale-105 border-2 border-white/20 ${
-                  order.deliveryMethod === 'delivery' 
-                    ? 'bg-rose-600 text-white' 
-                    : 'bg-emerald-600 text-white'
-                }`}>
-                  {order.deliveryMethod === 'delivery' ? 'Delivery' : 'Pickup'}
+                <div className="px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-2xl flex items-center gap-2 transition-all hover:scale-105 border-2 border-white/20 bg-emerald-600 text-white">
+                  Pickup
                 </div>
               </div>
 
@@ -633,8 +674,7 @@ export const RenderOrderCard = ({
                 <AlertCircle className="w-4 h-4" />
               </button>
               <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full border shadow-sm ${statusColors[order.status] || statusColors.pending}`}>
-                {order.status === 'completed' && order.deliveryMethod === 'delivery' ? 'Delivered' : 
-                 t(`common.order_status.${order.status}`, { defaultValue: statusLabels[order.status] || order.status.toUpperCase() })}
+                {t(`common.order_status.${order.status}`, { defaultValue: statusLabels[order.status] || order.status.toUpperCase() })}
               </span>
             </div>
           </div>
@@ -704,28 +744,14 @@ export const RenderOrderCard = ({
             </div>
             
             <div className="flex-1">
-              {!showCancelNote ? (
-                <button 
-                  onClick={(e) => { e.stopPropagation(); setShowCancelNote(true); }}
-                  className="w-full h-full py-3 rounded-xl bg-rose-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-rose-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-rose-600/20"
-                >
-                  <X className="w-3.5 h-3.5" />
-                  {t('common.receipts.cancel_order')}
-                </button>
-              ) : (
-                <div 
-                  onClick={(e) => { e.stopPropagation(); setShowCancelNote(false); }}
-                  className="h-full px-3 py-2 rounded-xl bg-rose-500/10 border border-rose-500/30 flex flex-col justify-center gap-1 text-left animate-in fade-in slide-in-from-right-2 duration-300 cursor-pointer hover:bg-rose-500/20 transition-colors"
-                >
-                  <div className="flex items-center gap-1.5">
-                    <AlertCircle className="w-3 h-3 text-rose-500 shrink-0" />
-                    <span className="text-[8px] font-black text-rose-600 uppercase tracking-widest">Hide Note</span>
-                  </div>
-                  <p className="text-[9px] font-black text-rose-600 dark:text-rose-400 uppercase tracking-widest leading-tight">
-                    {t('common.receipts.cancel_order_note')}
-                  </p>
-                </div>
-              )}
+              <button 
+                onClick={handleCancelOrder}
+                disabled={isCancellingOrder}
+                className="w-full h-full py-3 rounded-xl bg-rose-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-rose-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-rose-600/20 disabled:opacity-50"
+              >
+                {isCancellingOrder ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <X className="w-3.5 h-3.5" />}
+                {t('common.receipts.cancel_order')}
+              </button>
             </div>
           </div>
         )}
@@ -745,40 +771,14 @@ export const RenderOrderCard = ({
               <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-0.5">Total Amount</p>
               <p className="text-xl font-black text-primary leading-none">
                 {storeSymbol}{(() => {
-                  const itemsTotal = order.items.reduce((sum, item) => sum + (item.status === 'rejected' ? 0 : item.product.price * item.quantity), 0);
-                  return itemsTotal + (order.deliveryFee || 0);
+                  return order.items.reduce((sum, item) => sum + (item.status === 'rejected' ? 0 : item.product.price * item.quantity), 0);
                 })()}
               </p>
             </div>
           </div>
         )}
 
-        {(order.deliveryMethod === 'delivery' || order.paymentMethod === 'delivery') && (
-          <div className="mb-4 p-4 rounded-2xl bg-primary/5 border border-primary/10 text-left space-y-3">
-            <div className="flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
-                <Package className="w-3.5 h-3.5" />
-              </div>
-              <h4 className="text-[10px] font-black uppercase tracking-widest text-primary">Delivery Information</h4>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-3 pb-3 border-b border-primary/10">
-              <div>
-                <p className="text-[9px] text-muted-foreground uppercase font-bold tracking-wider">Customer Name</p>
-                <p className="text-xs font-bold text-foreground">{order.userName || 'Customer'}</p>
-              </div>
-              <div>
-                <p className="text-[9px] text-muted-foreground uppercase font-bold tracking-wider">Contact Phone</p>
-                <p className="text-xs font-bold text-foreground">{order.userPhone || 'Not Provided'}</p>
-              </div>
-            </div>
-            
-            <div>
-              <p className="text-[9px] text-muted-foreground uppercase font-bold tracking-wider">Delivery Address</p>
-              <p className="text-xs font-medium text-foreground leading-relaxed italic">{order.customerAddress || 'No Address Provided'}</p>
-            </div>
-          </div>
-        )}
+
 
         <div 
           className={`space-y-4 text-left ${standalone ? '' : 'cursor-pointer hover:bg-secondary/20 p-3 -mx-3 rounded-2xl transition-all group/products border border-transparent hover:border-border/50'}`}
@@ -890,22 +890,11 @@ export const RenderOrderCard = ({
               <div className="p-4 rounded-[1.5rem] bg-primary/5 border border-primary/10 space-y-2 mt-4 mb-6">
                  {(() => {
                    const itemsTotal = order.items.reduce((sum, item) => sum + (item.status === 'rejected' ? 0 : item.product.price * item.quantity), 0);
-                   const deliveryFee = order.deliveryFee || 0;
                    return (
                      <>
-                       <div className="flex justify-between items-center text-[10px] font-bold">
-                         <span className="text-muted-foreground uppercase tracking-[0.2em]">Subtotal</span>
-                         <span className="text-foreground">{storeSymbol}{itemsTotal}</span>
-                       </div>
-                       {deliveryFee > 0 && (
-                         <div className="flex justify-between items-center text-[10px] font-bold">
-                           <span className="text-muted-foreground uppercase tracking-[0.2em]">Delivery Fee</span>
-                           <span className="text-foreground">+ {storeSymbol}{deliveryFee}</span>
-                         </div>
-                       )}
-                       <div className="flex justify-between items-center text-xs font-black pt-2 border-t border-primary/10">
+                       <div className="flex justify-between items-center text-xs font-black pt-1">
                          <span className="text-primary uppercase tracking-[0.2em]">Order Total</span>
-                         <span className="text-primary text-base">{storeSymbol}{itemsTotal + deliveryFee}</span>
+                         <span className="text-primary text-base">{storeSymbol}{itemsTotal}</span>
                        </div>
                      </>
                    );
@@ -939,30 +928,16 @@ export const RenderOrderCard = ({
           )}
         </div>
 
-      {!['completed', 'rejected', 'pending'].includes(order.status) && (
+      {!['completed', 'rejected', 'cancelled', 'pending'].includes(order.status) && (
         <div className="mt-4 px-2">
-          {!showCancelNote ? (
-            <button 
-              onClick={(e) => { e.stopPropagation(); setShowCancelNote(true); }}
-              className="w-full py-3 rounded-xl bg-rose-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-rose-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-rose-600/20"
-            >
-              <X className="w-3.5 h-3.5" />
-              {t('common.receipts.cancel_order')}
-            </button>
-          ) : (
-            <div 
-              onClick={(e) => { e.stopPropagation(); setShowCancelNote(false); }}
-              className="px-4 py-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center gap-3 text-left animate-in fade-in slide-in-from-top-2 duration-300 cursor-pointer hover:bg-rose-500/20 transition-colors"
-            >
-              <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
-              <div className="flex-1">
-                <p className="text-[10px] font-black text-rose-600 dark:text-rose-400 uppercase tracking-widest leading-tight">
-                  {t('common.receipts.cancel_order_note')}
-                </p>
-                <p className="text-[8px] font-bold text-rose-500/60 uppercase tracking-tighter mt-0.5">Click to hide</p>
-              </div>
-            </div>
-          )}
+          <button 
+            onClick={handleCancelOrder}
+            disabled={isCancellingOrder}
+            className="w-full py-3 rounded-xl bg-rose-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-rose-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-rose-600/20 disabled:opacity-50"
+          >
+            {isCancellingOrder ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <X className="w-3.5 h-3.5" />}
+            {t('common.receipts.cancel_order')}
+          </button>
         </div>
       )}
 
@@ -1134,17 +1109,11 @@ export const RenderOrderCard = ({
                   <span className="text-muted-foreground uppercase tracking-widest">Items Subtotal</span>
                   <span className="text-foreground">{storeSymbol}{order.items.reduce((sum, item) => sum + (item.status === 'rejected' ? 0 : item.product.price * item.quantity), 0)}</span>
                 </div>
-                {order.deliveryFee > 0 && (
-                  <div className="flex justify-between items-center text-xs font-bold">
-                    <span className="text-muted-foreground uppercase tracking-widest">Delivery Fee</span>
-                    <span className="text-foreground">+ {storeSymbol}{order.deliveryFee}</span>
-                  </div>
-                )}
                 <div className="flex justify-between items-center pt-3 border-t border-border/20">
                   <div className="space-y-0.5">
                     <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">Total Amount</p>
                     <p className="text-2xl font-black text-foreground leading-none">
-                      {storeSymbol}{order.items.reduce((sum, item) => sum + (item.status === 'rejected' ? 0 : item.product.price * item.quantity), 0) + (order.deliveryFee || 0)}
+                      {storeSymbol}{order.items.reduce((sum, item) => sum + (item.status === 'rejected' ? 0 : item.product.price * item.quantity), 0)}
                     </p>
                   </div>
                 </div>

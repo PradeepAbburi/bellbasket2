@@ -1219,17 +1219,63 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   }, [user, refreshUser]);
 
   const requestPushNotifications = React.useCallback(async () => {
-    if (typeof window !== 'undefined') {
-      try {
-        const OS = (window as any).OneSignal;
-        if (OS && OS.Slidedown) {
-          await OS.Slidedown.promptPush();
-        } else if ('Notification' in window) {
-          await Notification.requestPermission();
-        }
-      } catch (e) {
-        console.error("Error requesting push notifications:", e);
+    if (typeof window === 'undefined') return;
+
+    try {
+      // 1. Register Service Worker for PWA & Push
+      if ('serviceWorker' in navigator) {
+        await navigator.serviceWorker.register('/sw.js').catch((err) => {
+          console.warn('[SW] Registration warning:', err);
+        });
       }
+
+      // 2. Request native browser notification permission across all browsers
+      if ('Notification' in window) {
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+          toast.success("Notifications Enabled! 🔔", {
+            description: "You will receive real-time alerts for orders and updates."
+          });
+          
+          // Trigger a sample welcome notification to confirm native push works
+          try {
+            if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+              navigator.serviceWorker.ready.then(reg => {
+                reg.showNotification('BellBasket Alerts Enabled! 🔔', {
+                  body: 'You will now receive instant updates on all order activities.',
+                  icon: '/pwa-icon.png',
+                  badge: '/pwa-icon.png',
+                  tag: 'bellbasket-welcome'
+                });
+              });
+            } else {
+              new Notification('BellBasket Alerts Enabled! 🔔', {
+                body: 'You will now receive instant updates on all order activities.',
+                icon: '/pwa-icon.png',
+                tag: 'bellbasket-welcome'
+              });
+            }
+          } catch (notifErr) {
+            console.warn("Sample notification error:", notifErr);
+          }
+        } else if (permission === 'denied') {
+          toast.error("Notification Permission Denied", {
+            description: "Please click the lock/settings icon next to the browser URL bar to allow notifications for BellBasket."
+          });
+        }
+      } else {
+        toast.info("Notifications Not Supported", {
+          description: "Your current browser does not support Web Push Notifications."
+        });
+      }
+
+      // 3. Fallback OneSignal prompt if loaded
+      const OS = (window as any).OneSignal;
+      if (OS && OS.Slidedown && typeof OS.Slidedown.promptPush === 'function') {
+        await OS.Slidedown.promptPush().catch(() => {});
+      }
+    } catch (e) {
+      console.error("Error requesting push notifications:", e);
     }
   }, []);
 

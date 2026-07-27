@@ -3,6 +3,7 @@ import { useApp } from '@/context/AppContext';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { Search, ShoppingBag, ShoppingCart, User, ChevronRight, LayoutDashboard, Package, Home, Zap, MessageSquare, Play } from 'lucide-react';
 import { getAvatarUrl } from '@/utils/avatars';
+import { isOrderOrBookingActive } from '@/utils/orderUtils';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -24,10 +25,11 @@ const BottomNav = () => {
     const activeBookingsCount = React.useMemo(() => serviceBookings.filter(b => ['pending', 'accepted'].includes(b.status)).length, [serviceBookings]);
 
     // For customers, show combined active receipts (orders + bookings)
-    const activeReceiptsCount = React.useMemo(() => 
-        orders.filter(o => !['completed', 'rejected'].includes(o.status)).length +
-        serviceBookings.filter(b => !['completed', 'rejected'].includes(b.status)).length,
-    [orders, serviceBookings]);
+    const activeReceiptsCount = React.useMemo(() => {
+        const userOrders = user?.id ? orders.filter(o => o.userId === user.id) : [];
+        const userBookings = user?.id ? serviceBookings.filter(b => b.userId === user.id) : [];
+        return userOrders.filter(isOrderOrBookingActive).length + userBookings.filter(isOrderOrBookingActive).length;
+    }, [orders, serviceBookings, user]);
 
 
     
@@ -136,7 +138,7 @@ const BottomNav = () => {
                                 to="/receipts"
                                 icon={ShoppingBag}
                                 label={t('common.orders')}
-                                badge={activeReceiptsCount + cartCount}
+                                badge={activeReceiptsCount}
                             />
                         </>
                     )}

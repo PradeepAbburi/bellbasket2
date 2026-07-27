@@ -81,14 +81,7 @@ const MobileMenu = ({
                           <Play className="w-5 h-5 text-primary" />
                           <span className="font-bold text-sm">Clips</span>
                         </Link>
-                        <Link
-                          to="/vendor/notes"
-                          onClick={() => { initAudio(); onClose(); }}
-                          className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-primary/5 text-foreground transition-colors"
-                        >
-                          <FileText className="w-5 h-5 text-primary" />
-                          <span className="font-bold text-sm">Bell Notes</span>
-                        </Link>
+
                         <Link
                           to="/vendor/deals"
                           onClick={() => { initAudio(); onClose(); }}

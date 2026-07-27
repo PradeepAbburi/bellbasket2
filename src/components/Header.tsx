@@ -1,5 +1,6 @@
 import { useApp } from '@/context/AppContext';
 import { getAvatarUrl } from '@/utils/avatars';
+import { isOrderOrBookingActive } from '@/utils/orderUtils';
 import { NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
 import { ShoppingCart, Bell, User, LogOut, Store, Menu, X, Search, ShoppingBag, Package, TrendingUp, Crown, Shield, BellRing, FileText, Zap, Settings, Users, Play, Briefcase, Home } from 'lucide-react';
 import { useState, useEffect, lazy, Suspense } from 'react';
@@ -64,8 +65,9 @@ const Header = ({ solid = false }: { solid?: boolean }) => {
   const activeBookingsCount = serviceBookings.filter(b => ['pending', 'accepted'].includes(b.status)).length;
   const vendorBadgeCount = isServiceStore ? activeBookingsCount : activeOrdersCount;
 
-  const activeReceiptsCount = orders.filter(o => !['completed', 'rejected'].includes(o.status)).length +
-    serviceBookings.filter(b => !['completed', 'rejected'].includes(b.status)).length;
+  const userOrders = user?.id ? orders.filter(o => o.userId === user.id) : [];
+  const userBookings = user?.id ? serviceBookings.filter(b => b.userId === user.id) : [];
+  const activeReceiptsCount = userOrders.filter(isOrderOrBookingActive).length + userBookings.filter(isOrderOrBookingActive).length;
 
   let hasValidPlan = false;
   if (user?.plan && user.plan !== 'none') {
@@ -164,7 +166,7 @@ const Header = ({ solid = false }: { solid?: boolean }) => {
                         )}
                       </AnimatePresence>
                     </div>
-                    <span className="hidden lg:inline">{t('common.orders')} ({activeReceiptsCount})</span>
+                    <span className="hidden lg:inline">{t('common.orders')}{activeReceiptsCount > 0 ? ` (${activeReceiptsCount})` : ''}</span>
                   </NavLink>
 
                   <NavLink 
@@ -203,10 +205,7 @@ const Header = ({ solid = false }: { solid?: boolean }) => {
                         <Play className="w-5 h-5" />
                         <span className="hidden lg:inline">Clips</span>
                       </NavLink>
-                      <NavLink to="/vendor/notes" className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}>
-                        <FileText className="w-5 h-5" />
-                        <span className="hidden lg:inline">Notes</span>
-                      </NavLink>
+
                       <NavLink to="/vendor/products" className={({ isActive }) => `${buttonBase} ${isActive ? activeBtn : normalBtn}`}>
                         <Package className="w-5 h-5" />
                         <span className="hidden lg:inline">Products</span>

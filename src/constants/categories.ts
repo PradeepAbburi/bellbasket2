@@ -24,12 +24,7 @@ export const CATEGORY_METADATA: Record<string, { icon: any, color: string, gradi
         gradient: "from-violet-400 to-violet-600",
         type: 'product'
     },
-    "Beauty": {
-        icon: Sparkles,
-        color: "#f472b6",
-        gradient: "from-pink-300 to-rose-500",
-        type: 'product'
-    },
+
     "Others": {
         icon: OtherIcon,
         color: "#f43f5e",

@@ -97,15 +97,14 @@ const VendorOrders = () => {
   }, []);
 
   const activeOrders = orders.filter(o => {
-    if (o.status !== 'completed' && o.status !== 'rejected') return true;
+    if (o.status !== 'completed' && o.status !== 'rejected' && o.status !== 'cancelled') return true;
     if (o.status === 'completed') {
       const completedAt = o.completedAt ? new Date(o.completedAt).getTime() : 0;
       return completedAt > 0 && (now - completedAt) < 30000;
     }
-    if (o.status === 'rejected') {
-      if (rejectionsToHideInSession.has(o.id)) return false;
-      const rejectedAt = o.rejectedAt ? new Date(o.rejectedAt).getTime() : 0;
-      return (now - rejectedAt) < 5000;
+    if (o.status === 'rejected' || o.status === 'cancelled') {
+      const cancelTime = o.cancelledAt ? new Date(o.cancelledAt).getTime() : (o.rejectedAt ? new Date(o.rejectedAt).getTime() : 0);
+      return cancelTime > 0 && (now - cancelTime) < 30000;
     }
     return false;
   });
@@ -115,10 +114,9 @@ const VendorOrders = () => {
       const completedAt = o.completedAt ? new Date(o.completedAt).getTime() : 0;
       return completedAt === 0 || (now - completedAt) >= 30000;
     }
-    if (o.status === 'rejected') {
-      if (rejectionsToHideInSession.has(o.id)) return true;
-      const rejectedAt = o.rejectedAt ? new Date(o.rejectedAt).getTime() : 0;
-      return (now - rejectedAt) >= 5000;
+    if (o.status === 'rejected' || o.status === 'cancelled') {
+      const cancelTime = o.cancelledAt ? new Date(o.cancelledAt).getTime() : (o.rejectedAt ? new Date(o.rejectedAt).getTime() : 0);
+      return cancelTime === 0 || (now - cancelTime) >= 30000;
     }
     return false;
   });
@@ -144,7 +142,7 @@ const VendorOrders = () => {
       const customerUserId = selectedOrder.userId;
 
       const timer = setTimeout(async () => {
-        toast.success("📦 All items checked off! Completing & moving to history in 30s...", {
+        toast.success("📦 All items checked off! Order completed.", {
           icon: <Package className="w-4 h-4 text-emerald-500" />
         });
         await updateDoc(doc(db, 'orders', orderIdToComplete), { 
@@ -194,7 +192,7 @@ const VendorOrders = () => {
     const order = orders.find(o => o.id === orderId);
     if (!order) return;
 
-    const flow = order.deliveryMethod === 'delivery' ? deliveryFlow : pickupFlow;
+    const flow = pickupFlow;
     const idx = flow.indexOf(order.status as any);
     
     if (idx < flow.length - 1) {
@@ -211,13 +209,10 @@ const VendorOrders = () => {
         // 🔔 Push notification to the customer
         if (order.userId) {
           const statusMessages: Record<string, string> = {
-            accepted: `✅ Your ${order.deliveryMethod === 'delivery' ? 'delivery ' : ''}order from ${order.storeName} has been accepted!`,
-            packed: order.deliveryMethod === 'pickup'
-              ? `📦 Your order from ${order.storeName} is ready for pickup!`
-              : `📦 Your order from ${order.storeName} has been packed!`,
-            out_for_delivery: `🚚 Your order from ${order.storeName} is out for delivery!`,
+            accepted: `✅ Your order from ${order.storeName} has been accepted!`,
+            packed: `📦 Your order from ${order.storeName} is ready for pickup!`,
             ready: `🔔 Your order from ${order.storeName} is ready for pickup!`,
-            completed: `🎉 Your order from ${order.storeName} has been ${order.deliveryMethod === 'delivery' ? 'delivered' : 'completed'}!`,
+            completed: `🎉 Your order from ${order.storeName} has been completed!`,
           };
           const body = statusMessages[next] || `Your order status updated to: ${next}`;
           sendInAppNotification(order.userId, {
@@ -566,8 +561,7 @@ const VendorOrders = () => {
                     </div>
                     <p className="font-semibold text-foreground text-sm">
                       {order.items.filter(i => i.status !== 'rejected').length} of {order.items.length} {t('common.items')} · ₹{(() => {
-                        const itemsTotal = order.items.reduce((sum, item) => sum + (item.status === 'rejected' ? 0 : item.product.price * item.quantity), 0);
-                        return itemsTotal + (order.deliveryFee || 0);
+                        return order.items.reduce((sum, item) => sum + (item.status === 'rejected' ? 0 : item.product.price * item.quantity), 0);
                       })()}
                     </p>
                     <div className="flex items-center gap-3 mt-1 text-[10px] font-bold text-primary">
@@ -577,18 +571,17 @@ const VendorOrders = () => {
                       </div>
                     </div>
                     <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1">
-                      {order.paymentMethod === 'online' ? `💳 ${t('common.pay_online')}` : order.deliveryMethod === 'delivery' ? `💵 ${t('common.pay_on_delivery')}` : `💵 ${t('common.pay_on_pickup')}`}
+                      💵 {t('common.pay_on_pickup')}
                     </p>
                   </div>
                   <div className="flex flex-col items-end gap-3 shrink-0">
                     <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full border shadow-sm ${
                       order.status === 'packed' || order.status === 'completed' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
                       order.status === 'accepted' ? 'bg-sky-500/10 text-sky-500 border-sky-500/20' :
-                      order.status === 'rejected' ? 'bg-rose-500/10 text-rose-500 border-rose-500/20' :
+                      order.status === 'rejected' || order.status === 'cancelled' ? 'bg-rose-500/10 text-rose-500 border-rose-500/20' :
                       'bg-amber-500/10 text-amber-500 border-amber-500/20'
                     }`}>
-                      {order.status === 'out_for_delivery' ? 'OUT FOR DELIVERY' :
-                       t(`common.order_status.${order.status}`, { defaultValue: order.status.toUpperCase() })}
+                      {order.status === 'cancelled' ? 'CANCELLED' : t(`common.order_status.${order.status}`, { defaultValue: order.status.toUpperCase() })}
                     </span>
                   </div>
                 </div>
@@ -625,48 +618,7 @@ const VendorOrders = () => {
                   </div>
                 )}
 
-                {/* Delivery Information Box */}
-                {(order.customerAddress || order.deliveryMethod === 'delivery') && (
-                  <div className="mb-4 p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/20 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600">
-                        <Package className="w-4 h-4" />
-                      </div>
-                      <h4 className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Delivery Details</h4>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                       <div className="space-y-1">
-                          <p className="text-[9px] text-muted-foreground uppercase tracking-widest font-bold">Contact Person</p>
-                          <p className="text-xs font-black text-foreground">{order.customerName || order.userName || t('common.customer')}</p>
-                          <a 
-                            href={`tel:${order.customerPhone || order.userPhone}`} 
-                            className="text-[10px] font-bold text-primary flex items-center gap-1.5"
-                            onClick={e => e.stopPropagation()}
-                          >
-                            <Phone className="w-2.5 h-2.5" />
-                            {order.customerPhone || order.userPhone}
-                          </a>
-                       </div>
-                       <div className="space-y-1">
-                          <p className="text-[9px] text-muted-foreground uppercase tracking-widest font-bold">Delivery Address</p>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const addr = order.customerAddress || customerData[order.userId || '']?.address;
-                              window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr || '')}`, '_blank');
-                            }}
-                            className="text-left group"
-                          >
-                             <p className="text-xs font-bold text-foreground group-hover:text-primary transition-colors flex items-start gap-1.5">
-                                <MapPin className="w-3 h-3 text-primary mt-0.5 shrink-0" />
-                                <span className="line-clamp-2">{order.customerAddress || customerData[order.userId || '']?.address}</span>
-                             </p>
-                          </button>
-                       </div>
-                    </div>
-                  </div>
-                )}
+
 
 
                 {/* Order Pickup PIN */}
@@ -686,7 +638,7 @@ const VendorOrders = () => {
                       <p className="text-xl font-black text-primary leading-none">
                         ₹{(() => {
                           const itemsTotal = order.items.reduce((sum, item) => sum + (item.status === 'rejected' ? 0 : item.product.price * item.quantity), 0);
-                          return itemsTotal + (order.deliveryFee || 0);
+                          return itemsTotal;
                         })()}
                       </p>
                     </div>
@@ -762,7 +714,7 @@ const VendorOrders = () => {
                         <Package className="w-4 h-4" />
                         {order.status === 'pending' ? 'Review & Accept' : 
                          order.status === 'accepted' ? 'Pack Order' :
-                          order.status === 'packed' ? (order.deliveryMethod === 'delivery' ? 'Out for Delivery' : 'Complete Order') :
+                         order.status === 'packed' ? 'Complete Order' :
                          'Continue'}
                       </button>
                     )}
@@ -852,12 +804,12 @@ const VendorOrders = () => {
                       <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600">
                         <Package className="w-4 h-4" />
                       </div>
-                      <h4 className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Delivery Details</h4>
+                      <h4 className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Address Details</h4>
                     </div>
                     
                     <div className="grid grid-cols-1 gap-3">
                        <div className="space-y-1">
-                          <p className="text-[9px] text-muted-foreground uppercase tracking-widest font-bold">Delivery Address</p>
+                          <p className="text-[9px] text-muted-foreground uppercase tracking-widest font-bold">Customer Address</p>
                           <div className="text-left group">
                              <p className="text-xs font-bold text-foreground transition-colors flex items-start gap-1.5">
                                 <MapPin className="w-3 h-3 text-primary mt-0.5 shrink-0" />
@@ -1011,22 +963,15 @@ const VendorOrders = () => {
                    <div className="p-4 rounded-[1.5rem] bg-primary/5 border border-primary/10 space-y-2 mt-4 mb-6">
                       {(() => {
                         const itemsTotal = selectedOrder.items.reduce((sum, item) => sum + (item.status === 'rejected' ? 0 : item.product.price * item.quantity), 0);
-                        const deliveryFee = selectedOrder.deliveryFee || 0;
                         return (
                           <>
                             <div className="flex justify-between items-center text-[10px] font-bold">
                               <span className="text-muted-foreground uppercase tracking-[0.2em]">Subtotal</span>
                               <span className="text-foreground">₹{itemsTotal}</span>
                             </div>
-                            {deliveryFee > 0 && (
-                              <div className="flex justify-between items-center text-[10px] font-bold">
-                                <span className="text-muted-foreground uppercase tracking-[0.2em]">Delivery Fee</span>
-                                <span className="text-foreground">+ ₹{deliveryFee}</span>
-                              </div>
-                            )}
                             <div className="flex justify-between items-center text-xs font-black pt-2 border-t border-primary/10">
                               <span className="text-primary uppercase tracking-[0.2em]">Order Total</span>
-                              <span className="text-primary text-base">₹{itemsTotal + deliveryFee}</span>
+                              <span className="text-primary text-base">₹{itemsTotal}</span>
                             </div>
                           </>
                         );
@@ -1036,7 +981,7 @@ const VendorOrders = () => {
               </div>
 
               {/* Modal Footer - Compact Sticky Action Bar */}
-              {!['completed', 'rejected'].includes(selectedOrder.status) && (
+              {!['completed', 'rejected', 'cancelled'].includes(selectedOrder.status) && (
                 <div className="p-4 border-t border-border/10 bg-card/50 shrink-0">
                   <div className="flex items-center gap-3">
                     <button
@@ -1059,7 +1004,7 @@ const VendorOrders = () => {
                       <Check className="w-5 h-5" />
                       {selectedOrder.status === 'pending' ? 'Accept' : 
                        selectedOrder.status === 'accepted' ? 'Pack Order' :
-                       selectedOrder.status === 'packed' ? (selectedOrder.deliveryMethod === 'delivery' ? 'Dispatch' : 'Complete Order') :
+                       selectedOrder.status === 'packed' ? 'Complete Order' :
                        'Proceed'}
                     </button>
                   </div>

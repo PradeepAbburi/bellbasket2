@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Package, Package2, Search, X, Check, ChevronDown, Zap, Plus, Pencil, Trash2, Loader2, RotateCcw, PackageX, AlertCircle, Barcode } from 'lucide-react';
+import { Package, Package2, Search, X, Check, ChevronDown, Zap, Plus, Pencil, Trash2, Loader2, RotateCcw, PackageX, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import { useApp } from '@/context/AppContext';
@@ -11,14 +11,12 @@ import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, updateDoc, deleteDoc, doc, addDoc } from 'firebase/firestore';
 import PageLoading from '@/components/PageLoading';
 import { cleanObject } from '@/utils/firebase';
-import BarcodeInventoryModal from '@/components/BarcodeInventoryModal';
 
 const VendorProducts = () => {
   const navigate = useNavigate();
   const { user, loading: appLoading, stores, setIsAnyModalOpen } = useApp();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isBarcodeModalOpen, setIsBarcodeModalOpen] = useState(false);
 
   const [confirmModal, setConfirmModal] = useState<{
     show: boolean;
@@ -58,9 +56,9 @@ const VendorProducts = () => {
 
   // Use global modal state to hide nav elements
   useEffect(() => {
-    setIsAnyModalOpen(!!confirmModal.show || isBarcodeModalOpen);
+    setIsAnyModalOpen(!!confirmModal.show);
     return () => setIsAnyModalOpen(false);
-  }, [confirmModal.show, isBarcodeModalOpen, setIsAnyModalOpen]);
+  }, [confirmModal.show, setIsAnyModalOpen]);
 
   const vendorStore = stores.find(s => s.vendorId === user?.id);
   const isServiceStore = vendorStore?.storeType === 'service';
@@ -139,12 +137,6 @@ const VendorProducts = () => {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2.5">
-            <button 
-              onClick={() => setIsBarcodeModalOpen(true)}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all shadow-md shadow-emerald-500/20"
-            >
-              <Barcode className="w-4 h-4" /> Barcode Scan
-            </button>
             <button 
               onClick={() => navigate('/vendor/combos')}
               className="bg-secondary/50 text-foreground px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all border border-border/40"
@@ -285,13 +277,6 @@ const VendorProducts = () => {
             </motion.div>
           </motion.div>
         )}
-
-        <BarcodeInventoryModal 
-          isOpen={isBarcodeModalOpen} 
-          onClose={() => setIsBarcodeModalOpen(false)} 
-          vendorId={user?.id || ''} 
-          onProductAdded={fetchProducts} 
-        />
     </div>
   );
 };

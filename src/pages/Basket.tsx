@@ -16,13 +16,7 @@ const Cart = () => {
   const navigate = useNavigate();
   const [showConfirm, setShowConfirm] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-  const [showDeliveryModal, setShowDeliveryModal] = useState(false);
   const [isPlacing, setIsPlacing] = useState(false);
-  const [pendingMethod, setPendingMethod] = useState<'online' | 'pickup' | 'delivery'>('pickup');
-  const [selectedDelivery, setSelectedDelivery] = useState<'pickup' | 'delivery'>('pickup');
-  const [deliveryName, setDeliveryName] = useState(user?.name || '');
-  const [deliveryPhone, setDeliveryPhone] = useState(user?.phone || '');
-  const [deliveryAddress, setDeliveryAddress] = useState('');
 
   if (loading) return <PageLoading />;
 
@@ -38,8 +32,7 @@ const Cart = () => {
   const subtotal = cartSubtotal;
 
   // For multi-shop, we'll take the max delivery fee or a flat fee
-  const deliveryFee = Math.max(...groupIds.map(id => cartGroups[id].storeInfo?.deliveryFee || 0));
-  const total = subtotal + (selectedDelivery === 'delivery' ? deliveryFee : 0);
+  const total = subtotal;
 
   const mainSymbol = groupIds.length > 0 
     ? getCurrencySymbol(cartGroups[groupIds[0]].storeInfo?.country, cartGroups[groupIds[0]].storeInfo?.address) 
@@ -51,22 +44,14 @@ const Cart = () => {
     .filter(store => store && (!store.isOpen || store.isBlocked || store.plan === 'none' || !store.plan));
 
   const isCheckoutDisabled = restrictedStores.length > 0;
-  const allStoresOfferDelivery = groupIds.length > 0 && groupIds.every(id => cartGroups[id].storeInfo?.offersDelivery);
-
-  // If not all stores offer delivery, force pickup
-  useEffect(() => {
-    if (!allStoresOfferDelivery && selectedDelivery === 'delivery') {
-      setSelectedDelivery('pickup');
-    }
-  }, [allStoresOfferDelivery, selectedDelivery]);
 
   // Use global modal state to hide nav elements
   useEffect(() => {
-    setIsAnyModalOpen(!!(showConfirm || showSuccess || showDeliveryModal));
+    setIsAnyModalOpen(!!(showConfirm || showSuccess));
     return () => setIsAnyModalOpen(false);
-  }, [showConfirm, showSuccess, showDeliveryModal, setIsAnyModalOpen]);
+  }, [showConfirm, showSuccess, setIsAnyModalOpen]);
 
-  const startOrder = (method: 'online' | 'pickup' | 'delivery') => {
+  const startOrder = (method: 'online' | 'pickup' | 'delivery' = 'pickup') => {
     if (!user) {
       toast.info('Sign in to continue', {
         description: 'You need an account to create shopping lists.',
@@ -74,34 +59,19 @@ const Cart = () => {
       navigate('/auth?returnTo=/cart');
       return;
     }
-
-    if ((method === 'delivery' || (method === 'online' && selectedDelivery === 'delivery')) && 
-        (!deliveryName.trim() || !deliveryPhone.trim() || !deliveryAddress.trim())) {
-      setPendingMethod(method);
-      setShowDeliveryModal(true);
-      return;
-    }
-
-    if (method === 'online') {
-      toast.info('Pay Online coming soon!', {
-        description: 'Please use other methods for now.',
-        icon: <CreditCard className="w-4 h-4" />
-      });
-      return;
-    }
-    setPendingMethod(method);
+    setPendingMethod('pickup');
     setShowConfirm(true);
   };
 
   const confirmOrder = async () => {
     if (isPlacing) return;
     setIsPlacing(true);
-    const orderId = await placeOrder(pendingMethod, { 
-      deliveryMethod: selectedDelivery, 
-      deliveryFee: selectedDelivery === 'delivery' ? deliveryFee : 0,
-      customerName: deliveryName,
-      customerPhone: deliveryPhone,
-      customerAddress: deliveryAddress
+    const orderId = await placeOrder('pickup', { 
+      deliveryMethod: 'pickup', 
+      deliveryFee: 0,
+      customerName: user?.name || '',
+      customerPhone: user?.phone || '',
+      customerAddress: ''
     });
 
     if (orderId) {
@@ -272,42 +242,10 @@ const Cart = () => {
               
               <h3 className="text-sm font-black text-foreground uppercase tracking-widest mb-6 px-1 italic">Order Summary</h3>
 
-              {allStoresOfferDelivery && (
-                <div className="flex bg-secondary/50 p-1.5 rounded-2xl mb-6 border border-border/20">
-                  <button
-                    onClick={() => setSelectedDelivery('pickup')}
-                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${selectedDelivery === 'pickup' ? 'bg-white dark:bg-primary text-foreground dark:text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                  >
-                    <ShoppingBag className="w-3.5 h-3.5" /> Pickup
-                  </button>
-                  <button
-                    onClick={() => setSelectedDelivery('delivery')}
-                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${selectedDelivery === 'delivery' ? 'bg-white dark:bg-primary text-foreground dark:text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                  >
-                    <MapPin className="w-3.5 h-3.5" /> Delivery
-                  </button>
-                </div>
-              )}
-
-              <div className="space-y-3 mb-6">
-                <div className="flex justify-between items-center px-1">
-                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">{t('common.subtotal')}</span>
-                  <span className="text-sm font-black text-foreground">{mainSymbol}{subtotal}</span>
-                </div>
-                
-                <div className="pt-4 mt-2 border-t border-border/50 flex justify-between items-end px-1">
-                  <div>
-                    <span className="text-[10px] font-black text-primary uppercase tracking-widest block mb-0.5">Total Amount</span>
-                    <span className="text-xs text-muted-foreground font-bold uppercase tracking-widest">{groupIds.length} {groupIds.length === 1 ? 'Store' : 'Stores'}</span>
-                  </div>
-                  <span className="text-2xl font-black text-foreground">{mainSymbol}{subtotal}</span>
-                </div>
-              </div>
-
               <div className="space-y-4">
                 <button
                   disabled={isCheckoutDisabled}
-                  onClick={() => startOrder(selectedDelivery === 'pickup' ? 'pickup' : 'delivery')}
+                  onClick={() => startOrder('pickup')}
                   className={`w-full py-4 rounded-2xl font-black text-sm uppercase tracking-[0.15em] flex items-center justify-center gap-3 transition-all ${
                     isCheckoutDisabled 
                       ? 'bg-secondary text-muted-foreground opacity-50 cursor-not-allowed' 
@@ -315,17 +253,8 @@ const Cart = () => {
                   }`}
                 >
                   <Wallet className="w-5 h-5" /> 
-                  {selectedDelivery === 'pickup' ? t('common.pay_on_pickup') : t('common.pay_on_delivery')}
+                  {t('common.pay_on_pickup')}
                 </button>
-
-                {!allStoresOfferDelivery && (
-                   <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/10 flex items-start gap-3">
-                      <Clock className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
-                      <p className="text-[10px] text-muted-foreground font-medium italic leading-relaxed">
-                        Some shops in your cart do not offer delivery service. This order must be picked up in person.
-                      </p>
-                   </div>
-                )}
               </div>
 
               <p className="text-[10px] text-center text-muted-foreground mt-8 px-4 leading-relaxed opacity-60">
@@ -361,7 +290,7 @@ const Cart = () => {
               </div>
               <h2 className="text-xl font-bold text-foreground mb-2">{groupIds.length > 1 ? 'Start Thread Order?' : t('common.confirm_order')}</h2>
               <p className="text-sm text-muted-foreground mb-6">
-                {groupIds.length > 1 ? `This will initiate a multi-store thread covering all ${groupIds.length} orders.` : t('common.place_order_confirm')} <strong>{pendingMethod === 'pickup' ? t('common.pay_on_pickup') : pendingMethod === 'delivery' ? t('common.pay_on_delivery') : t('common.pay_online')}</strong>?
+                {groupIds.length > 1 ? `This will initiate a multi-store thread covering all ${groupIds.length} orders.` : t('common.place_order_confirm')} <strong>{t('common.pay_on_pickup')}</strong>?
               </p>
               <div className="grid gap-3">
                 <button
@@ -442,90 +371,7 @@ const Cart = () => {
           </div>
         )}
       </AnimatePresence>
-      {/* Delivery Details Modal */}
-      <AnimatePresence>
-        {showDeliveryModal && (
-          <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm">
-            <motion.div
-               initial={{ y: "100%", opacity: 0 }}
-               animate={{ y: 0, opacity: 1 }}
-               exit={{ y: "100%", opacity: 0 }}
-               className="bg-white dark:bg-[#151515] w-full max-w-lg rounded-t-[2.5rem] sm:rounded-[2.5rem] flex flex-col max-h-[90vh] shadow-2xl overflow-hidden border-t sm:border border-border/50"
-            >
-               <div className="p-6 border-b border-border/50 flex items-center justify-between">
-                  <div className="space-y-1">
-                     <h2 className="text-xl font-black text-foreground tracking-tight uppercase">Delivery Details</h2>
-                     <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">Where should we deliver?</p>
-                  </div>
-                  <button
-                     onClick={() => setShowDeliveryModal(false)}
-                     className="p-2 rounded-full bg-secondary text-muted-foreground hover:text-foreground transition-all"
-                  >
-                     <Plus className="w-6 h-6 rotate-45" />
-                  </button>
-               </div>
 
-               <div className="p-6 overflow-y-auto space-y-6">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                     <div className="space-y-1.5 focus-within:text-primary transition-colors">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Your Name</label>
-                        <input
-                           type="text"
-                           value={deliveryName}
-                           onChange={(e) => setDeliveryName(e.target.value)}
-                           placeholder="Full Name"
-                           className="w-full bg-secondary border border-transparent focus:border-primary/30 focus:bg-background transition-all rounded-xl px-4 py-3 text-sm font-bold outline-none"
-                        />
-                     </div>
-                     <div className="space-y-1.5 focus-within:text-primary transition-colors">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Phone Number</label>
-                        <input
-                           type="tel"
-                           value={deliveryPhone}
-                           onChange={(e) => setDeliveryPhone(e.target.value)}
-                           placeholder="10-digit number"
-                           className="w-full bg-secondary border border-transparent focus:border-primary/30 focus:bg-background transition-all rounded-xl px-4 py-3 text-sm font-bold outline-none font-mono"
-                        />
-                     </div>
-                  </div>
-
-                  <div className="space-y-1.5 focus-within:text-primary transition-colors">
-                     <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Delivery Address</label>
-                     <textarea
-                        value={deliveryAddress}
-                        onChange={(e) => setDeliveryAddress(e.target.value)}
-                        placeholder="House No., Building, Area, Landmark..."
-                        rows={3}
-                        className="w-full bg-secondary border border-transparent focus:border-primary/30 focus:bg-background transition-all rounded-xl px-4 py-3 text-sm font-bold outline-none resize-none"
-                     />
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/10 flex items-start gap-3">
-                     <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5" />
-                     <p className="text-[10px] text-muted-foreground font-medium italic">Please verify your contact details before confirming. Delivery agents will use this to call you upon arrival.</p>
-                  </div>
-               </div>
-
-               <div className="p-6 border-t border-border/50">
-                  <button
-                     onClick={() => {
-                        if (!deliveryName.trim() || !deliveryPhone.trim() || !deliveryAddress.trim()) {
-                           toast.error("Please fill all delivery details");
-                           return;
-                        }
-                        setShowDeliveryModal(false);
-                        setPendingMethod(pendingMethod); // Keep the method we were trying
-                        setShowConfirm(true); 
-                     }}
-                     className="w-full py-4 rounded-2xl gradient-primary text-white font-black text-sm uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.01] active:scale-95 transition-all flex items-center justify-center gap-3"
-                  >
-                     Confirm Delivery
-                  </button>
-               </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
     </div>
   );
 };

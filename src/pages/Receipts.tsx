@@ -23,6 +23,7 @@ const statusColors: Record<string, string> = {
   packed: 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-500/20',
   completed: 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20',
   rejected: 'bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-500/20',
+  cancelled: 'bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-500/20',
 };
 
 const statusLabels: Record<string, string> = {
@@ -31,6 +32,7 @@ const statusLabels: Record<string, string> = {
   packed: 'Packed',
   completed: 'Completed',
   rejected: 'Order Rejected',
+  cancelled: 'Order Cancelled',
 };
 
 const formatDate = (dateStr: string) => {
@@ -342,20 +344,14 @@ const Receipts = () => {
   }, []);
 
   const activeOrders = customerOrders.filter(o => {
-    if (o.status !== 'completed' && o.status !== 'rejected') return true;
+    if (o.status !== 'completed' && o.status !== 'rejected' && o.status !== 'cancelled') return true;
     if (o.status === 'completed') {
       const completedAt = o.completedAt ? new Date(o.completedAt).getTime() : 0;
       return completedAt > 0 && (now - completedAt) < 30000;
     }
-    if (o.status === 'rejected') {
-      // Hide if timer expired in this session
-      if (rejectionsToHideInSession.has(o.id)) return false;
-
-      // Stay in active if it was new when this page loaded
-      if (sessionSeenIds.current.has(o.id)) return true;
-      
-      // If none of the session trackers apply, use the DB flag
-      return !o.rejectionViewed;
+    if (o.status === 'rejected' || o.status === 'cancelled') {
+      const cancelTime = o.cancelledAt ? new Date(o.cancelledAt).getTime() : (o.rejectedAt ? new Date(o.rejectedAt).getTime() : 0);
+      return cancelTime > 0 && (now - cancelTime) < 30000;
     }
     return false;
   });
@@ -365,36 +361,34 @@ const Receipts = () => {
       const completedAt = o.completedAt ? new Date(o.completedAt).getTime() : 0;
       return completedAt === 0 || (now - completedAt) >= 30000;
     }
-    if (o.status === 'rejected') {
-      // Show if timer expired in this session
-      if (rejectionsToHideInSession.has(o.id)) return true;
-
-      // If it was new this session but timer hasn't expired, don't show in past yet
-      if (sessionSeenIds.current.has(o.id)) return false;
-      
-      return o.rejectionViewed === true;
+    if (o.status === 'rejected' || o.status === 'cancelled') {
+      const cancelTime = o.cancelledAt ? new Date(o.cancelledAt).getTime() : (o.rejectedAt ? new Date(o.rejectedAt).getTime() : 0);
+      return cancelTime === 0 || (now - cancelTime) >= 30000;
     }
     return false;
   }).filter(o => !o.deletedByUser);
 
   const activeBookings = serviceBookings.filter(b => {
-    if (b.status !== 'completed' && b.status !== 'rejected') return true;
-    if (b.status === 'rejected') {
-      if (rejectionsToHideInSession.has(b.id)) return false;
-      if (sessionSeenIds.current.has(b.id)) return true;
-      
-      return !b.rejectionViewed;
+    if (b.status !== 'completed' && b.status !== 'rejected' && b.status !== 'cancelled') return true;
+    if (b.status === 'completed') {
+      const completedAt = b.completedAt ? new Date(b.completedAt).getTime() : 0;
+      return completedAt > 0 && (now - completedAt) < 30000;
+    }
+    if (b.status === 'rejected' || b.status === 'cancelled') {
+      const cancelTime = b.cancelledAt ? new Date(b.cancelledAt).getTime() : (b.rejectedAt ? new Date(b.rejectedAt).getTime() : 0);
+      return cancelTime > 0 && (now - cancelTime) < 30000;
     }
     return false;
   });
 
   const pastBookings = serviceBookings.filter(b => {
-    if (b.status === 'completed') return true;
-    if (b.status === 'rejected') {
-      if (rejectionsToHideInSession.has(b.id)) return true;
-      if (sessionSeenIds.current.has(b.id)) return false;
-      
-      return b.rejectionViewed === true;
+    if (b.status === 'completed') {
+      const completedAt = b.completedAt ? new Date(b.completedAt).getTime() : 0;
+      return completedAt === 0 || (now - completedAt) >= 30000;
+    }
+    if (b.status === 'rejected' || b.status === 'cancelled') {
+      const cancelTime = b.cancelledAt ? new Date(b.cancelledAt).getTime() : (b.rejectedAt ? new Date(b.rejectedAt).getTime() : 0);
+      return cancelTime === 0 || (now - cancelTime) >= 30000;
     }
     return false;
   }).filter(b => !b.deletedByUser);

@@ -185,8 +185,33 @@ export const sendInAppNotification = async (
         await addDoc(collection(db, 'notifications'), notificationData);
         console.log(`[Notification] In-app alert queued for user ${targetUserId} (Type: ${notification.type})`);
 
+        // 🔔 Dispatch Native Browser Push Notification across any browser
+        if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+            try {
+                if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                    navigator.serviceWorker.ready.then(reg => {
+                        reg.showNotification(notification.title, {
+                            body: notification.body,
+                            icon: '/pwa-icon.png',
+                            badge: '/pwa-icon.png',
+                            data: { url: notification.url || '/' },
+                            tag: notification.id || 'bellbasket-alert'
+                        });
+                    });
+                } else {
+                    new Notification(notification.title, {
+                        body: notification.body,
+                        icon: '/pwa-icon.png',
+                        data: { url: notification.url || '/' },
+                        tag: notification.id || 'bellbasket-alert'
+                    });
+                }
+            } catch (e) {
+                console.warn('⚠️ [Browser Push] Failed to trigger notification popup:', e);
+            }
+        }
+
         // Attempt push notification via backend on production environment.
-        // On localhost, in-app Firestore notification is saved above.
         const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
         if (isLocal) {
             console.info('ℹ️ [Notification] Local environment: In-app notification saved to Firestore.');

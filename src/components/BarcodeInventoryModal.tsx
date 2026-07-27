@@ -24,7 +24,7 @@ const SHELF_CATEGORIES = [
   'Personal Care',
   'Household Essentials',
   'Meat & Seafood',
-  'Beauty',
+
   'Fashion',
   'Food',
   'Others'

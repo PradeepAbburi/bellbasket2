@@ -78,7 +78,7 @@ const PWAInstallPrompt = () => {
         sessionStorage.setItem('pwa_prompt_dismissed', 'true');
     };
 
-    if (!isVisible || location.pathname === '/auth') return null;
+    if (!isVisible) return null;
 
     return (
         <AnimatePresence>
@@ -111,7 +111,7 @@ const PWAInstallPrompt = () => {
                             </div>
                             <h3 className="text-sm font-black text-foreground leading-tight truncate">Install BellBasket</h3>
                             <p className="text-[11px] text-muted-foreground font-medium leading-relaxed line-clamp-2">
-                                Add to home screen for a better experience and faster access.
+                                Install App for a better experience and faster access.
                             </p>
                         </div>
                     </div>

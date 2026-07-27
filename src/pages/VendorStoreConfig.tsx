@@ -46,8 +46,7 @@ const VendorStoreConfig = () => {
   const [tempTimings, setTempTimings] = useState({ open: '09:00', close: '22:00' });
   const [tempPhone, setTempPhone] = useState('');
   const [tempWebsite, setTempWebsite] = useState('');
-  const [tempOffersDelivery, setTempOffersDelivery] = useState(false);
-  const [tempDeliveryFee, setTempDeliveryFee] = useState(50);
+
   const [tempBanner, setTempBanner] = useState('');
   const [tempAutoClose, setTempAutoClose] = useState(false);
   const [tempStoreType, setTempStoreType] = useState<'product' | 'service'>('product');
@@ -130,8 +129,7 @@ const VendorStoreConfig = () => {
     if (store.timings) setTempTimings(store.timings);
     if (store.phone !== undefined) setTempPhone(store.phone);
     if (store.website !== undefined) setTempWebsite(store.website);
-    if (store.offersDelivery !== undefined) setTempOffersDelivery(store.offersDelivery);
-    if (store.deliveryFee !== undefined) setTempDeliveryFee(store.deliveryFee);
+
     if (store.image) setTempBanner(store.image);
     if (store.lat) setTempLat(store.lat);
     if (store.lng) setTempLng(store.lng);
@@ -272,8 +270,8 @@ const VendorStoreConfig = () => {
         timings: tempTimings,
         phone: tempPhone,
         website: tempWebsite,
-        offersDelivery: tempOffersDelivery,
-        deliveryFee: tempDeliveryFee,
+        offersDelivery: false,
+        deliveryFee: 0,
         image: tempBanner,
         lat: tempLat,
         lng: tempLng,
@@ -582,60 +580,7 @@ const VendorStoreConfig = () => {
                </div>
             </div>
 
-            {/* Delivery Service */}
-            <div className="bg-[#111111] rounded-[2.5rem] p-8 border border-white/5 space-y-6 shadow-2xl">
-               <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-400 border border-purple-500/20">
-                     <Package className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-white">Delivery Service</h3>
-                    <p className="text-[9px] text-white/30 uppercase font-black tracking-widest">Logistics Control</p>
-                  </div>
-               </div>
 
-               <div className="space-y-6">
-                 <button 
-                   onClick={() => setTempOffersDelivery(!tempOffersDelivery)}
-                   className={`w-full flex items-center justify-between p-5 rounded-2xl transition-all border ${tempOffersDelivery ? 'bg-purple-500/10 border-purple-500/20' : 'bg-white/[0.02] border-white/5 hover:bg-white/[0.04]'}`}
-                 >
-                    <div className="flex items-center gap-4">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${tempOffersDelivery ? 'bg-purple-500 text-white' : 'bg-white/5 text-white/40'}`}>
-                         <Package className="w-5 h-5" />
-                      </div>
-                      <div className="text-left">
-                         <p className="text-xs font-black text-white uppercase tracking-tight">Accept Home Delivery</p>
-                         <p className="text-[9px] text-white/30 uppercase tracking-widest">Enable logistics orders</p>
-                      </div>
-                    </div>
-                    <div className={`w-12 h-6 rounded-full relative transition-all duration-300 ${tempOffersDelivery ? 'bg-purple-500' : 'bg-white/10'}`}>
-                      <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all duration-300 ${tempOffersDelivery ? 'left-7' : 'left-1'}`} />
-                    </div>
-                 </button>
-
-                 <AnimatePresence>
-                   {tempOffersDelivery && (
-                     <motion.div
-                       initial={{ opacity: 0, height: 0 }}
-                       animate={{ opacity: 1, height: 'auto' }}
-                       exit={{ opacity: 0, height: 0 }}
-                       className="overflow-hidden"
-                     >
-                       <div className="space-y-3 pt-2">
-                          <label className="text-[10px] font-black uppercase tracking-widest text-white/40 px-1">Flat Delivery Fee (₹)</label>
-                          <input
-                            type="number"
-                            value={tempDeliveryFee}
-                            onChange={e => setTempDeliveryFee(Number(e.target.value))}
-                            className="w-full bg-white/[0.03] border border-white/10 focus:border-purple-500/50 rounded-2xl px-6 py-5 text-sm font-bold text-white outline-none transition-all placeholder:text-white/10"
-                            placeholder="e.g. 50"
-                          />
-                       </div>
-                     </motion.div>
-                   )}
-                 </AnimatePresence>
-               </div>
-            </div>
           </div>
 
           {/* Location Section (Right) */}

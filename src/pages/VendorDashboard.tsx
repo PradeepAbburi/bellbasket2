@@ -612,20 +612,7 @@ const VendorDashboard = () => {
               </div>
             )}
 
-            {vendorStore?.offersDelivery ? (
-               <div className="flex items-center gap-2 px-3 sm:px-4 py-2.5 rounded-2xl bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 shadow-sm transition-all animate-in fade-in slide-in-from-right-4 duration-500">
-                  <Package className="w-4 h-4 text-emerald-500 " />
-                  <div className="flex flex-col items-start leading-none gap-0.5">
-                     <span className="text-[10px] uppercase tracking-widest font-black">{t('vendor_dashboard.delivery_active')}</span>
-                     <span className="text-[9px] opacity-70 font-bold">₹{vendorStore?.deliveryFee} {t('common.delivery_charge')}</span>
-                  </div>
-               </div>
-            ) : (
-               <div className="flex items-center gap-2 px-3 sm:px-4 py-2.5 rounded-2xl bg-secondary/50 text-muted-foreground border border-border/50 shadow-sm transition-all opacity-60">
-                  <Package className="w-4 h-4" />
-                  <span className="text-[10px] uppercase tracking-widest font-black">{t('vendor_dashboard.delivery_off')}</span>
-               </div>
-            )}
+
           </div>
         </div>
 
@@ -822,12 +809,7 @@ const VendorDashboard = () => {
                 <span className="px-3 py-1 rounded-full bg-amber-500/10 text-amber-600 text-[10px] font-bold border border-amber-500/20">{t('common.pdf_reports')}</span>
               </>
             )}
-            {vendorStore?.offersDelivery && (
-              <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-bold border border-emerald-500/20 flex items-center gap-1.5 shadow-sm">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 " />
-                Delivery: ₹{vendorStore?.deliveryFee}
-              </span>
-            )}
+
             {user?.plan === 'none' && (
               <span className="px-3 py-1 rounded-full bg-destructive/10 text-destructive text-[10px] font-bold border border-destructive/20 ">{t('common.features_restricted')}</span>
             )}
@@ -978,90 +960,13 @@ const VendorDashboard = () => {
             </div>
           </div>
         </div>
+        </div>
+      </PullToRefresh>
 
         {/* Productivity & Operations */}
 
 
-  {/* Product Requests Section */}
-  <div className="mb-10">
-    <div className="flex items-center justify-between mb-4 px-1">
-      <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
-        <StickyNote className="w-5 h-5 text-primary" />
-        {t('vendor_dashboard.notes_req_title')}
-      </h2>
-      {(productRequests.length > 0 || recentNotes.length > 0) && (
-        <span className="text-[10px] font-black bg-primary/20 text-primary px-2 py-0.5 rounded-full uppercase tracking-widest">
-          {productRequests.filter((r: any) => r.status === 'pending').length + recentNotes.length} {t('common.total')}
-        </span>
-      )}
-    </div>
 
-    <div className="space-y-3">
-      {productRequests.length === 0 && recentNotes.length === 0 ? (
-        <div 
-          onClick={() => navigate('/vendor/notes')}
-          className="bg-white dark:bg-[#202020] rounded-3xl p-8 text-center border border-dashed border-border/60 shadow-sm opacity-60 cursor-pointer hover:opacity-100 transition-all hover:bg-primary/5"
-        >
-          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
-            <Plus className="w-5 h-5 text-primary" />
-          </div>
-          <p className="text-sm text-muted-foreground font-medium">{t('vendor_dashboard.notes_req_empty')}</p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {/* Notes Preview */}
-          {recentNotes.map((note: any) => (
-            <div 
-              key={note.id} 
-              onClick={() => navigate('/vendor/notes')}
-              className="bg-white dark:bg-[#202020] rounded-22 p-4 border border-primary/5 shadow-sm hover:border-primary/30 transition-all cursor-pointer flex items-center gap-3"
-            >
-              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                <FileText className="w-5 h-5" />
-              </div>
-              <div className="flex-1 min-w-0">
-                 <h3 className="font-bold text-foreground text-sm truncate">{note.itemName}</h3>
-                 <p className="text-[10px] text-muted-foreground font-medium truncate capitalize">{note.quantity} • {new Date(note.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}</p>
-              </div>
-              <ArrowRight className="w-4 h-4 text-muted-foreground/30" />
-            </div>
-          ))}
-
-          {/* Product Requests Preview */}
-          {productRequests.filter((r: any) => r.status === 'pending').slice(0, 3).map((request: any) => (
-            <div 
-              key={request.id} 
-              onClick={() => setSelectedRequest(request)}
-              className="bg-white dark:bg-[#202020] rounded-22 p-4 border border-amber-500/10 shadow-sm hover:border-amber-500/30 transition-all cursor-pointer flex items-center gap-3"
-            >
-              <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 shrink-0 overflow-hidden border border-amber-500/5">
-                {request.image ? (
-                  <img src={request.image} alt="Ref" className="w-full h-full object-cover" />
-                ) : (
-                  <PackageSearch className="w-5 h-5" />
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                 <div className="flex items-center gap-1.5 mb-0.5">
-                    <span className="w-1 h-1 rounded-full bg-amber-400 animate-pulse" />
-                    <span className="text-[8px] font-black text-amber-500 uppercase tracking-widest">Req</span>
-                 </div>
-                 <h3 className="font-bold text-foreground text-sm truncate">{request.productName}</h3>
-                 <p className="text-[10px] text-muted-foreground font-medium truncate italic">{t('vendor_dashboard.requested_by')} {request.userName || t('common.customer')}</p>
-              </div>
-              <ArrowRight className="w-4 h-4 text-muted-foreground/30" />
-            </div>
-          ))}
-        </div>
-      )}
-
-      <button 
-        onClick={() => navigate('/vendor/notes')}
-        className="w-full py-4 rounded-2xl bg-secondary/50 text-foreground font-black text-[10px] uppercase tracking-[0.2em] border border-border/40 hover:bg-secondary transition-all active:scale-95"
-      >
-        {t('vendor_dashboard.open_notes_req')}
-      </button>
-    </div>
 
     {/* Quick Request Details Modal */}
     <AnimatePresence>
@@ -1153,7 +1058,6 @@ const VendorDashboard = () => {
         </motion.div>
       )}
     </AnimatePresence>
-  </div>
 
 
         {/* Recent Orders/Bookings - Limited to 3 */}
@@ -1196,7 +1100,7 @@ const VendorDashboard = () => {
                   {item.customerAddress && (
                     <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
                       <MapPin className="w-2.5 h-2.5" />
-                      <span className="truncate max-w-[200px]">Delivery: {item.customerAddress}</span>
+                      <span className="truncate max-w-[200px]">{item.customerAddress}</span>
                     </p>
                   )}
 
@@ -1502,11 +1406,7 @@ const VendorDashboard = () => {
             </motion.div>
           )}
         </AnimatePresence>
-
-          </div>
-        </PullToRefresh>
       </div>
-
     </>
   );
 };

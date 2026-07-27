@@ -110,13 +110,14 @@ export interface Order {
   storeName: string;
   items: CartItem[];
   total: number;
-  status: 'pending' | 'accepted' | 'packed' | 'ready' | 'out_for_delivery' | 'completed' | 'rejected';
+  status: 'pending' | 'accepted' | 'packed' | 'ready' | 'out_for_delivery' | 'completed' | 'rejected' | 'cancelled';
   paymentMethod: 'online' | 'pickup' | 'delivery';
   deliveryMethod?: 'pickup' | 'delivery';
   deliveryFee?: number;
   date: string;
   pickupCode?: string;
   rejectedAt?: string;
+  cancelledAt?: string;
   rejectionReason?: string;
   rejectionViewed?: boolean;
   review?: {
@@ -150,10 +151,11 @@ export interface ServiceBooking {
   description: string;
   date: string;
   timeSlot: string;
-  status: 'pending' | 'accepted' | 'completed' | 'rejected';
+  status: 'pending' | 'accepted' | 'completed' | 'rejected' | 'cancelled';
   pickupCode?: string;
   rejectionReason?: string;
   rejectedAt?: string;
+  cancelledAt?: string;
   rejectionViewed?: boolean;
   createdAt: string;
   vendorId: string;

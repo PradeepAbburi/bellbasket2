@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mail, UserCircle, Store, ArrowRight, ArrowLeft, CheckCircle2, Lock, Phone, Zap, Shield, Eye, EyeOff, Sun, Moon, Loader } from 'lucide-react';
+import { Mail, UserCircle, Store, ArrowRight, ArrowLeft, CheckCircle2, Lock, Phone, Zap, Shield, Eye, EyeOff, Sun, Moon, Loader, Download, Smartphone, X } from 'lucide-react';
 import { Helmet } from 'react-helmet';
 import { useApp } from '@/context/AppContext';
 import { toast } from 'sonner';
@@ -15,7 +15,9 @@ import {
   onAuthStateChanged,
   sendPasswordResetEmail,
   GoogleAuthProvider,
-  signInWithPopup
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult
 } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import heroBg from '@/assets/hero-bg.jpg';
@@ -34,6 +36,63 @@ const Auth = () => {
   const [needsVerification, setNeedsVerification] = useState(false);
   const [referralCode, setReferralCode] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    const handler = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstallApp = async () => {
+    // 1. Check if direct Median APK file is placed in public folder
+    try {
+      const res1 = await fetch('/bellbasket.apk', { method: 'HEAD' }).catch(() => null);
+      const res2 = !res1?.ok ? await fetch('/app.apk', { method: 'HEAD' }).catch(() => null) : null;
+      const apkUrl = res1?.ok ? '/bellbasket.apk' : (res2?.ok ? '/app.apk' : null);
+
+      if (apkUrl) {
+        toast.success("Downloading BellBasket App...", {
+          description: "Your APK download has started."
+        });
+        const link = document.createElement('a');
+        link.href = apkUrl;
+        link.download = apkUrl.substring(1);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        return;
+      }
+    } catch (e) {
+      // Continue to PWA / Browser Install
+    }
+
+    // 2. Fallback to native PWA install prompt
+    if (deferredPrompt) {
+      try {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        console.log(`User install outcome: ${outcome}`);
+        setDeferredPrompt(null);
+      } catch (e) {
+        console.warn("Direct install error:", e);
+      }
+    } else {
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      if (isIOS) {
+        toast.info("To Install App:", {
+          description: "Tap Share button in Safari -> 'Add to Home Screen'"
+        });
+      } else {
+        toast.info("To Install App:", {
+          description: "Open browser menu (⋮) -> select 'Install App' or 'Add to Home Screen'"
+        });
+      }
+    }
+  };
 
   const { login, refreshUser } = useApp(); // theme/toggleTheme removed
   const navigate = useNavigate();
@@ -43,6 +102,78 @@ const Auth = () => {
   const isAdminEmail = email.trim().toLowerCase() === 'contact@bellbasket.com' || 
                        email.trim().toLowerCase() === 'ceo@bellbasket.com' ||
                        email.trim().toLowerCase() === 'hr@bellbasket.com';
+
+  // Check for Google Auth redirect result on mount (for mobile / popup-blocked browsers)
+  useEffect(() => {
+    const handleRedirectResult = async () => {
+      try {
+        const result = await getRedirectResult(auth);
+        if (result && result.user) {
+          setLoading(true);
+          const user = result.user;
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            if (userData.isBlocked) {
+              toast.error('Your account has been suspended by the administrator.');
+              await signOut(auth);
+              setLoading(false);
+              return;
+            }
+
+            const finalUserData = { ...userData, id: user.uid, isVerified: true } as any;
+            login(finalUserData);
+            toast.success('Welcome back!');
+
+            if (returnTo) {
+              navigate(returnTo);
+            } else if (finalUserData.role === 'admin' || finalUserData.role === 'hr') {
+              navigate(finalUserData.role === 'hr' ? '/hr' : '/admin');
+            } else if (finalUserData.role === 'vendor' && !finalUserData.hasSetupStore) {
+              navigate('/vendor/setup');
+            } else {
+              navigate(finalUserData.role === 'vendor' ? '/vendor' : '/browse');
+            }
+          } else {
+            const isMasterAdminEmail = (user.email?.trim().toLowerCase() === 'contact@bellbasket.com' || 
+                                        user.email?.trim().toLowerCase() === 'ceo@bellbasket.com');
+
+            const newUser = {
+              id: user.uid,
+              name: user.displayName || 'User',
+              email: user.email || '',
+              phone: '',
+              role: isMasterAdminEmail ? 'admin' : role,
+              createdAt: new Date().toISOString(),
+              isVerified: true,
+              hasCompletedOnboarding: role === 'customer',
+              referralCode: role === 'vendor' ? referralCode.toUpperCase().trim() : null,
+              hasSetupStore: false
+            };
+
+            await setDoc(doc(db, 'users', user.uid), newUser);
+            login(newUser as any);
+            sessionStorage.setItem('allow_onboarding', 'true');
+            toast.success('Account created with Google!');
+
+            if (role === 'vendor') {
+              navigate('/vendor/setup');
+            } else {
+              navigate(returnTo || '/browse');
+            }
+          }
+        }
+      } catch (err: any) {
+        console.error("Google Redirect Result Error:", err);
+        if (err.code !== 'auth/popup-closed-by-user') {
+          toast.error(err.message || 'Google Authentication failed');
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+    handleRedirectResult();
+  }, []);
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -195,73 +326,98 @@ const Auth = () => {
 
   const handleGoogleSignIn = async () => {
     setLoading(true);
+    initAudio(); // Initialize audio on user gesture
     try {
-      initAudio(); // Initialize audio on user gesture
       const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(auth, provider);
-      const user = result.user;
+      provider.setCustomParameters({ prompt: 'select_account' });
 
-      const userDoc = await getDoc(doc(db, 'users', user.uid));
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        if (userData.isBlocked) {
-          toast.error('Your account has been suspended by the administrator.');
-          setLoading(false);
-          await signOut(auth);
-          return;
-        }
+      // Detect mobile or standalone PWA environment
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
 
-        const finalUserData = { ...userData, id: user.uid, isVerified: true } as any;
-        login(finalUserData);
-        toast.success('Welcome back!');
-
-        if (returnTo) {
-          navigate(returnTo);
-        } else if (finalUserData.role === 'admin' || finalUserData.role === 'hr') {
-          navigate(finalUserData.role === 'hr' ? '/hr' : '/admin');
-        } else if (finalUserData.role === 'vendor' && !finalUserData.hasSetupStore) {
-          navigate('/vendor/setup');
-        } else {
-          navigate(finalUserData.role === 'vendor' ? '/vendor' : '/browse');
-        }
+      let result;
+      if (isMobile || isStandalone) {
+        // Use redirect for mobile browsers & standalone app to prevent popup blocks
+        await signInWithRedirect(auth, provider);
+        return;
       } else {
-        // Sign up logic for Google
-        let hasSetupStore = false;
+        try {
+          result = await signInWithPopup(auth, provider);
+        } catch (popupErr: any) {
+          console.warn("Popup blocked or failed, falling back to redirect:", popupErr);
+          if (popupErr.code === 'auth/popup-blocked' || popupErr.code === 'auth/popup-closed-by-user' || popupErr.code === 'auth/cancelled-popup-request') {
+            await signInWithRedirect(auth, provider);
+            return;
+          } else {
+            throw popupErr;
+          }
+        }
+      }
 
-        const isMasterAdminEmail = (user.email?.trim().toLowerCase() === 'contact@bellbasket.com' || 
-                                    user.email?.trim().toLowerCase() === 'ceo@bellbasket.com');
+      if (result && result.user) {
+        const user = result.user;
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          if (userData.isBlocked) {
+            toast.error('Your account has been suspended by the administrator.');
+            setLoading(false);
+            await signOut(auth);
+            return;
+          }
 
-        const newUser = {
-          id: user.uid,
-          name: user.displayName || 'User',
-          email: user.email || '',
-          phone: '',
-          role: isMasterAdminEmail ? 'admin' : role,
-          createdAt: new Date().toISOString(),
-          isVerified: true,
-          hasCompletedOnboarding: role === 'customer',
-          referralCode: role === 'vendor' ? referralCode.toUpperCase().trim() : null,
-          hasSetupStore: hasSetupStore
-        };
+          const finalUserData = { ...userData, id: user.uid, isVerified: true } as any;
+          login(finalUserData);
+          toast.success('Welcome back!');
 
-        await setDoc(doc(db, 'users', user.uid), newUser);
-        login(newUser as any);
-        sessionStorage.setItem('allow_onboarding', 'true');
-        toast.success('Account created with Google!');
-
-        if (role === 'vendor') {
-          navigate('/vendor/setup');
-        } else {
           if (returnTo) {
             navigate(returnTo);
+          } else if (finalUserData.role === 'admin' || finalUserData.role === 'hr') {
+            navigate(finalUserData.role === 'hr' ? '/hr' : '/admin');
+          } else if (finalUserData.role === 'vendor' && !finalUserData.hasSetupStore) {
+            navigate('/vendor/setup');
           } else {
-            navigate('/browse');
+            navigate(finalUserData.role === 'vendor' ? '/vendor' : '/browse');
+          }
+        } else {
+          // Sign up logic for Google
+          const isMasterAdminEmail = (user.email?.trim().toLowerCase() === 'contact@bellbasket.com' || 
+                                      user.email?.trim().toLowerCase() === 'ceo@bellbasket.com');
+
+          const newUser = {
+            id: user.uid,
+            name: user.displayName || 'User',
+            email: user.email || '',
+            phone: '',
+            role: isMasterAdminEmail ? 'admin' : role,
+            createdAt: new Date().toISOString(),
+            isVerified: true,
+            hasCompletedOnboarding: role === 'customer',
+            referralCode: role === 'vendor' ? referralCode.toUpperCase().trim() : null,
+            hasSetupStore: false
+          };
+
+          await setDoc(doc(db, 'users', user.uid), newUser);
+          login(newUser as any);
+          sessionStorage.setItem('allow_onboarding', 'true');
+          toast.success('Account created with Google!');
+
+          if (role === 'vendor') {
+            navigate('/vendor/setup');
+          } else {
+            navigate(returnTo || '/browse');
           }
         }
       }
     } catch (error: any) {
       console.error("Google Auth Error:", error);
-      toast.error(error.message || 'Google Authentication failed');
+      if (error.code === 'auth/unauthorized-domain') {
+        toast.error("Domain unauthorized in Firebase Console. Add your domain under Firebase Auth settings.");
+      } else if (error.code === 'auth/popup-closed-by-user') {
+        toast.info("Google Sign-In was cancelled.");
+      } else {
+        toast.error(error.message || 'Google Authentication failed');
+      }
     } finally {
       setLoading(false);
     }
@@ -800,6 +956,15 @@ const Auth = () => {
               </p>
             </div>
           )}
+
+          <button
+            type="button"
+            onClick={handleInstallApp}
+            className="w-full py-3.5 rounded-2xl bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2.5 transition-all active:scale-95 shadow-sm mt-3"
+          >
+            <Smartphone className="w-4 h-4 text-primary" />
+            Install App
+          </button>
         </div>
 
         <div className="mt-8 text-center bg-white/10 backdrop-blur-md rounded-2xl py-3 border border-white/10">

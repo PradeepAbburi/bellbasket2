@@ -33,8 +33,36 @@ const VendorBookings = () => {
         return () => setIsAnyModalOpen(false);
     }, [selectedBookingId, setIsAnyModalOpen]);
 
-    const activeBookings = bookings.filter(b => b.status === 'pending' || b.status === 'accepted');
-    const pastBookings = bookings.filter(b => b.status === 'completed' || b.status === 'rejected');
+    const [now, setNow] = useState(Date.now());
+    useEffect(() => {
+        const interval = setInterval(() => setNow(Date.now()), 3000);
+        return () => clearInterval(interval);
+    }, []);
+
+    const activeBookings = bookings.filter(b => {
+        if (b.status !== 'completed' && b.status !== 'rejected' && b.status !== 'cancelled') return true;
+        if (b.status === 'completed') {
+            const completedAt = b.completedAt ? new Date(b.completedAt).getTime() : 0;
+            return completedAt > 0 && (now - completedAt) < 30000;
+        }
+        if (b.status === 'rejected' || b.status === 'cancelled') {
+            const cancelTime = b.cancelledAt ? new Date(b.cancelledAt).getTime() : (b.rejectedAt ? new Date(b.rejectedAt).getTime() : 0);
+            return cancelTime > 0 && (now - cancelTime) < 30000;
+        }
+        return false;
+    });
+
+    const pastBookings = bookings.filter(b => {
+        if (b.status === 'completed') {
+            const completedAt = b.completedAt ? new Date(b.completedAt).getTime() : 0;
+            return completedAt === 0 || (now - completedAt) >= 30000;
+        }
+        if (b.status === 'rejected' || b.status === 'cancelled') {
+            const cancelTime = b.cancelledAt ? new Date(b.cancelledAt).getTime() : (b.rejectedAt ? new Date(b.rejectedAt).getTime() : 0);
+            return cancelTime === 0 || (now - cancelTime) >= 30000;
+        }
+        return false;
+    });
 
     const displayBookings = view === 'active' ? activeBookings : pastBookings;
     const selectedBooking = bookings.find(b => b.id === selectedBookingId) || null;
