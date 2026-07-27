@@ -67,8 +67,9 @@ const Cart = () => {
   const confirmOrder = async () => {
     if (isPlacing) return;
     setIsPlacing(true);
+    const effectiveDeliveryMethod: 'pickup' | 'delivery' = pendingMethod === 'delivery' ? 'delivery' : 'pickup';
     const orderId = await placeOrder(pendingMethod, { 
-      deliveryMethod: pendingMethod, 
+      deliveryMethod: effectiveDeliveryMethod, 
       deliveryFee: 0,
       customerName: user?.name || '',
       customerPhone: user?.phone || '',
