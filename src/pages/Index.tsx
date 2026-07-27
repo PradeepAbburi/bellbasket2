@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { Bell, MapPin, ShoppingCart, Store, ArrowRight, Sparkles, Smartphone, ChevronRight, Menu, X, Star, Zap, Users } from 'lucide-react';
+import { Bell, MapPin, ShoppingCart, Store, ArrowRight, Sparkles, Smartphone, ChevronRight, Menu, X, Star, Zap, Users, Download } from 'lucide-react';
 const heroBg = '/assets/hero-bg.jpg';
 import { useApp } from '@/context/AppContext';
 import QRCodeWithLogo from '@/components/ui/qr-code-with-logo';
@@ -293,12 +293,28 @@ const Index = () => {
                 <span className="text-gradient">BellBasket Mobile</span>
               </h2>
               <p className="text-lg text-muted-foreground max-w-lg">
-                Get the best neighborhood shopping experience. Scanning the QR code will take you directly to our download page.
+                Get the official BellBasket Android app for fast ordering, live tracking, and instant shop connectivity.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 pt-4">
-                <div className="bg-primary text-black px-8 py-4 rounded-2xl font-black text-lg flex items-center justify-center gap-3 cursor-default">
-                  Coming Soon <Sparkles className="w-5 h-5 animate-pulse" />
-                </div>
+                <button
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = '/bellbasket.apk';
+                    link.download = 'bellbasket.apk';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                  }}
+                  className="bg-primary text-black px-8 py-4 rounded-2xl font-black text-lg flex items-center justify-center gap-3 hover:scale-105 active:scale-95 transition-all shadow-xl shadow-primary/20 cursor-pointer"
+                >
+                  <Download className="w-5 h-5" /> Download Android APK
+                </button>
+                <button
+                  onClick={() => navigate('/download')}
+                  className="glass text-foreground px-6 py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 hover:bg-white/10 active:scale-95 transition-all"
+                >
+                  Download Page <ArrowRight className="w-4 h-4" />
+                </button>
               </div>
             </div>
 
@@ -516,7 +532,7 @@ const Index = () => {
               },
               { 
                 q: "Is there a mobile app available?", 
-                a: "We are currently in the final stages of launching our mobile app for both Android and iOS. You can shop using our progressive web app now, and scan the QR code in our 'Download' section to get notified when the native app goes live." 
+                a: "Yes! Our official BellBasket Android APK is available for direct download. You can download the APK file directly from our Download page or install our Progressive Web App (PWA) on any phone or desktop browser." 
               },
               { 
                 q: "What payment methods do you support?", 

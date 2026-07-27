@@ -53,6 +53,17 @@ const PWAInstallPrompt = () => {
         return () => window.removeEventListener('beforeinstallprompt', handler);
     }, [deferredPrompt, isVisible]);
 
+    const handleApkDownload = () => {
+        const link = document.createElement('a');
+        link.href = '/bellbasket.apk';
+        link.download = 'bellbasket.apk';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setIsVisible(false);
+        sessionStorage.setItem('pwa_prompt_dismissed', 'true');
+    };
+
     const handleInstall = async () => {
         if (deferredPrompt) {
             deferredPrompt.prompt();
@@ -61,6 +72,13 @@ const PWAInstallPrompt = () => {
             setDeferredPrompt(null);
             setIsVisible(false);
         } else {
+            // Check if Android for direct APK download
+            const isAndroid = /Android/i.test(navigator.userAgent);
+            if (isAndroid) {
+                handleApkDownload();
+                return;
+            }
+
             // Fallback for iOS - show instructions
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
             if (isIOS) {
@@ -106,30 +124,40 @@ const PWAInstallPrompt = () => {
                         
                         <div className="flex-1 min-w-0 pr-6">
                             <div className="flex items-center gap-2 mb-0.5">
-                                <span className="text-[10px] font-black bg-primary/20 text-primary px-2 py-0.5 rounded-full uppercase tracking-widest">Web App</span>
+                                <span className="text-[10px] font-black bg-primary/20 text-primary px-2 py-0.5 rounded-full uppercase tracking-widest">Mobile App</span>
                                 <Sparkles className="w-3 h-3 text-primary animate-pulse" />
                             </div>
-                            <h3 className="text-sm font-black text-foreground leading-tight truncate">Install BellBasket</h3>
+                            <h3 className="text-sm font-black text-foreground leading-tight truncate">Install BellBasket App</h3>
                             <p className="text-[11px] text-muted-foreground font-medium leading-relaxed line-clamp-2">
-                                Install App for a better experience and faster access.
+                                Download official Android APK or install web app.
                             </p>
                         </div>
                     </div>
 
-                    <div className="flex gap-2 mt-4">
-                        <button
-                            onClick={handleInstall}
-                            className="flex-1 h-11 rounded-xl bg-primary text-primary-foreground font-black text-xs uppercase tracking-wider shadow-lg shadow-primary/20 active:scale-95 transition-all flex items-center justify-center gap-2"
-                        >
-                            <Download className="w-3.5 h-3.5" />
-                            Install Now
-                        </button>
-                        <button
-                            onClick={dismiss}
-                            className="px-4 h-11 rounded-xl bg-secondary/50 text-foreground font-bold text-xs uppercase tracking-wider active:scale-95 transition-all"
-                        >
-                            Later
-                        </button>
+                    <div className="flex flex-col gap-2 mt-4">
+                        <div className="flex gap-2">
+                            <button
+                                onClick={handleApkDownload}
+                                className="flex-1 h-11 rounded-xl bg-primary text-primary-foreground font-black text-xs uppercase tracking-wider shadow-lg shadow-primary/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+                            >
+                                <Download className="w-3.5 h-3.5" />
+                                Download APK
+                            </button>
+                            {deferredPrompt && (
+                                <button
+                                    onClick={handleInstall}
+                                    className="flex-1 h-11 rounded-xl bg-secondary text-foreground font-bold text-xs uppercase tracking-wider active:scale-95 transition-all flex items-center justify-center gap-1"
+                                >
+                                    PWA Install
+                                </button>
+                            )}
+                            <button
+                                onClick={dismiss}
+                                className="px-3 h-11 rounded-xl bg-secondary/50 text-foreground font-bold text-xs uppercase tracking-wider active:scale-95 transition-all"
+                            >
+                                Later
+                            </button>
+                        </div>
                     </div>
                 </div>
             </motion.div>

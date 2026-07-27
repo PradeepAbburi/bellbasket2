@@ -71,26 +71,80 @@ const DownloadPage = () => {
                             </div>
                             
                             <div className="w-24 h-24 rounded-[2.5rem] gradient-primary flex items-center justify-center text-white shadow-2xl shadow-primary/30 mx-auto">
-                                <Sparkles className="w-12 h-12 animate-pulse" />
+                                <Smartphone className="w-12 h-12" />
                             </div>
 
                             <div className="space-y-4">
-                                <h2 className="text-4xl md:text-6xl font-black text-foreground tracking-tight">Coming Soon</h2>
-                                <p className="text-xl text-muted-foreground font-medium max-w-lg mx-auto leading-relaxed">
-                                    We're putting the finishing touches on our mobile experience. Subscribe to be notified when we launch on Android & iOS.
+                                <h2 className="text-3xl md:text-5xl font-black text-foreground tracking-tight">BellBasket for Android</h2>
+                                <p className="text-lg text-muted-foreground font-medium max-w-lg mx-auto leading-relaxed">
+                                    Direct official APK release. Experience ultra-fast neighborhood shopping, live tracking, and instant store connectivity.
                                 </p>
                             </div>
 
-                            <div className="pt-6">
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-2xl mx-auto py-4">
+                                <div className="p-3 glass rounded-2xl border border-white/10 text-center">
+                                    <div className="text-xs text-muted-foreground font-semibold">Version</div>
+                                    <div className="text-base font-black text-primary">v1.0.0</div>
+                                </div>
+                                <div className="p-3 glass rounded-2xl border border-white/10 text-center">
+                                    <div className="text-xs text-muted-foreground font-semibold">File Size</div>
+                                    <div className="text-base font-black text-foreground">7.6 MB</div>
+                                </div>
+                                <div className="p-3 glass rounded-2xl border border-white/10 text-center">
+                                    <div className="text-xs text-muted-foreground font-semibold">Requires</div>
+                                    <div className="text-base font-black text-foreground">Android 6+</div>
+                                </div>
+                                <div className="p-3 glass rounded-2xl border border-white/10 text-center">
+                                    <div className="text-xs text-muted-foreground font-semibold">Security</div>
+                                    <div className="text-base font-black text-emerald-500 flex items-center justify-center gap-1">
+                                        <CheckCircle2 className="w-3.5 h-3.5" /> Verified
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">
+                                <button
+                                    onClick={handleApkDownload}
+                                    className="w-full sm:w-auto px-10 py-5 rounded-[2rem] gradient-primary text-white font-black text-lg shadow-2xl shadow-primary/40 hover:scale-[1.03] active:scale-95 transition-all flex items-center justify-center gap-3"
+                                >
+                                    <Download className="w-6 h-6" /> Download APK (7.6 MB)
+                                </button>
                                 <button
                                     onClick={() => navigate('/')}
-                                    className="px-10 py-5 rounded-[2rem] gradient-primary text-white font-black text-lg shadow-2xl shadow-primary/40 hover:scale-[1.03] active:scale-95 transition-all flex items-center justify-center gap-3 mx-auto"
+                                    className="w-full sm:w-auto px-8 py-5 rounded-[2rem] glass text-foreground font-bold text-base hover:bg-white/10 active:scale-95 transition-all"
                                 >
-                                    Back to Home
+                                    Use Web Version
                                 </button>
+                            </div>
+
+                            <div className="mt-8 pt-8 border-t border-white/10 flex flex-col items-center gap-4">
+                                <div className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                                    <QrCode className="w-4 h-4 text-primary" /> Scan QR Code to Download on Mobile
+                                </div>
+                                <div className="p-4 bg-white rounded-3xl shadow-xl border border-border">
+                                    <QRCodeWithLogo value={downloadUrl} size={160} logoSize={35} />
+                                </div>
                             </div>
                         </motion.div>
                     </div>
+
+                    {/* How to Install Section */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true }}
+                        className="max-w-3xl mx-auto text-left glass rounded-3xl p-8 border border-white/10 space-y-4"
+                    >
+                        <h3 className="text-xl font-black text-foreground flex items-center gap-2">
+                            <CheckCircle2 className="w-5 h-5 text-primary" /> How to install the APK:
+                        </h3>
+                        <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground font-medium">
+                            <li>Tap the <strong>Download APK</strong> button above to save the installer file to your device.</li>
+                            <li>Open your device's <strong>Downloads</strong> folder or tap the notification when download completes.</li>
+                            <li>If prompted, allow your browser to <strong>"Install unknown apps"</strong> or enable "Allow from this source".</li>
+                            <li>Tap <strong>Install</strong> and enjoy BellBasket on your Android phone!</li>
+                        </ol>
+                    </motion.div>
 
                     <motion.div
                         initial={{ opacity: 0 }}

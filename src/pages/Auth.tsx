@@ -48,26 +48,20 @@ const Auth = () => {
   }, []);
 
   const handleInstallApp = async () => {
-    // 1. Check if direct Median APK file is placed in public folder
+    // 1. Trigger direct APK file download
     try {
-      const res1 = await fetch('/bellbasket.apk', { method: 'HEAD' }).catch(() => null);
-      const res2 = !res1?.ok ? await fetch('/app.apk', { method: 'HEAD' }).catch(() => null) : null;
-      const apkUrl = res1?.ok ? '/bellbasket.apk' : (res2?.ok ? '/app.apk' : null);
-
-      if (apkUrl) {
-        toast.success("Downloading BellBasket App...", {
-          description: "Your APK download has started."
-        });
-        const link = document.createElement('a');
-        link.href = apkUrl;
-        link.download = apkUrl.substring(1);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        return;
-      }
+      toast.success("Downloading BellBasket App...", {
+        description: "Your APK download has started."
+      });
+      const link = document.createElement('a');
+      link.href = '/bellbasket.apk';
+      link.download = 'bellbasket.apk';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      return;
     } catch (e) {
-      // Continue to PWA / Browser Install
+      console.error("APK download failed:", e);
     }
 
     // 2. Fallback to native PWA install prompt
