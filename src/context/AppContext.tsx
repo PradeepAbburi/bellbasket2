@@ -1229,7 +1229,19 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         });
       }
 
-      // 2. Request native browser notification permission across all browsers
+      // 2. Trigger Median / GoNative native app push registration if available
+      const win = window as any;
+      if (win.gonative?.onesignal?.register) {
+        win.gonative.onesignal.register();
+      } else if (win.gonative?.push?.register) {
+        win.gonative.push.register();
+      } else if (win.median?.onesignal?.register) {
+        win.median.onesignal.register();
+      } else if (win.median?.push?.register) {
+        win.median.push.register();
+      }
+
+      // 3. Request native browser notification permission across all browsers
       if ('Notification' in window) {
         const permission = await Notification.requestPermission();
         if (permission === 'granted') {

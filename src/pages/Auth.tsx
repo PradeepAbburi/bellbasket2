@@ -325,26 +325,34 @@ const Auth = () => {
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
 
-      // Detect mobile or standalone PWA environment
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
+      const userAgent = navigator.userAgent || '';
+      const isMedianApp = /gonative|median|wv|Version\/.*Chrome/i.test(userAgent) || !!(window as any).gonative || !!(window as any).median;
 
       let result;
-      if (isMobile || isStandalone) {
-        // Use redirect for mobile browsers & standalone app to prevent popup blocks
-        await signInWithRedirect(auth, provider);
-        return;
-      } else {
+      try {
+        // Try popup first - works in popups, Chrome Custom Tabs, and modern mobile
+        result = await signInWithPopup(auth, provider);
+      } catch (popupErr: any) {
+        console.warn("Google Sign-In popup notice:", popupErr);
+
+        // Check if disallowed_useragent or app webview restriction
+        if (popupErr?.code === 'auth/disallowed-useragent' || (isMedianApp && (popupErr?.code === 'auth/popup-blocked' || popupErr?.code === 'auth/operation-not-supported-in-this-environment'))) {
+          toast.error("Google Login in App WebView is restricted by Google.", {
+            description: "Please log in using Phone OTP or Email/Password, or open bellbasket.com in Chrome."
+          });
+          setLoading(false);
+          return;
+        }
+
+        // Fallback to redirect for standard mobile browsers if popup was blocked
         try {
-          result = await signInWithPopup(auth, provider);
-        } catch (popupErr: any) {
-          console.warn("Popup blocked or failed, falling back to redirect:", popupErr);
-          if (popupErr.code === 'auth/popup-blocked' || popupErr.code === 'auth/popup-closed-by-user' || popupErr.code === 'auth/cancelled-popup-request') {
-            await signInWithRedirect(auth, provider);
-            return;
-          } else {
-            throw popupErr;
-          }
+          await signInWithRedirect(auth, provider);
+          return;
+        } catch (redirectErr: any) {
+          console.error("Redirect auth error:", redirectErr);
+          toast.error("Google Sign-In failed. Please use Phone OTP or Email login.");
+          setLoading(false);
+          return;
         }
       }
 

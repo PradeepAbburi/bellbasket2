@@ -12,8 +12,8 @@ const NotificationPrompt = () => {
   );
 
   useEffect(() => {
-    // Check if notifications are already asked
-    if (typeof Notification === 'undefined' || Notification.permission !== 'default') {
+    // Check if notification permission is already granted
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
       return;
     }
 
@@ -22,28 +22,20 @@ const NotificationPrompt = () => {
       return;
     }
 
-    if (!user || user.role === 'admin' || user.role === 'hr') return;
+    if (user?.role === 'admin' || user?.role === 'hr') return;
 
-    // Show if they are a vendor 
-    // OR if they have active orders/bookings
-    const hasActiveOrders = orders.some(o => !['completed', 'rejected'].includes(o.status));
-    const hasActiveBookings = serviceBookings.some(b => !['completed', 'rejected'].includes(b.status));
-    
-    if (user.role === 'vendor' || hasActiveOrders || hasActiveBookings) {
-      const timer = setTimeout(() => setShow(true), 4000);
-      return () => clearTimeout(timer);
-    }
-  }, [user, orders, serviceBookings]);
+    // Show prompt after a short 2.5s delay for all users to enable real-time updates
+    const timer = setTimeout(() => setShow(true), 2500);
+    return () => clearTimeout(timer);
+  }, [user]);
 
   const handleEnable = async () => {
     initAudio();
     await requestPushNotifications();
     sessionStorage.setItem('notification_prompt_dismissed', 'true');
+    setShow(false);
     if (typeof Notification !== 'undefined') {
       setPermission(Notification.permission);
-      if (Notification.permission === 'granted') {
-        setShow(false);
-      }
     }
   };
 
