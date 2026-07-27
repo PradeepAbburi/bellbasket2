@@ -1635,37 +1635,7 @@ const CustomerHome = () => {
               )}
             </AnimatePresence>
 
-            {/* Notification Permission Banner for Normal Users */}
-            {notificationPermission === 'default' && !isSearching && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="bg-primary/5 border-2 border-primary/20 rounded-[2.5rem] p-6 mb-8 flex flex-col md:flex-row items-center justify-between gap-6"
-              >
-                <div className="flex items-center gap-5">
-                  <div className="w-16 h-16 rounded-3xl bg-primary/10 flex items-center justify-center shrink-0 text-primary shadow-inner">
-                    <BellRing className="w-8 h-8" />
-                  </div>
-                  <div className="text-center md:text-left">
-                    <h3 className="text-lg font-black text-foreground tracking-tight">Never Miss an Update!</h3>
-                    <p className="text-sm text-muted-foreground mt-1 max-w-xl font-medium leading-relaxed">
-                      Enable notifications to receive real-time updates on your orders, exclusive deals, and messages from stores near you.
-                    </p>
-                  </div>
-                </div>
-                <button
-                    onClick={async () => {
-                      await requestPushNotifications();
-                      if (typeof Notification !== 'undefined') {
-                        setNotificationPermission(Notification.permission);
-                      }
-                    }}
-                    className="px-8 py-4 rounded-2xl bg-primary text-white font-black text-sm uppercase tracking-widest active:scale-95 transition-all w-full md:w-auto shadow-xl shadow-primary/25 hover:shadow-primary/40 hover:-translate-y-0.5"
-                >
-                  Allow Notifications
-                </button>
-              </motion.div>
-            )}
+
 
             {/* Stores grid header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">

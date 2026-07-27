@@ -53,20 +53,7 @@ const NotificationsPage = () => {
                                     <h3 className="text-lg font-bold">All clear!</h3>
                                     <p className="text-sm text-muted-foreground">No new notifications to show.</p>
                                 </div>
-                                {(typeof Notification === 'undefined' || Notification.permission !== 'granted') && (
-                                    <div className="mt-4 flex flex-col items-center gap-3 bg-primary/5 p-6 rounded-2xl border-2 border-primary/10 max-w-sm mx-auto">
-                                        <p className="text-sm font-bold text-foreground">Allow On-Screen Notifications</p>
-                                        <p className="text-xs text-muted-foreground px-4">Receive updates like new orders, messages, or alerts directly on your screen.</p>
-                                        <button 
-                                            onClick={async () => {
-                                                await requestPushNotifications();
-                                            }} 
-                                            className="px-8 py-2.5 bg-primary text-white font-black rounded-xl text-sm shadow-lg shadow-primary/20 active:scale-95 transition-all mt-2"
-                                        >
-                                            Allow Notifications
-                                        </button>
-                                    </div>
-                                )}
+
                             </div>
                         ) : (
                             <AnimatePresence mode="popLayout">
