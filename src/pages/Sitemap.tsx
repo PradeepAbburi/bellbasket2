@@ -52,11 +52,18 @@ const Sitemap = () => {
         .filter(store => !store.isBlocked)
         .forEach(store => {
           const slug = store.slug || generateSlug(store.name, store.city || 'Geelong');
-          const mainPath = `/store/${slug}`;
-          const reviewPath = `/store/${slug}/reviews`;
+          const mainPath = `/stores/${slug}`;
+          const legacyPath = `/store/${slug}`;
+          const reviewPath = `/stores/${slug}/reviews`;
           sitemap += `
   <url>
     <loc>${baseUrl}${mainPath}</loc>
+    <lastmod>${date}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>${baseUrl}${legacyPath}</loc>
     <lastmod>${date}</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
