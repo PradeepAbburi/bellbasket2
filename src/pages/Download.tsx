@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Download, QrCode, Sparkles, Smartphone, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, QrCode, Sparkles, Smartphone, CheckCircle2 } from 'lucide-react';
 import { Helmet } from 'react-helmet';
 import { toast } from 'sonner';
 import Header from '@/components/Header';
@@ -9,17 +9,7 @@ import QRCodeWithLogo from '@/components/ui/qr-code-with-logo';
 const DownloadPage = () => {
     const navigate = useNavigate();
 
-    const handleApkDownload = () => {
-        toast.success("Starting Download...", {
-            description: "Your BellBasket APK is being downloaded."
-        });
-        const link = document.createElement('a');
-        link.href = '/bellbasket.apk';
-        link.download = 'bellbasket.apk';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
+
 
     const downloadUrl = window.location.origin + "/download";
 
@@ -104,14 +94,8 @@ const DownloadPage = () => {
 
                             <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">
                                 <button
-                                    onClick={handleApkDownload}
-                                    className="w-full sm:w-auto px-10 py-5 rounded-[2rem] gradient-primary text-white font-black text-lg shadow-2xl shadow-primary/40 hover:scale-[1.03] active:scale-95 transition-all flex items-center justify-center gap-3"
-                                >
-                                    <Download className="w-6 h-6" /> Download APK (7.6 MB)
-                                </button>
-                                <button
                                     onClick={() => navigate('/')}
-                                    className="w-full sm:w-auto px-8 py-5 rounded-[2rem] glass text-foreground font-bold text-base hover:bg-white/10 active:scale-95 transition-all"
+                                    className="w-full sm:w-auto px-10 py-5 rounded-[2rem] gradient-primary text-white font-black text-lg shadow-2xl shadow-primary/40 hover:scale-[1.03] active:scale-95 transition-all"
                                 >
                                     Use Web Version
                                 </button>
@@ -139,7 +123,7 @@ const DownloadPage = () => {
                             <CheckCircle2 className="w-5 h-5 text-primary" /> How to install the APK:
                         </h3>
                         <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground font-medium">
-                            <li>Tap the <strong>Download APK</strong> button above to save the installer file to your device.</li>
+                            <li>Open the APK installer file on your device.</li>
                             <li>Open your device's <strong>Downloads</strong> folder or tap the notification when download completes.</li>
                             <li>If prompted, allow your browser to <strong>"Install unknown apps"</strong> or enable "Allow from this source".</li>
                             <li>Tap <strong>Install</strong> and enjoy BellBasket on your Android phone!</li>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Download, X, Smartphone, Sparkles, ArrowRight } from 'lucide-react';
+import { X, Smartphone, Sparkles, ArrowRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
 
@@ -53,16 +53,6 @@ const PWAInstallPrompt = () => {
         return () => window.removeEventListener('beforeinstallprompt', handler);
     }, [deferredPrompt, isVisible]);
 
-    const handleApkDownload = () => {
-        const link = document.createElement('a');
-        link.href = '/bellbasket.apk';
-        link.download = 'bellbasket.apk';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        setIsVisible(false);
-        sessionStorage.setItem('pwa_prompt_dismissed', 'true');
-    };
 
     const handleInstall = async () => {
         if (deferredPrompt) {
@@ -72,13 +62,6 @@ const PWAInstallPrompt = () => {
             setDeferredPrompt(null);
             setIsVisible(false);
         } else {
-            // Check if Android for direct APK download
-            const isAndroid = /Android/i.test(navigator.userAgent);
-            if (isAndroid) {
-                handleApkDownload();
-                return;
-            }
-
             // Fallback for iOS - show instructions
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
             if (isIOS) {
@@ -129,24 +112,17 @@ const PWAInstallPrompt = () => {
                             </div>
                             <h3 className="text-sm font-black text-foreground leading-tight truncate">Install BellBasket App</h3>
                             <p className="text-[11px] text-muted-foreground font-medium leading-relaxed line-clamp-2">
-                                Download official Android APK or install web app.
+                                Install web app for fast access.
                             </p>
                         </div>
                     </div>
 
                     <div className="flex flex-col gap-2 mt-4">
                         <div className="flex gap-2">
-                            <button
-                                onClick={handleApkDownload}
-                                className="flex-1 h-11 rounded-xl bg-primary text-primary-foreground font-black text-xs uppercase tracking-wider shadow-lg shadow-primary/20 active:scale-95 transition-all flex items-center justify-center gap-2"
-                            >
-                                <Download className="w-3.5 h-3.5" />
-                                Download APK
-                            </button>
                             {deferredPrompt && (
                                 <button
                                     onClick={handleInstall}
-                                    className="flex-1 h-11 rounded-xl bg-secondary text-foreground font-bold text-xs uppercase tracking-wider active:scale-95 transition-all flex items-center justify-center gap-1"
+                                    className="flex-1 h-11 rounded-xl bg-primary text-primary-foreground font-black text-xs uppercase tracking-wider shadow-lg shadow-primary/20 active:scale-95 transition-all flex items-center justify-center gap-1"
                                 >
                                     PWA Install
                                 </button>

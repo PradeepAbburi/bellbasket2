@@ -46,11 +46,26 @@ export const initAudio = async () => {
         }
 
         if (sharedAudioCtx.state === 'suspended') {
-            await sharedAudioCtx.resume();
+            try {
+                await sharedAudioCtx.resume();
+            } catch (resErr) {
+                // AudioContext resume requires user interaction; attach one-time gesture listener
+                const unlockOnGesture = async () => {
+                    if (sharedAudioCtx && sharedAudioCtx.state === 'suspended') {
+                        await sharedAudioCtx.resume().catch(() => {});
+                    }
+                    window.removeEventListener('pointerdown', unlockOnGesture);
+                    window.removeEventListener('keydown', unlockOnGesture);
+                    window.removeEventListener('touchstart', unlockOnGesture);
+                };
+                window.addEventListener('pointerdown', unlockOnGesture, { once: true });
+                window.addEventListener('keydown', unlockOnGesture, { once: true });
+                window.addEventListener('touchstart', unlockOnGesture, { once: true });
+                return;
+            }
         }
 
         // 🌡️ Hardware Priming: Play a short, silent buffer to wake up the DAC on mobile
-        // This is a known fix for iOS Safari and some silent Android devices
         const silentBuf = sharedAudioCtx.createBuffer(1, 1, 22050);
         const source = sharedAudioCtx.createBufferSource();
         source.buffer = silentBuf;
@@ -63,7 +78,7 @@ export const initAudio = async () => {
         }
         notifyListeners();
     } catch (e) {
-        console.warn('❌ [Audio] Init failed:', e);
+        console.warn('❌ [Audio] Init deferred to user interaction:', e);
     }
 };
 

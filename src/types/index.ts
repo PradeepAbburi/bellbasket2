@@ -85,9 +85,12 @@ export interface Store {
   autoClose?: boolean;
   mandal?: string;
   district?: string;
+  city?: string;
   state?: string;
   country?: string;
   website?: string;
+  bannerUrl?: string;
+  coverImage?: string;
 }
 
 // ... rest of the interfaces

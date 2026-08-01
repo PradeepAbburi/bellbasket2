@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Play, Sparkles, Heart, MessageCircle, Share2, ShoppingBag, Wrench, Send, Info, X, HelpCircle, Check, Reply } from 'lucide-react';
 import Header from '@/components/Header';
+import SEOHead from '@/components/SEOHead';
 
 interface CommentReply {
   id: string;
@@ -260,6 +261,11 @@ const Clips = () => {
           className="absolute bottom-[-10%] right-[-10%] w-[50vw] h-[50vw] bg-gradient-to-bl from-amber-600/15 via-yellow-500/10 to-transparent blur-[120px]"
         />
       </div>
+
+      <SEOHead
+        title="Clips & Short Videos | Watch Local Merchant Stories"
+        description="Discover short videos and highlights from verified local shops, restaurant specials, new products, and merchant stories on BellBasket Clips."
+      />
 
       <Header solid />
 

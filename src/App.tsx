@@ -59,6 +59,7 @@ const IndexRoute = () => {
   return <Index />;
 };
 import StoreDetail from "./pages/StoreDetail";
+import PSEOLandingPage from "./pages/PSEOLandingPage";
 import Cart from "./pages/Basket";
 import Receipts from "./pages/Receipts";
 import Profile from "./pages/Profile";
@@ -242,6 +243,15 @@ const AppContent = () => {
             <Route path="/store/:id/reviews" element={<ErrorBoundary name="StoreReviews"><StoreReviews /></ErrorBoundary>} />
             <Route path="/stores/:slug" element={<ErrorBoundary name="StoreDetail"><StoreDetail /></ErrorBoundary>} />
             <Route path="/stores/:slug/reviews" element={<ErrorBoundary name="StoreReviews"><StoreReviews /></ErrorBoundary>} />
+            
+            {/* pSEO Landing Page Routes */}
+            <Route path="/city/:city" element={<ErrorBoundary name="PSEOLandingPage"><PSEOLandingPage /></ErrorBoundary>} />
+            <Route path="/category/:category" element={<ErrorBoundary name="PSEOLandingPage"><PSEOLandingPage /></ErrorBoundary>} />
+            <Route path="/best-:category-in-:city" element={<ErrorBoundary name="PSEOLandingPage"><PSEOLandingPage /></ErrorBoundary>} />
+            <Route path="/:category-near-me" element={<ErrorBoundary name="PSEOLandingPage"><PSEOLandingPage /></ErrorBoundary>} />
+            <Route path="/:category/:city" element={<ErrorBoundary name="PSEOLandingPage"><PSEOLandingPage /></ErrorBoundary>} />
+            <Route path="/:category/:city/:subcategory" element={<ErrorBoundary name="PSEOLandingPage"><PSEOLandingPage /></ErrorBoundary>} />
+
             <Route path="/cart" element={<ErrorBoundary name="Basket"><ProtectedRoute><Cart /></ProtectedRoute></ErrorBoundary>} />
             <Route path="/receipts" element={<ErrorBoundary name="Receipts"><ProtectedRoute><Receipts /></ProtectedRoute></ErrorBoundary>} />
             <Route path="/receipt/:id" element={<ErrorBoundary name="ReceiptDetail"><ReceiptDetail /></ErrorBoundary>} />

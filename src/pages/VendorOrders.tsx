@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, ArrowRight, Check, Package, Shield, Key, Phone, KeyRound, X, Trash2, RefreshCcw, MapPin, Clock, Share2, CheckSquare, Square } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Package, Shield, Key, Phone, KeyRound, X, Trash2, RefreshCcw, MapPin, Clock, Share2, CheckSquare, Square, AlertCircle, Loader2 } from 'lucide-react';
 
 import PullToRefresh from '@/components/ui/PullToRefresh';
 import { useNavigate } from 'react-router-dom';
@@ -33,6 +33,8 @@ const VendorOrders = () => {
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [longPressTimer, setLongPressTimer] = useState<any>(null);
   const [orderToReject, setOrderToReject] = useState<string | null>(null);
+  const [orderToCancel, setOrderToCancel] = useState<string | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
   const [rejectionReasonInput, setRejectionReasonInput] = useState('');
   const [isSubmittingRejection, setIsSubmittingRejection] = useState(false);
   const [rejectionsToHideInSession, setRejectionsToHideInSession] = useState<Set<string>>(new Set());
@@ -97,25 +99,28 @@ const VendorOrders = () => {
   }, []);
 
   const activeOrders = orders.filter(o => {
-    if (o.status !== 'completed' && o.status !== 'rejected' && o.status !== 'cancelled') return true;
+    if (rejectionsToHideInSession.has(o.id)) return false;
+    if (o.status === 'cancelled') return false;
+    if (o.status !== 'completed' && o.status !== 'rejected') return true;
     if (o.status === 'completed') {
       const completedAt = o.completedAt ? new Date(o.completedAt).getTime() : 0;
       return completedAt > 0 && (now - completedAt) < 30000;
     }
-    if (o.status === 'rejected' || o.status === 'cancelled') {
-      const cancelTime = o.cancelledAt ? new Date(o.cancelledAt).getTime() : (o.rejectedAt ? new Date(o.rejectedAt).getTime() : 0);
+    if (o.status === 'rejected') {
+      const cancelTime = o.rejectedAt ? new Date(o.rejectedAt).getTime() : 0;
       return cancelTime > 0 && (now - cancelTime) < 30000;
     }
     return false;
   });
 
   const pastOrders = orders.filter(o => {
+    if (o.status === 'cancelled') return false;
     if (o.status === 'completed') {
       const completedAt = o.completedAt ? new Date(o.completedAt).getTime() : 0;
       return completedAt === 0 || (now - completedAt) >= 30000;
     }
-    if (o.status === 'rejected' || o.status === 'cancelled') {
-      const cancelTime = o.cancelledAt ? new Date(o.cancelledAt).getTime() : (o.rejectedAt ? new Date(o.rejectedAt).getTime() : 0);
+    if (o.status === 'rejected') {
+      const cancelTime = o.rejectedAt ? new Date(o.rejectedAt).getTime() : 0;
       return cancelTime === 0 || (now - cancelTime) >= 30000;
     }
     return false;
@@ -331,40 +336,43 @@ const VendorOrders = () => {
     }
   };
 
-  const cancelOrderWithPin = async (orderId: string, correctPin: string) => {
-    const inputPin = window.prompt("To cancel this order, please enter the Customer's Order PIN:");
+  const promptCancelOrder = (orderId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setOrderToCancel(orderId);
+  };
 
-    if (inputPin === null) return; // User cancelled prompt
+  const confirmCancelOrder = async () => {
+    if (!orderToCancel) return;
+    setIsCancelling(true);
+    try {
+      const orderSnap = await getDoc(doc(db, 'orders', orderToCancel));
+      const orderData = orderSnap.data();
+      await updateDoc(doc(db, 'orders', orderToCancel), {
+        status: 'cancelled',
+        cancelledAt: new Date().toISOString(),
+        rejectionReason: 'Cancelled by vendor'
+      });
 
-    if (inputPin.trim() === correctPin) {
-      try {
-        const orderSnap = await getDoc(doc(db, 'orders', orderId));
-        const orderData = orderSnap.data();
-        await updateDoc(doc(db, 'orders', orderId), {
-          status: 'rejected',
-          rejectedAt: new Date().toISOString()
+      // 🔔 Push notification to the customer
+      if (orderData?.userId) {
+        sendInAppNotification(orderData.userId, {
+          title: '❌ Order Cancelled',
+          body: `Your order from ${orderData.storeName || 'the store'} has been cancelled by the vendor.`,
+          url: '/receipts',
+          type: 'order',
+          id: orderToCancel
         });
-
-        // 🔔 Push notification to the customer
-        if (orderData?.userId) {
-          sendInAppNotification(orderData.userId, {
-            title: '❌ Order Cancelled',
-            body: `Your order from ${orderData.storeName} has been cancelled by the vendor.`,
-            url: '/receipts',
-            type: 'order',
-            id: orderId
-          });
-        }
-
-        toast.success("Order cancelled successfully");
-        if (selectedOrderId === orderId) {
-          setSelectedOrderId(null);
-        }
-      } catch (e) {
-        toast.error(t('vendor_orders.failed_update'));
       }
-    } else {
-      toast.error("Incorrect PIN. Please ask the customer for the correct PIN shown on their receipt.");
+
+      toast.success("Order cancelled and removed from vendor list");
+      if (selectedOrderId === orderToCancel) {
+        setSelectedOrderId(null);
+      }
+      setOrderToCancel(null);
+    } catch (e) {
+      toast.error(t('vendor_orders.failed_update'));
+    } finally {
+      setIsCancelling(false);
     }
   };
 
@@ -689,7 +697,7 @@ const VendorOrders = () => {
                     {order.status === 'out_for_delivery' ? (
                       <>
                         <button
-                          onClick={(e) => { e.stopPropagation(); cancelOrderWithPin(order.id, order.pickupCode || ''); }}
+                          onClick={(e) => promptCancelOrder(order.id, e)}
                           className="bg-destructive/10 text-destructive text-xs font-semibold px-4 py-1.5 rounded-lg hover:bg-destructive/20 transition-colors flex items-center gap-1.5"
                         >
                           <X className="w-3 h-3" />
@@ -985,17 +993,11 @@ const VendorOrders = () => {
                 <div className="p-4 border-t border-border/10 bg-card/50 shrink-0">
                   <div className="flex items-center gap-3">
                     <button
-                      onClick={() => {
-                        if (selectedOrder.status === 'pending') {
-                          rejectOrder(selectedOrder.id);
-                        } else {
-                          cancelOrderWithPin(selectedOrder.id, selectedOrder.pickupCode || '');
-                        }
-                      }}
+                      onClick={(e) => promptCancelOrder(selectedOrder.id, e)}
                       className="flex-1 bg-destructive/10 text-destructive font-bold py-4 rounded-2xl hover:bg-destructive/20 transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-widest border border-destructive/20 shadow-sm active:scale-95"
                     >
                       <X className="w-5 h-5" />
-                      Reject
+                      {selectedOrder.status === 'pending' ? 'Reject' : 'Cancel'}
                     </button>
                     <button
                       onClick={() => advanceStatus(selectedOrder.id)}
@@ -1079,6 +1081,51 @@ const VendorOrders = () => {
                     {isSubmittingRejection ? 'Rejecting...' : 'Confirm Rejection'}
                   </button>
                 </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Order Cancellation Confirmation Modal */}
+      <AnimatePresence>
+        {orderToCancel && (
+          <div 
+            className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md"
+            onClick={() => setOrderToCancel(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-white dark:bg-[#1A1A1A] rounded-[2rem] p-6 max-w-sm w-full shadow-2xl border border-white/10 text-center space-y-5"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="w-16 h-16 rounded-2xl bg-rose-500/10 text-rose-500 flex items-center justify-center mx-auto shadow-inner">
+                <AlertCircle className="w-8 h-8" />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-xl font-black text-foreground">Cancel Order #{orderToCancel.slice(-6).toUpperCase()}?</h3>
+                <p className="text-xs text-muted-foreground font-medium leading-relaxed">
+                  Are you sure you want to cancel this order? This will notify the customer and remove the order from your active orders list.
+                </p>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setOrderToCancel(null)}
+                  className="flex-1 py-3.5 rounded-xl bg-secondary hover:bg-secondary/80 text-foreground font-bold text-xs uppercase tracking-wider transition-all"
+                >
+                  Keep Order
+                </button>
+                <button
+                  type="button"
+                  disabled={isCancelling}
+                  onClick={confirmCancelOrder}
+                  className="flex-1 py-3.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-black text-xs uppercase tracking-wider transition-all shadow-lg shadow-rose-600/20 disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isCancelling ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Yes, Cancel'}
+                </button>
               </div>
             </motion.div>
           </div>

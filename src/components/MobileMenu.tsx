@@ -199,9 +199,9 @@ const MobileMenu = ({
                       <ShoppingCart className="w-5 h-5 text-primary" />
                       <span className="font-bold text-sm">Shopping List</span>
                     </div>
-                    {cartCount > 0 && (
+                    {activeReceiptsCount > 0 && (
                       <span className="bg-primary text-white text-[10px] font-black px-2 py-0.5 rounded-full">
-                        {cartCount}
+                        {activeReceiptsCount}
                       </span>
                     )}
                   </Link>

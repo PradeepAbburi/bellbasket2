@@ -34,11 +34,30 @@ app.get('/api/sitemap', async (req, res) => {
 
         // Fetch dynamic stores from Firestore
         const storesSnapshot = await db.collection('stores').get();
+        const cities = new Set();
+        const categories = new Set();
+
         storesSnapshot.forEach((doc) => {
             const store = doc.data();
             // Use slug if it exists, otherwise use the raw ID
             const path = store.slug ? `/stores/${store.slug}` : `/store/${doc.id}`;
-            links.push({ url: path, changefreq: 'weekly', priority: 0.7 });
+            links.push({ url: path, changefreq: 'weekly', priority: 0.8 });
+
+            if (store.city) cities.add(store.city.toLowerCase());
+            if (store.category) categories.add(store.category.toLowerCase());
+        });
+
+        // Add pSEO landing page routes
+        cities.forEach(city => {
+            links.push({ url: `/city/${city}`, changefreq: 'daily', priority: 0.9 });
+        });
+
+        categories.forEach(cat => {
+            links.push({ url: `/category/${cat}`, changefreq: 'daily', priority: 0.9 });
+            cities.forEach(city => {
+                links.push({ url: `/${cat}/${city}`, changefreq: 'daily', priority: 0.9 });
+                links.push({ url: `/best-${cat}-in-${city}`, changefreq: 'daily', priority: 0.95 });
+            });
         });
 
         // Create a stream to write to

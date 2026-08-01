@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mail, UserCircle, Store, ArrowRight, ArrowLeft, CheckCircle2, Lock, Phone, Zap, Shield, Eye, EyeOff, Sun, Moon, Loader, Download, Smartphone, X } from 'lucide-react';
+import { Mail, UserCircle, Store, ArrowRight, ArrowLeft, CheckCircle2, Lock, Phone, Zap, Shield, Eye, EyeOff, Sun, Moon, Loader, X } from 'lucide-react';
 import { Helmet } from 'react-helmet';
 import { useApp } from '@/context/AppContext';
 import { toast } from 'sonner';
@@ -17,7 +17,10 @@ import {
   GoogleAuthProvider,
   signInWithPopup,
   signInWithRedirect,
-  getRedirectResult
+  getRedirectResult,
+  setPersistence,
+  browserLocalPersistence,
+  browserSessionPersistence
 } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import heroBg from '@/assets/hero-bg.jpg';
@@ -36,57 +39,9 @@ const Auth = () => {
   const [needsVerification, setNeedsVerification] = useState(false);
   const [referralCode, setReferralCode] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
-  useEffect(() => {
-    const handler = (e: any) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-    };
-    window.addEventListener('beforeinstallprompt', handler);
-    return () => window.removeEventListener('beforeinstallprompt', handler);
-  }, []);
 
-  const handleInstallApp = async () => {
-    // 1. Trigger direct APK file download
-    try {
-      toast.success("Downloading BellBasket App...", {
-        description: "Your APK download has started."
-      });
-      const link = document.createElement('a');
-      link.href = '/bellbasket.apk';
-      link.download = 'bellbasket.apk';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      return;
-    } catch (e) {
-      console.error("APK download failed:", e);
-    }
 
-    // 2. Fallback to native PWA install prompt
-    if (deferredPrompt) {
-      try {
-        deferredPrompt.prompt();
-        const { outcome } = await deferredPrompt.userChoice;
-        console.log(`User install outcome: ${outcome}`);
-        setDeferredPrompt(null);
-      } catch (e) {
-        console.warn("Direct install error:", e);
-      }
-    } else {
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-      if (isIOS) {
-        toast.info("To Install App:", {
-          description: "Tap Share button in Safari -> 'Add to Home Screen'"
-        });
-      } else {
-        toast.info("To Install App:", {
-          description: "Open browser menu (⋮) -> select 'Install App' or 'Add to Home Screen'"
-        });
-      }
-    }
-  };
 
   const { login, refreshUser } = useApp(); // theme/toggleTheme removed
   const navigate = useNavigate();
@@ -330,10 +285,24 @@ const Auth = () => {
 
       let result;
       try {
-        // Try popup first - works in popups, Chrome Custom Tabs, and modern mobile
+        // Try popup first - works in popups, Chrome Custom Tabs, and modern browsers
         result = await signInWithPopup(auth, provider);
       } catch (popupErr: any) {
         console.warn("Google Sign-In popup notice:", popupErr);
+
+        if (popupErr?.code === 'auth/popup-closed-by-user' || popupErr?.code === 'auth/cancelled-popup-request') {
+          toast.info("Google Sign-In was cancelled.");
+          setLoading(false);
+          return;
+        }
+
+        if (popupErr?.code === 'auth/unauthorized-domain') {
+          toast.error(`Domain "${window.location.hostname}" is not authorized in Firebase Console.`, {
+            description: "Please add this domain to Authorized Domains under Firebase Console -> Auth Settings."
+          });
+          setLoading(false);
+          return;
+        }
 
         // Check if disallowed_useragent or app webview restriction
         if (popupErr?.code === 'auth/disallowed-useragent' || (isMedianApp && (popupErr?.code === 'auth/popup-blocked' || popupErr?.code === 'auth/operation-not-supported-in-this-environment'))) {
@@ -344,16 +313,22 @@ const Auth = () => {
           return;
         }
 
-        // Fallback to redirect for standard mobile browsers if popup was blocked
-        try {
-          await signInWithRedirect(auth, provider);
-          return;
-        } catch (redirectErr: any) {
-          console.error("Redirect auth error:", redirectErr);
-          toast.error("Google Sign-In failed. Please use Phone OTP or Email login.");
-          setLoading(false);
-          return;
+        // Fallback to redirect only if popup was blocked by browser
+        if (popupErr?.code === 'auth/popup-blocked') {
+          try {
+            await signInWithRedirect(auth, provider);
+            return;
+          } catch (redirectErr: any) {
+            console.error("Redirect auth error:", redirectErr);
+            toast.error(redirectErr?.message || "Google Sign-In failed. Please use Phone OTP or Email login.");
+            setLoading(false);
+            return;
+          }
         }
+
+        toast.error(popupErr?.message || "Google Authentication failed. Please try again.");
+        setLoading(false);
+        return;
       }
 
       if (result && result.user) {
@@ -434,6 +409,12 @@ const Auth = () => {
       const sanitizedEmail = email.trim().toLowerCase();
 
       if (isLogin) {
+        try {
+          await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
+        } catch (persErr) {
+          console.warn("Could not set auth persistence:", persErr);
+        }
+
         if (rememberMe) {
           localStorage.setItem('bb_remembered_email', sanitizedEmail);
           localStorage.setItem('bb_remembered_password', password);
@@ -857,18 +838,18 @@ const Auth = () => {
             )}
 
             {isLogin && !showForgotPassword && (
-              <div className="flex items-center justify-between">
-                <label className="flex items-center gap-2 cursor-pointer group">
-                  <div className="relative flex items-center">
-                    <input 
-                      type="checkbox" 
-                      id="rememberMe"
-                      checked={rememberMe}
-                      onChange={(e) => setRememberMe(e.target.checked)}
-                      className="w-4 h-4 rounded-lg bg-secondary/50 border-0 focus:ring-2 focus:ring-primary/20 text-primary transition-all cursor-pointer"
-                    />
-                  </div>
-                  <span className="text-[10px] font-bold text-muted-foreground group-hover:text-foreground transition-colors uppercase tracking-wider select-none pt-0.5">Remember Me</span>
+              <div className="flex items-center justify-between my-1">
+                <label htmlFor="rememberMe" className="flex items-center gap-2 cursor-pointer group py-1 select-none">
+                  <input 
+                    type="checkbox" 
+                    id="rememberMe"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="w-4 h-4 rounded border-border text-primary focus:ring-primary/20 accent-primary cursor-pointer"
+                  />
+                  <span className="text-[11px] font-bold text-muted-foreground group-hover:text-foreground transition-colors uppercase tracking-wider">
+                    Remember Me
+                  </span>
                 </label>
                 <button
                   type="button"
@@ -959,14 +940,7 @@ const Auth = () => {
             </div>
           )}
 
-          <button
-            type="button"
-            onClick={handleInstallApp}
-            className="w-full py-3.5 rounded-2xl bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2.5 transition-all active:scale-95 shadow-sm mt-3"
-          >
-            <Smartphone className="w-4 h-4 text-primary" />
-            Install App
-          </button>
+
         </div>
 
         <div className="mt-8 text-center bg-white/10 backdrop-blur-md rounded-2xl py-3 border border-white/10">

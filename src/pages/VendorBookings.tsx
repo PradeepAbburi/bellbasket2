@@ -40,25 +40,27 @@ const VendorBookings = () => {
     }, []);
 
     const activeBookings = bookings.filter(b => {
-        if (b.status !== 'completed' && b.status !== 'rejected' && b.status !== 'cancelled') return true;
+        if (b.status === 'cancelled') return false;
+        if (b.status !== 'completed' && b.status !== 'rejected') return true;
         if (b.status === 'completed') {
             const completedAt = b.completedAt ? new Date(b.completedAt).getTime() : 0;
             return completedAt > 0 && (now - completedAt) < 30000;
         }
-        if (b.status === 'rejected' || b.status === 'cancelled') {
-            const cancelTime = b.cancelledAt ? new Date(b.cancelledAt).getTime() : (b.rejectedAt ? new Date(b.rejectedAt).getTime() : 0);
+        if (b.status === 'rejected') {
+            const cancelTime = b.rejectedAt ? new Date(b.rejectedAt).getTime() : 0;
             return cancelTime > 0 && (now - cancelTime) < 30000;
         }
         return false;
     });
 
     const pastBookings = bookings.filter(b => {
+        if (b.status === 'cancelled') return false;
         if (b.status === 'completed') {
             const completedAt = b.completedAt ? new Date(b.completedAt).getTime() : 0;
             return completedAt === 0 || (now - completedAt) >= 30000;
         }
-        if (b.status === 'rejected' || b.status === 'cancelled') {
-            const cancelTime = b.cancelledAt ? new Date(b.cancelledAt).getTime() : (b.rejectedAt ? new Date(b.rejectedAt).getTime() : 0);
+        if (b.status === 'rejected') {
+            const cancelTime = b.rejectedAt ? new Date(b.rejectedAt).getTime() : 0;
             return cancelTime === 0 || (now - cancelTime) >= 30000;
         }
         return false;

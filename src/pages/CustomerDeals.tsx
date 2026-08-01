@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingCart, Zap, Clock, MapPin, Star, ChevronRight, ShoppingBag, ArrowRight, TrendingUp, Sparkles, Filter, Percent, Package2, Plus, Minus, Search, X, Loader2, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
+import SEOHead from '@/components/SEOHead';
 import VariantSelector from '@/components/VariantSelector';
 import SortOptions from '@/components/SortOptions';
 import { useApp } from '@/context/AppContext';
@@ -296,6 +297,10 @@ const CustomerDeals = ({ mode = 'product' }: { mode?: 'product' | 'service' }) =
 
   return (
     <div className="min-h-screen bg-[#202020] text-foreground">
+      <SEOHead
+        title={mode === 'service' ? 'Local Service Deals & Discounts' : 'Best Local Product Deals & Discounts'}
+        description="Save money with real-time discounts and exclusive daily offers on local restaurants, food items, grocery stores, and services near you on BellBasket."
+      />
       <Header solid />
       
       <div className="pt-20 pb-44">

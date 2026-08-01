@@ -31,7 +31,7 @@ import { toast } from 'sonner';
 import Header from '@/components/Header';
 import MapView from '@/components/MapView';
 import { CATEGORY_METADATA } from '@/constants/categories';
-import { generateSlug } from '@/utils/seo';
+import { generateSlug, triggerAutoSitemapUpdate } from '@/utils/seo';
 import PageLoading from '@/components/PageLoading';
 import { Helmet } from 'react-helmet';
 
@@ -288,6 +288,17 @@ const VendorStoreConfig = () => {
         lat: tempLat,
         lng: tempLng,
         address: tempAddress
+      });
+
+      // Automatically update sitemap and ping search engines
+      triggerAutoSitemapUpdate({
+        id: user.id,
+        name: tempName || vendorStore?.name || 'store',
+        category: tempCategory || vendorStore?.category || 'Store',
+        city: area || 'Local',
+        address: tempAddress,
+        phone: tempPhone,
+        website: tempWebsite
       });
 
       toast.dismiss(loadingToast);

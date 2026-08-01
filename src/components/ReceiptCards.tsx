@@ -113,15 +113,12 @@ export const RenderBookingCard = ({
   const navigate = useNavigate();
   const { refreshData } = useApp();
   const [showContact, setShowContact] = useState(false);
-  const [showCancelNote, setShowCancelNote] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
   const [isCancellingBooking, setIsCancellingBooking] = useState(false);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
 
-  const handleCancelBooking = async (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const confirmCancelBooking = async () => {
     if (isCancellingBooking) return;
-    if (!window.confirm("Are you sure you want to cancel this booking?")) return;
-    
     setIsCancellingBooking(true);
     try {
       const bookingRef = doc(db, 'serviceBookings', booking.id);
@@ -131,6 +128,7 @@ export const RenderBookingCard = ({
         rejectionReason: 'Cancelled by customer'
       });
       toast.success("Booking cancelled successfully!");
+      setShowCancelModal(false);
       refreshData();
     } catch (err: any) {
       console.error("Error cancelling booking:", err);
@@ -176,7 +174,7 @@ export const RenderBookingCard = ({
         </div>
       )}
 
-      {booking.status === 'pending' && store?.image && (
+      {store?.image && (
         <div className="-mx-5 -mt-5 mb-4 h-32 relative group overflow-hidden">
           <img 
             src={store.image} 
@@ -184,6 +182,22 @@ export const RenderBookingCard = ({
             alt={store.name}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-4">
+            <div className="absolute top-4 right-4 z-10 flex items-center gap-1.5">
+              <div className={`px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-2xl border-2 border-white/20 backdrop-blur-md ${
+                booking.status === 'pending' ? 'bg-amber-500 text-white' :
+                booking.status === 'accepted' ? 'bg-sky-500 text-white' :
+                booking.status === 'completed' ? 'bg-emerald-600 text-white' :
+                booking.status === 'rejected' || booking.status === 'cancelled' ? 'bg-rose-600 text-white' :
+                'bg-primary text-white'
+              }`}>
+                {booking.status === 'accepted' ? 'Confirmed ✓' :
+                 booking.status === 'pending' ? 'Pending' :
+                 booking.status === 'completed' ? 'Completed ✓' :
+                 booking.status === 'rejected' ? 'Rejected' :
+                 booking.status === 'cancelled' ? 'Cancelled' :
+                 String(booking.status).toUpperCase()}
+              </div>
+            </div>
             <div className="flex items-center gap-2">
               <div className="w-6 h-6 rounded-full overflow-hidden flex items-center justify-center border border-white/20">
                 <img 
@@ -375,11 +389,11 @@ export const RenderBookingCard = ({
       {!['completed', 'rejected', 'cancelled'].includes(booking.status) && (
         <div className="mt-4 px-2">
           <button 
-            onClick={handleCancelBooking}
+            onClick={(e) => { e.stopPropagation(); setShowCancelModal(true); }}
             disabled={isCancellingBooking}
             className="w-full py-3 rounded-xl bg-rose-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-rose-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-rose-600/20 disabled:opacity-50"
           >
-            {isCancellingBooking ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <X className="w-3.5 h-3.5" />}
+            <X className="w-3.5 h-3.5" />
             {t('common.receipts.cancel_booking')}
           </button>
         </div>
@@ -406,15 +420,49 @@ export const RenderBookingCard = ({
           </div>
         </div>
       )}
-      {standalone && (
-        <div className="absolute bottom-0 left-0 right-0 h-4 flex items-center justify-center overflow-hidden">
-           <div className="w-full flex">
-              {Array.from({ length: 20 }).map((_, i) => (
-                 <div key={i} className="flex-1 h-3 bg-[#202020] dark:bg-[#1A1A1A]" style={{ clipPath: 'polygon(0% 0%, 50% 100%, 100% 0%)' }} />
-              ))}
-           </div>
-        </div>
-      )}
+      <AnimatePresence>
+        {showCancelModal && (
+          <div 
+            className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md"
+            onClick={(e) => { e.stopPropagation(); setShowCancelModal(false); }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-white dark:bg-[#1A1A1A] rounded-[2rem] p-6 max-w-sm w-full shadow-2xl border border-white/10 text-center space-y-5"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="w-16 h-16 rounded-2xl bg-rose-500/10 text-rose-500 flex items-center justify-center mx-auto shadow-inner">
+                <AlertCircle className="w-8 h-8" />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-xl font-black text-foreground">Cancel Booking #{booking.id?.slice(-6).toUpperCase()}?</h3>
+                <p className="text-xs text-muted-foreground font-medium leading-relaxed">
+                  Are you sure you want to cancel this booking? This action cannot be undone.
+                </p>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCancelModal(false)}
+                  className="flex-1 py-3.5 rounded-xl bg-secondary hover:bg-secondary/80 text-foreground font-bold text-xs uppercase tracking-wider transition-all"
+                >
+                  Keep Booking
+                </button>
+                <button
+                  type="button"
+                  disabled={isCancellingBooking}
+                  onClick={confirmCancelBooking}
+                  className="flex-1 py-3.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-black text-xs uppercase tracking-wider transition-all shadow-lg shadow-rose-600/20 disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isCancellingBooking ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Yes, Cancel'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };
@@ -469,14 +517,12 @@ export const RenderOrderCard = ({
   const [showCancelNote, setShowCancelNote] = useState(false);
   const [showProductsModal, setShowProductsModal] = useState(false);
   const { setIsAnyModalOpen, refreshData } = useApp();
+  const [showCancelModal, setShowCancelModal] = useState(false);
   const [isCancellingOrder, setIsCancellingOrder] = useState(false);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
 
-  const handleCancelOrder = async (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const confirmCancelOrder = async () => {
     if (isCancellingOrder) return;
-    if (!window.confirm("Are you sure you want to cancel this order?")) return;
-    
     setIsCancellingOrder(true);
     try {
       const orderRef = doc(db, 'orders', order.id);
@@ -486,6 +532,7 @@ export const RenderOrderCard = ({
         rejectionReason: 'Cancelled by customer'
       });
       toast.success("Order cancelled successfully!");
+      setShowCancelModal(false);
       refreshData();
     } catch (err: any) {
       console.error("Error cancelling order:", err);
@@ -557,7 +604,7 @@ export const RenderOrderCard = ({
           </div>
         )}
 
-        {order.status === 'pending' && store?.image && (
+        {store?.image && (
           <div className="-mx-5 -mt-5 mb-4 h-32 relative group overflow-hidden">
             <img 
               src={store.image} 
@@ -565,9 +612,26 @@ export const RenderOrderCard = ({
               alt={store.name}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent flex flex-col justify-end p-4">
-              <div className="absolute top-4 right-4 z-10">
-                <div className="px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-2xl flex items-center gap-2 transition-all hover:scale-105 border-2 border-white/20 bg-emerald-600 text-white">
-                  Pickup
+              <div className="absolute top-4 right-4 z-10 flex items-center gap-1.5">
+                <div className={`px-3.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-2xl flex items-center gap-1.5 border-2 border-white/20 backdrop-blur-md ${
+                  order.status === 'pending' ? 'bg-amber-500 text-white' :
+                  order.status === 'accepted' ? 'bg-sky-500 text-white' :
+                  order.status === 'packed' ? 'bg-blue-600 text-white' :
+                  order.status === 'ready' ? 'bg-emerald-500 text-white' :
+                  order.status === 'out_for_delivery' ? 'bg-purple-600 text-white' :
+                  order.status === 'completed' ? 'bg-emerald-600 text-white' :
+                  order.status === 'rejected' || order.status === 'cancelled' ? 'bg-rose-600 text-white' :
+                  'bg-primary text-white'
+                }`}>
+                  {order.status === 'accepted' ? 'Confirmed ✓' :
+                   order.status === 'pending' ? 'Pending' :
+                   order.status === 'packed' ? 'Packed ✓' :
+                   order.status === 'ready' ? 'Ready for Pickup' :
+                   order.status === 'out_for_delivery' ? 'Out for Delivery' :
+                   order.status === 'completed' ? 'Completed ✓' :
+                   order.status === 'rejected' ? 'Rejected ❌' :
+                   order.status === 'cancelled' ? 'Cancelled ❌' :
+                   statusLabels[order.status] || String(order.status).toUpperCase()}
                 </div>
               </div>
 
@@ -745,11 +809,11 @@ export const RenderOrderCard = ({
             
             <div className="flex-1">
               <button 
-                onClick={handleCancelOrder}
+                onClick={(e) => { e.stopPropagation(); setShowCancelModal(true); }}
                 disabled={isCancellingOrder}
                 className="w-full h-full py-3 rounded-xl bg-rose-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-rose-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-rose-600/20 disabled:opacity-50"
               >
-                {isCancellingOrder ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <X className="w-3.5 h-3.5" />}
+                <X className="w-3.5 h-3.5" />
                 {t('common.receipts.cancel_order')}
               </button>
             </div>
@@ -931,11 +995,11 @@ export const RenderOrderCard = ({
       {!['completed', 'rejected', 'cancelled', 'pending'].includes(order.status) && (
         <div className="mt-4 px-2">
           <button 
-            onClick={handleCancelOrder}
+            onClick={(e) => { e.stopPropagation(); setShowCancelModal(true); }}
             disabled={isCancellingOrder}
             className="w-full py-3 rounded-xl bg-rose-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-rose-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-rose-600/20 disabled:opacity-50"
           >
-            {isCancellingOrder ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <X className="w-3.5 h-3.5" />}
+            <X className="w-3.5 h-3.5" />
             {t('common.receipts.cancel_order')}
           </button>
         </div>
@@ -1118,6 +1182,50 @@ export const RenderOrderCard = ({
                   </div>
                 </div>
               </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+
+    <AnimatePresence>
+      {showCancelModal && (
+        <div 
+          className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md"
+          onClick={(e) => { e.stopPropagation(); setShowCancelModal(false); }}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            className="bg-white dark:bg-[#1A1A1A] rounded-[2rem] p-6 max-w-sm w-full shadow-2xl border border-white/10 text-center space-y-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-16 h-16 rounded-2xl bg-rose-500/10 text-rose-500 flex items-center justify-center mx-auto shadow-inner">
+              <AlertCircle className="w-8 h-8" />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-xl font-black text-foreground">Cancel Order #{order.id?.slice(-6).toUpperCase()}?</h3>
+              <p className="text-xs text-muted-foreground font-medium leading-relaxed">
+                Are you sure you want to cancel this order? This action cannot be undone.
+              </p>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowCancelModal(false)}
+                className="flex-1 py-3.5 rounded-xl bg-secondary hover:bg-secondary/80 text-foreground font-bold text-xs uppercase tracking-wider transition-all"
+              >
+                Keep Order
+              </button>
+              <button
+                type="button"
+                disabled={isCancellingOrder}
+                onClick={confirmCancelOrder}
+                className="flex-1 py-3.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-black text-xs uppercase tracking-wider transition-all shadow-lg shadow-rose-600/20 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isCancellingOrder ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Yes, Cancel'}
+              </button>
             </div>
           </motion.div>
         </div>

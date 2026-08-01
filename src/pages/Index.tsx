@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { Bell, MapPin, ShoppingCart, Store, ArrowRight, Sparkles, Smartphone, ChevronRight, Menu, X, Star, Zap, Users, Download } from 'lucide-react';
+import { Bell, MapPin, ShoppingCart, Store, ArrowRight, Sparkles, Smartphone, ChevronRight, Menu, X, Star, Zap, Users } from 'lucide-react';
 const heroBg = '/assets/hero-bg.jpg';
 import { useApp } from '@/context/AppContext';
 import QRCodeWithLogo from '@/components/ui/qr-code-with-logo';
@@ -227,15 +227,7 @@ const Index = () => {
                 <span className="text-xs text-zinc-300">Members</span>
               </div>
             </div>
-            <motion.button
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 1 }}
-              onClick={() => navigate('/download')}
-              className="mt-8 flex items-center gap-2 text-sm font-bold text-white/70 hover:text-primary transition-colors group"
-            >
-              <Smartphone className="w-4 h-4" /> Download BellBasket App <ArrowRight className="w-4 h-4 -translate-x-1 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all" />
-            </motion.button>
+
           </motion.div>
         </div>
       </section>
@@ -276,58 +268,7 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Download App Section */}
-      <section className="py-20 px-4 bg-gradient-to-b from-transparent to-primary/5">
-        <div className="max-w-6xl mx-auto">
-          <div className="glass rounded-[3rem] p-8 md:p-16 flex flex-col md:flex-row items-center justify-between gap-12 border border-white/10 shadow-2xl relative overflow-hidden">
-            <div className="absolute -top-24 -right-24 w-64 h-64 bg-primary/10 rounded-full blur-3xl" />
-            <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-secondary/10 rounded-full blur-3xl" />
 
-            <div className="flex-1 space-y-6 text-center md:text-left z-10">
-              <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest shadow-sm border border-primary/10">
-                <Smartphone className="w-3.5 h-3.5" />
-                Mobile App
-              </div>
-              <h2 className="text-4xl md:text-5xl font-black text-foreground tracking-tight">
-                Shop on-the-go with <br />
-                <span className="text-gradient">BellBasket Mobile</span>
-              </h2>
-              <p className="text-lg text-muted-foreground max-w-lg">
-                Get the official BellBasket Android app for fast ordering, live tracking, and instant shop connectivity.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 pt-4">
-                <button
-                  onClick={() => {
-                    const link = document.createElement('a');
-                    link.href = '/bellbasket.apk';
-                    link.download = 'bellbasket.apk';
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                  }}
-                  className="bg-primary text-black px-8 py-4 rounded-2xl font-black text-lg flex items-center justify-center gap-3 hover:scale-105 active:scale-95 transition-all shadow-xl shadow-primary/20 cursor-pointer"
-                >
-                  <Download className="w-5 h-5" /> Download Android APK
-                </button>
-                <button
-                  onClick={() => navigate('/download')}
-                  className="glass text-foreground px-6 py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 hover:bg-white/10 active:scale-95 transition-all"
-                >
-                  Download Page <ArrowRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
-            <div className="flex flex-col items-center gap-6 z-10">
-              <QRCodeWithLogo value="https://bellbasket.com/download" size={200} logoSize={45} />
-              <div className="flex items-center gap-2 px-6 py-2 bg-white/10 text-foreground rounded-full text-[10px] font-black uppercase tracking-widest border border-white/20 backdrop-blur-md">
-                <Sparkles className="w-3.5 h-3.5 text-primary" />
-                Scan to Go to Download Page
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* Trust & Differentiation Section */}
       <section className="py-24 px-4 bg-white dark:bg-[#1a1a1a]">

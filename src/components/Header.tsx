@@ -18,7 +18,7 @@ const Header = ({ solid = false }: { solid?: boolean }) => {
   const location = useLocation();
 
 
-  const isDownloadPage = location.pathname === '/download';
+
   const [menuOpen, setMenuOpen] = useState(false);
   const [showNotifs, setShowNotifs] = useState(false);
   const [audioStatus, setAudioStatus] = useState(getAudioStatus());
@@ -177,14 +177,14 @@ const Header = ({ solid = false }: { solid?: boolean }) => {
                     <div className="relative">
                       <ShoppingCart className="w-5 h-5" />
                       <AnimatePresence>
-                        {cartCount > 0 && (
+                        {activeReceiptsCount > 0 && (
                           <motion.div
                             initial={{ scale: 0, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             exit={{ scale: 0, opacity: 0 }}
                             className="absolute -top-2 -right-2 flex h-4.5 min-w-[18px] px-1 items-center justify-center bg-primary text-white text-[10px] font-black rounded-full ring-2 ring-white shadow-[0_2px_8_rgba(0,0,0,0.15)] select-none"
                           >
-                            {cartCount}
+                            {activeReceiptsCount}
                           </motion.div>
                         )}
                       </AnimatePresence>

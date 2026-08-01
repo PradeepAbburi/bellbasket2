@@ -1,19 +1,25 @@
 import { useEffect, useState } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, getDocs } from 'firebase/firestore';
+import { generateSlug } from '@/utils/seo';
 
 const Sitemap = () => {
   const [xml, setXml] = useState('');
 
   useEffect(() => {
     const fetchStores = async () => {
-      const querySnapshot = await getDocs(collection(db, 'stores'));
-      const stores = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as any[];
+      let stores: any[] = [];
+      try {
+        const querySnapshot = await getDocs(collection(db, 'stores'));
+        stores = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as any[];
+      } catch (err) {
+        console.warn('Sitemap store fetch fallback:', err);
+      }
 
-      const baseUrl = window.location.origin;
+      const baseUrl = 'https://bellbasket.com';
       const date = new Date().toISOString().split('T')[0];
 
       let sitemap = `<?xml version="1.0" encoding="UTF-8"?>
@@ -28,7 +34,7 @@ const Sitemap = () => {
     <loc>${baseUrl}/browse</loc>
     <lastmod>${date}</lastmod>
     <changefreq>daily</changefreq>
-    <priority>0.8</priority>
+    <priority>0.9</priority>
   </url>
   <url>
     <loc>${baseUrl}/about</loc>
@@ -37,11 +43,17 @@ const Sitemap = () => {
     <priority>0.8</priority>
   </url>`;
 
+      const categories = ['Restaurants', 'Cafes', 'Electronics', 'Pharmacies', 'Grocery', 'Hotels', 'Salons'];
+      const cities = ['Geelong', 'Melbourne', 'Sydney', 'Perth', 'Adelaide', 'Brisbane'];
+      const subcategories = ['Indian', 'Chinese', 'Italian', 'Pizza'];
+
+      // 1. Store URLs
       stores
         .filter(store => !store.isBlocked)
         .forEach(store => {
-          const mainPath = store.slug ? `/stores/${store.slug}` : `/store/${store.id}`;
-          const reviewPath = store.slug ? `/stores/${store.slug}/reviews` : `/store/${store.id}/reviews`;
+          const slug = store.slug || generateSlug(store.name, store.city || 'Geelong');
+          const mainPath = `/store/${slug}`;
+          const reviewPath = `/store/${slug}/reviews`;
           sitemap += `
   <url>
     <loc>${baseUrl}${mainPath}</loc>
@@ -57,6 +69,58 @@ const Sitemap = () => {
   </url>`;
         });
 
+      // 2. City & Category Landing Page URLs
+      cities.forEach(city => {
+        const citySlug = generateSlug(city);
+        sitemap += `
+  <url>
+    <loc>${baseUrl}/city/${citySlug}</loc>
+    <lastmod>${date}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>`;
+
+        categories.forEach(cat => {
+          const catSlug = generateSlug(cat);
+          sitemap += `
+  <url>
+    <loc>${baseUrl}/${catSlug}/${citySlug}</loc>
+    <lastmod>${date}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>${baseUrl}/best-${catSlug}-in-${citySlug}</loc>
+    <lastmod>${date}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>`;
+
+          subcategories.forEach(sub => {
+            const subSlug = generateSlug(sub);
+            sitemap += `
+  <url>
+    <loc>${baseUrl}/${catSlug}/${citySlug}/${subSlug}</loc>
+    <lastmod>${date}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>`;
+          });
+        });
+      });
+
+      // 3. Near-Me Intent URLs
+      categories.forEach(cat => {
+        const catSlug = generateSlug(cat);
+        sitemap += `
+  <url>
+    <loc>${baseUrl}/${catSlug}-near-me</loc>
+    <lastmod>${date}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>`;
+      });
+
       sitemap += `
 </urlset>`;
       setXml(sitemap);
@@ -65,7 +129,6 @@ const Sitemap = () => {
     fetchStores();
   }, []);
 
-  // For browsers, show it as text/xml if possible, or just raw text
   return (
     <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all', padding: '20px', fontSize: '12px' }}>
       {xml}

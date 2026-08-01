@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
+import SEOHead from '@/components/SEOHead';
 import { useApp } from '@/context/AppContext';
 import { useTranslation } from 'react-i18next';
 import { getAvatarUrl } from '@/utils/avatars';
@@ -86,6 +87,108 @@ const AskPage = () => {
         ? "bottom-[calc(99px+max(env(safe-area-inset-bottom),6px))]"
         : "bottom-[calc(55px+max(env(safe-area-inset-bottom),6px))]")
     : "bottom-4 md:bottom-1";
+
+  // Ask Chatbot State
+  const SHOW_CHATBOT = false;
+  const [activeTab, setActiveTab] = useState<'stores' | 'products'>('stores');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  if (!SHOW_CHATBOT) {
+    const allProducts = useMemo(() => {
+      const prods: any[] = [];
+      stores.forEach((store: any) => {
+        if (store.products) {
+          store.products.forEach((p: any) => {
+            prods.push({ ...p, storeName: store.name, storeId: store.id, storeSlug: store.slug });
+          });
+        }
+      });
+      return prods;
+    }, [stores]);
+
+    const filteredStores = stores.filter((s: any) => s.name.toLowerCase().includes(searchQuery.toLowerCase()) || s.category?.toLowerCase().includes(searchQuery.toLowerCase()));
+    const filteredProducts = allProducts.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
+
+    return (
+      <div className="h-[100dvh] bg-background text-foreground flex flex-col relative overflow-hidden">
+        <Header solid />
+        <main className={`fixed top-16 ${bottomPositionClass} left-0 right-0 w-full max-w-5xl mx-auto px-4 md:px-6 flex flex-col z-10 overflow-hidden`}>
+          <div className="py-4 border-b border-border/40 shrink-0">
+            <h1 className="text-xl font-black uppercase tracking-tight mb-4">Local Directory</h1>
+            
+            <div className="flex items-center gap-2 mb-4">
+              <button 
+                onClick={() => setActiveTab('stores')}
+                className={`flex-1 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${activeTab === 'stores' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground'}`}
+              >
+                All Stores
+              </button>
+              <button 
+                onClick={() => setActiveTab('products')}
+                className={`flex-1 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${activeTab === 'products' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground'}`}
+              >
+                All Products
+              </button>
+            </div>
+
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <input 
+                type="text" 
+                placeholder={`Search ${activeTab}...`}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-secondary/50 border border-border/40 rounded-xl pl-10 pr-4 py-2.5 text-sm font-medium focus:outline-none focus:border-primary/50 transition-all"
+              />
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto py-4 pb-20 scrollbar-hide space-y-4">
+            {activeTab === 'stores' ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                {filteredStores.map((store: any) => (
+                  <div key={store.id} onClick={() => navigate(store.slug ? `/stores/${store.slug}` : `/store/${store.id}`)} className="bg-secondary/40 border border-border/40 rounded-2xl p-4 cursor-pointer hover:border-primary/50 transition-all group flex flex-col gap-3">
+                    <div className="flex items-center gap-3">
+                       {store.logoUrl ? (
+                         <img src={store.logoUrl} alt={store.name} className="w-12 h-12 rounded-xl object-cover" />
+                       ) : (
+                         <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary"><ShoppingBag className="w-5 h-5"/></div>
+                       )}
+                       <div>
+                         <h3 className="font-bold text-sm group-hover:text-primary transition-colors">{store.name}</h3>
+                         <span className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">{store.category}</span>
+                       </div>
+                    </div>
+                  </div>
+                ))}
+                {filteredStores.length === 0 && <p className="text-sm text-muted-foreground text-center py-10 w-full col-span-full">No stores found.</p>}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                {filteredProducts.map((p, i) => (
+                  <div key={`${p.id}-${i}`} className="bg-secondary/40 border border-border/40 rounded-2xl p-3 flex flex-col gap-2 relative">
+                    <div className="w-full aspect-square bg-secondary rounded-xl overflow-hidden mb-1">
+                      {p.image ? (
+                        <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center"><ShoppingBag className="w-8 h-8 text-muted-foreground/30" /></div>
+                      )}
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-xs line-clamp-1">{p.name}</h4>
+                      <p className="text-[9px] text-muted-foreground font-black uppercase tracking-wider truncate mb-1">{p.storeName}</p>
+                      <span className="text-sm font-black text-primary">£{parseFloat(p.price || 0).toFixed(2)}</span>
+                    </div>
+                  </div>
+                ))}
+                {filteredProducts.length === 0 && <p className="text-sm text-muted-foreground text-center py-10 w-full col-span-full">No products found.</p>}
+              </div>
+            )}
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   // Ask Chatbot State
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -1157,6 +1260,10 @@ Here are the search results from the user's neighborhood:
 
   return (
     <div className="h-[100dvh] bg-background text-foreground flex flex-col relative overflow-hidden">
+      <SEOHead
+        title="Ask AI Assistant | Local Store & Service Finder"
+        description="Ask BellBasket AI for instant recommendations on local store products, prices, AC repair, plumbers, salons, and real-time deals in your neighborhood."
+      />
       <Header solid />
       
       <main className={`fixed top-16 ${bottomPositionClass} left-0 right-0 w-full max-w-4xl mx-auto px-4 md:px-6 flex flex-col z-10 overflow-hidden`}>

@@ -1,6 +1,6 @@
 import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Star, MapPin, Clock, Plus, Minus, Loader2, MessageSquare, Search, X, Tag, Phone, ChevronRight, ChevronLeft, Share2, Sparkles, Calendar, AlertCircle, ArrowUpDown, ChevronDown, XCircle, ImageIcon, PackageSearch, Heart, Zap, PackageX, Globe, ShoppingCart, Instagram, Download, Briefcase, MoreVertical } from 'lucide-react';
+import { ArrowLeft, Star, MapPin, Clock, Plus, Minus, Loader2, MessageSquare, Search, X, Tag, Phone, ChevronRight, ChevronLeft, Share2, Sparkles, Calendar, AlertCircle, ArrowUpDown, ChevronDown, XCircle, ImageIcon, PackageSearch, Heart, Zap, PackageX, Globe, ShoppingCart, Instagram, Briefcase, MoreVertical } from 'lucide-react';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -32,6 +32,10 @@ import PullToRefresh from '@/components/ui/PullToRefresh';
 import VariantSelector from '@/components/VariantSelector';
 import { Helmet } from 'react-helmet';
 import PageLoading from '@/components/PageLoading';
+import SEOInternalLinks from '@/components/SEOInternalLinks';
+import StoreReviewSection from '@/components/StoreReviewSection';
+import { generateSEOContent, generateStoreMetadata } from '@/utils/seo';
+import { buildStoreJsonLd } from '@/utils/jsonLd';
 
 const CountdownTimer = ({ endTime }: { endTime: string }) => {
   const [timeLeft, setTimeLeft] = useState<{h:number, m:number, s:number} | null>(null);
@@ -72,11 +76,24 @@ const StoreDetail = () => {
   const { t } = useTranslation();
   const { cart, addToCart, updateQuantity, stores, allProducts, user, clearCart, toggleSaveStore, isStoreSaved, setIsAnyModalOpen, cartSubtotal } = useApp();
   const location = useLocation();
-  const [store, setStore] = useState<any>(() => location.state?.store || stores.find(s => s.id === id || (slug && s.slug === slug)));
+
+  const paramKey = id || slug || '';
+  const initialMatchedStore = useMemo(() => {
+    if (location.state?.store) return location.state.store;
+    if (!paramKey) return null;
+    return stores.find(s => s.id === paramKey || s.slug === paramKey || s.vendorId === paramKey) || null;
+  }, [location.state?.store, stores, paramKey]);
+
+  const [store, setStore] = useState<any>(() => initialMatchedStore);
   const [products, setProducts] = useState<Product[]>(() => {
-    const targetId = (location.state?.store?.id) || stores.find(s => s.id === id || (slug && s.slug === slug))?.id || id;
-    const contextProducts = allProducts.filter(p => p.vendorId === targetId);
-    // Instant Enrichment for context products
+    const targetId = initialMatchedStore?.id || paramKey;
+    const storeVendorId = initialMatchedStore?.vendorId || targetId;
+    const contextProducts = allProducts.filter(
+      p => p.vendorId === targetId ||
+           (p as any).storeId === targetId ||
+           p.vendorId === storeVendorId ||
+           (p as any).storeId === storeVendorId
+    );
     return contextProducts.map(p => {
       if (p.isCombo && p.comboItems && p.comboItems.length > 0) {
         return {
@@ -88,10 +105,7 @@ const StoreDetail = () => {
     });
   });
   const [loading, setLoading] = useState(() => {
-    const targetId = (location.state?.store?.id) || stores.find(s => s.id === id || (slug && s.slug === slug))?.id || id;
-    const hasStore = !!(location.state?.store || stores.find(s => s.id === id || (slug && s.slug === slug)));
-    const hasProducts = allProducts.some(p => p.vendorId === targetId);
-    return !hasStore || !hasProducts;
+    return !initialMatchedStore;
   });
 
   const navigateToReviews = () => {
@@ -267,87 +281,131 @@ const StoreDetail = () => {
     };
 
     const loadData = async () => {
-      let targetId = id;
+      let targetStore = initialMatchedStore;
+      let targetId = targetStore?.id;
 
-      // 1. Resolve ID from slug if needed
-      if (!targetId && slug) {
-        const q = query(collection(db, 'stores'), where('slug', '==', slug));
-        const snap = await getDocs(q);
-          if (isMounted) {
-            if (!snap.empty) {
+      // 1. Resolve store from Firestore if not found in context
+      if (!targetStore && paramKey) {
+        try {
+          // Check if paramKey is direct doc ID
+          const docSnap = await getDoc(doc(db, 'stores', paramKey));
+          if (docSnap.exists() && isMounted) {
+            targetId = docSnap.id;
+            targetStore = { id: targetId, ...docSnap.data() };
+          } else {
+            // Query by slug
+            const q = query(collection(db, 'stores'), where('slug', '==', paramKey));
+            const snap = await getDocs(q);
+            if (!snap.empty && isMounted) {
               targetId = snap.docs[0].id;
-              setStore({ id: targetId, ...snap.docs[0].data() });
-            } else {
-              setNotFound(true);
-              setLoading(false);
-              return;
+              targetStore = { id: targetId, ...snap.docs[0].data() };
             }
           }
+        } catch (err) {
+          console.warn("Store lookup error:", err);
+        }
       }
 
-      if (targetId && isMounted) {
-        unsubscribeStore = setupListener(targetId);
+      if (!targetStore || !targetId) {
+        if (isMounted) {
+          setNotFound(true);
+          setLoading(false);
+        }
+        return;
+      }
 
+      if (isMounted) {
+        setStore(targetStore);
+        // Instant unblock if store is known
+        setLoading(false);
+      }
+
+      unsubscribeStore = setupListener(targetId);
+
+      // 2. Background sync products and active deals
+      try {
+        const idsToMatch = Array.from(new Set([targetId, targetStore.vendorId, targetStore.id, paramKey].filter(Boolean) as string[]));
+        const productMap = new Map<string, Product>();
+
+        // Query by vendorId
         try {
-          const q = query(collection(db, 'products'), where('vendorId', '==', targetId));
-          const querySnapshot = await getDocs(q);
-          
-          if (!isMounted) return;
+          const qVendor = query(collection(db, 'products'), where('vendorId', 'in', idsToMatch.slice(0, 10)));
+          const snapVendor = await getDocs(qVendor);
+          snapVendor.docs.forEach(doc => {
+            productMap.set(doc.id, { id: doc.id, ...doc.data() } as Product);
+          });
+        } catch (eVendor) {
+          // Fallback single equality check
+          for (const tid of idsToMatch) {
+            try {
+              const qV = query(collection(db, 'products'), where('vendorId', '==', tid));
+              const sV = await getDocs(qV);
+              sV.docs.forEach(doc => productMap.set(doc.id, { id: doc.id, ...doc.data() } as Product));
+            } catch (e) {}
+          }
+        }
 
-          const productData = querySnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          })) as Product[];
+        // Query by storeId
+        for (const tid of idsToMatch) {
+          try {
+            const qStore = query(collection(db, 'products'), where('storeId', '==', tid));
+            const snapStore = await getDocs(qStore);
+            snapStore.docs.forEach(doc => productMap.set(doc.id, { id: doc.id, ...doc.data() } as Product));
+          } catch (e) {}
+        }
+        
+        if (!isMounted) return;
 
-          if (productData.length > 0) {
-            const productMap = new Map(productData.map(p => [p.id, p]));
-            const enriched = productData.map(p => {
-              if (p.isCombo && p.comboItems?.length) {
+        const productData = Array.from(productMap.values());
+
+        if (productData.length > 0) {
+          const pMap = new Map(productData.map(p => [p.id, p]));
+          const enriched = productData.map(p => {
+            if (p.isCombo && p.comboItems?.length) {
+              return {
+                ...p,
+                comboItemsData: p.comboItems.map(cid => pMap.get(cid)).filter(Boolean) as Product[]
+              };
+            }
+            return p;
+          });
+          setProducts(enriched);
+
+          // Fetch Active Deals
+          const dealsQ = query(
+            collection(db, 'deals'), 
+            where('vendorId', 'in', idsToMatch.slice(0, 10)),
+            where('status', '==', 'active')
+          );
+          let validDeals: any[] = [];
+          try {
+            const dealsSnap = await getDocs(dealsQ);
+            const now = new Date();
+            validDeals = dealsSnap.docs
+              .map(doc => ({ id: doc.id, ...doc.data() } as any))
+              .filter((d: any) => new Date(d.endTime) > now);
+          } catch (eDeals) {}
+
+          setActiveDeals(validDeals);
+
+          if (validDeals.length > 0) {
+            setProducts(prev => prev.map(p => {
+              const deal = validDeals.find(d => d.productId === p.id);
+              if (deal) {
                 return {
                   ...p,
-                  comboItemsData: p.comboItems.map(cid => productMap.get(cid)).filter(Boolean) as Product[]
+                  discountedPrice: deal.dealPrice,
+                  deal: deal
                 };
               }
               return p;
-            });
-            setProducts(enriched);
-
-            // 3. Fetch Active Deals
-            const dealsQ = query(
-              collection(db, 'deals'), 
-              where('vendorId', '==', targetId),
-              where('status', '==', 'active')
-            );
-            const dealsSnap = await getDocs(dealsQ);
-            const now = new Date();
-            const validDeals = dealsSnap.docs
-              .map(doc => ({ id: doc.id, ...doc.data() } as any))
-              .filter((d: any) => new Date(d.endTime) > now);
-            
-            setActiveDeals(validDeals);
-
-            // 4. Enrich products with deal data
-            if (validDeals.length > 0) {
-              setProducts(prev => prev.map(p => {
-                const deal = validDeals.find(d => d.productId === p.id);
-                if (deal) {
-                  return {
-                    ...p,
-                    discountedPrice: deal.dealPrice,
-                    deal: deal
-                  };
-                }
-                return p;
-              }));
-            }
+            }));
           }
-        } catch (error) {
-          console.warn("Refresh failed, using context", error);
-        } finally {
-          if (isMounted) setLoading(false);
         }
-      } else if (isMounted) {
-        setLoading(false);
+      } catch (error) {
+        console.warn("Products sync failed, using context", error);
+      } finally {
+        if (isMounted) setLoading(false);
       }
     };
 

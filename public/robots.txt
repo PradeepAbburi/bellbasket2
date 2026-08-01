@@ -1,3 +1,16 @@
+# BellBasket SEO Robots Configuration
 User-agent: *
 Allow: /
+Allow: /store/*
+Allow: /stores/*
+Allow: /city/*
+Allow: /category/*
+Allow: /best-*
+Allow: /*-near-me
+
+Disallow: /admin/
+Disallow: /vendor/
+Disallow: /cart
+Disallow: /profile
+
 Sitemap: https://bellbasket.com/sitemap.xml

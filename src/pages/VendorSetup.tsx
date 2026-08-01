@@ -9,7 +9,7 @@ const MapView = lazy(() => import('@/components/MapView'));
 import { toast } from 'sonner';
 import { db } from '@/lib/firebase';
 import { doc, setDoc, updateDoc } from 'firebase/firestore';
-import { generateSlug } from '@/utils/seo';
+import { generateSlug, triggerAutoSitemapUpdate } from '@/utils/seo';
 import { CATEGORY_METADATA } from '@/constants/categories';
 import PageLoading from '@/components/PageLoading';
 
@@ -434,6 +434,17 @@ const VendorSetup = () => {
                 }
                 throw err;
             }
+
+            // 2.5 Automatically update sitemap and ping search engines
+            triggerAutoSitemapUpdate({
+                id: user.id,
+                name: storeName,
+                category: category,
+                city: storeAddress.split(',')[0] || district || 'Geelong',
+                address: storeAddress,
+                phone: phone,
+                website: website
+            });
 
             // 3. Update local state
             login({ ...user, lat: storeLat, lng: storeLng, phone: phone, hasSetupStore: true, plan: initialPlan, subscriptionExpiry: initialExpiry, referralCode: user.referralCode || referralCode, mandal, district, state, country });

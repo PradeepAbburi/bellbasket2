@@ -3,7 +3,7 @@ import {
     CreditCard, Users, Search, History, TrendingUp, 
     Landmark, CheckCircle2, Clock, AlertCircle,
     ArrowRight, DollarSign, Calendar, ChevronRight,
-    ArrowUpRight, Download, Filter, Loader2, Landmark as Bank
+    ArrowUpRight, Filter, Loader2, Landmark as Bank
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { db } from '@/lib/firebase';

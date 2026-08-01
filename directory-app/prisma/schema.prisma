@@ -1,0 +1,61 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Business {
+  id           String   @id @default(uuid())
+  name         String
+  slug         String   @unique
+  description  String?
+  category     String
+  city         String
+  state        String?
+  country      String   @default("India")
+  address      String
+  postalCode   String?
+  latitude     Float?
+  longitude    Float?
+  phone        String?
+  whatsapp     String?
+  email        String?
+  website      String?
+  logo         String?
+  coverImage   String?
+  // Since Prisma SQLite doesn't natively support string arrays easily without JSON,
+  // we'll store gallery as a JSON string for SQLite, or wait, Prisma SQLite allows JSON.
+  // Actually, standard SQLite doesn't have native String[].
+  // Let's use a related model for Gallery Images to be safe across DBs, or use String.
+  gallery      String?  @default("[]") // JSON stringified array of URLs
+  verified     Boolean  @default(false)
+  rating       Float    @default(0)
+  reviewCount  Int      @default(0)
+  openingHours String?  @default("{}") // JSON stringified opening hours
+  ownerId      String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  reviews      Review[]
+
+  @@index([slug])
+  @@index([city])
+  @@index([category])
+  @@index([state])
+}
+
+model Review {
+  id         String   @id @default(uuid())
+  businessId String
+  userId     String
+  userName   String
+  rating     Int
+  text       String?
+  photos     String?  @default("[]")
+  createdAt  DateTime @default(now())
+
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+}
