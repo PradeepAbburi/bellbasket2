@@ -62,7 +62,7 @@ const BottomNav = () => {
     if (isVendor && !hasValidPlan) return null;
 
     return (
-        <div id="bottom-nav" className={`fixed bottom-0 left-0 right-0 z-[110] md:hidden pointer-events-none transition-all duration-500 ${isAnyModalOpen ? 'blur-md opacity-0 translate-y-10' : ''}`}>
+        <div id="bottom-nav" className={`fixed bottom-0 left-0 right-0 z-[110] md:hidden pointer-events-none smooth-transition gpu-accelerate ${isAnyModalOpen ? 'blur-md opacity-0 translate-y-10' : ''}`}>
             {/* View Cart Banner - Floating above the bottom nav */}
             <AnimatePresence>
                 {!isVendor && cartCount > 0 && location.pathname !== '/cart' && (
@@ -233,7 +233,7 @@ const NavItem = memo(({ to, icon: Icon, label, badge, end = false, avatarUrl }: 
         <NavLink
             to={to}
             end={end}
-            className="relative flex flex-col items-center justify-center py-1.5 flex-1 group hover:bg-muted/30 transition-colors"
+            className="relative flex flex-col items-center justify-center py-1.5 flex-1 group press-scale transition-colors hover:bg-muted/20"
         >
             <div className={`relative transition-transform duration-300 ${isActive ? 'scale-110' : 'group-hover:scale-105'}`}>
                 {avatarUrl ? (

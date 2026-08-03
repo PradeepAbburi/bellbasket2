@@ -125,12 +125,14 @@ export default defineConfig(({ mode }) => ({
     minify: "esbuild",
     cssCodeSplit: true,
     reportCompressedSize: false,
-    chunkSizeWarningLimit: 1000,
+    chunkSizeWarningLimit: 1200,
     rollupOptions: {
       output: {
         manualChunks: {
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          'vendor-ui': ['framer-motion', '@radix-ui/react-accordion', '@radix-ui/react-dialog', 'lucide-react'],
+          'vendor-motion': ['framer-motion'],
+          'vendor-icons': ['lucide-react'],
+          'vendor-ui': ['@radix-ui/react-accordion', '@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-popover', '@radix-ui/react-select', '@radix-ui/react-tabs', '@radix-ui/react-tooltip'],
           'vendor-firebase': ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/storage'],
           'vendor-charts': ['recharts'],
           'vendor-maps': ['leaflet', 'leaflet-routing-machine'],
@@ -140,6 +142,6 @@ export default defineConfig(({ mode }) => ({
     },
   },
   esbuild: {
-    drop: mode === 'production' ? ['debugger'] : [],
+    drop: mode === 'production' ? ['console', 'debugger'] : [],
   },
 }));

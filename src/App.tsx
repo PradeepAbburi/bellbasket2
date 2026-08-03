@@ -48,8 +48,8 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode, name: s
 import { useIsMobile } from "@/hooks/use-mobile";
 
 // Lazy Loaded Pages
-import Index from "./pages/Index";
-import CustomerHome from "./pages/CustomerHome";
+const Index = lazy(() => import("./pages/Index"));
+const CustomerHome = lazy(() => import("./pages/CustomerHome"));
 
 const IndexRoute = () => {
   const isMobile = useIsMobile();
@@ -58,11 +58,11 @@ const IndexRoute = () => {
   }
   return <Index />;
 };
-import StoreDetail from "./pages/StoreDetail";
-import PSEOLandingPage from "./pages/PSEOLandingPage";
-import Cart from "./pages/Basket";
-import Receipts from "./pages/Receipts";
-import Profile from "./pages/Profile";
+const StoreDetail = lazy(() => import("./pages/StoreDetail"));
+const PSEOLandingPage = lazy(() => import("./pages/PSEOLandingPage"));
+const Cart = lazy(() => import("./pages/Basket"));
+const Receipts = lazy(() => import("./pages/Receipts"));
+const Profile = lazy(() => import("./pages/Profile"));
 
 const NotificationsPage = lazy(() => import("./pages/Notifications"));
 const ReceiptDetail = lazy(() => import("./pages/ReceiptDetail"));
@@ -116,10 +116,10 @@ const StaffProfile = lazy(() => import("./pages/hr/StaffProfile"));
 const AdminPartnerPayments = lazy(() => import("./pages/AdminPartnerPayments"));
 const AdminPartnerBank = lazy(() => import("./pages/AdminPartnerBank"));
 import BottomNav from "./components/BottomNav";
-import CustomerDeals from "./pages/CustomerDeals";
-import Ask from "./pages/Ask";
-import Clips from "./pages/Clips";
-import VendorClips from "./pages/VendorClips";
+const CustomerDeals = lazy(() => import("./pages/CustomerDeals"));
+const Ask = lazy(() => import("./pages/Ask"));
+const Clips = lazy(() => import("./pages/Clips"));
+const VendorClips = lazy(() => import("./pages/VendorClips"));
 
 const NotificationPrompt = lazy(() => import("./components/NotificationPrompt"));
 const VendorDeals = lazy(() => import("./pages/VendorDeals"));
