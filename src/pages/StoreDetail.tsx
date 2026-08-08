@@ -1,6 +1,6 @@
-import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, useLocation, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Star, MapPin, Clock, Plus, Minus, Loader2, MessageSquare, Search, X, Tag, Phone, ChevronRight, ChevronLeft, Share2, Sparkles, Calendar, AlertCircle, ArrowUpDown, ChevronDown, XCircle, ImageIcon, PackageSearch, Heart, Zap, PackageX, Globe, ShoppingCart, Instagram, Briefcase, MoreVertical } from 'lucide-react';
+import { ArrowLeft, Star, MapPin, Clock, Plus, Minus, Loader2, MessageSquare, Search, X, Tag, Phone, ChevronRight, ChevronLeft, Share2, Sparkles, Calendar, AlertCircle, ArrowUpDown, ChevronDown, XCircle, ImageIcon, PackageSearch, Heart, Zap, PackageX, Globe, ShoppingCart, Instagram, Briefcase, MoreVertical, Home } from 'lucide-react';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -848,6 +848,36 @@ const StoreDetail = () => {
         )}
       </AnimatePresence>
       <div className={`pt-20 pb-32 lg:pb-8 px-4 max-w-6xl mx-auto transition-all duration-500 ${isLocalModalOpen ? 'blur-md opacity-40 scale-[0.98] pointer-events-none' : ''}`}>
+        {/* Top Breadcrumb Trail for Google SEO & User Navigation */}
+        {(() => {
+          const storePlace = store.city || store.district || store.mandal || (store.address ? store.address.split(',')[0].trim() : 'Kakinada');
+          const placeSlug = generateSlug(storePlace);
+          return (
+            <nav aria-label="Breadcrumb" className="mb-4 flex items-center gap-1.5 text-xs text-muted-foreground/80 overflow-x-auto py-1 scrollbar-none font-medium">
+              <Link to="/" className="hover:text-amber-500 transition-colors flex items-center gap-1 shrink-0">
+                <Home className="w-3.5 h-3.5" />
+                <span>Home</span>
+              </Link>
+              <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />
+              <Link to="/browse" className="hover:text-amber-500 transition-colors shrink-0">
+                Stores
+              </Link>
+              {storePlace && (
+                <>
+                  <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />
+                  <Link to={`/city/${placeSlug}`} className="hover:text-amber-500 transition-colors shrink-0 text-amber-500 font-semibold">
+                    {storePlace}
+                  </Link>
+                </>
+              )}
+              <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />
+              <span className="text-foreground font-bold truncate shrink-0 max-w-[180px] sm:max-w-xs">
+                {store.name}
+              </span>
+            </nav>
+          );
+        })()}
+
         {/* Back + Report */}
         <div className="flex items-center justify-between mb-4">
           <button

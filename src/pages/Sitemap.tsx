@@ -5,7 +5,7 @@ import { collection, getDocs } from 'firebase/firestore';
 import { generateSlug } from '@/utils/seo';
 import Header from '@/components/Header';
 import { Helmet } from 'react-helmet';
-import { Store as StoreIcon, MapPin, Tag, Globe, Star, ExternalLink, FileCode, Check, Sparkles } from 'lucide-react';
+import { Store as StoreIcon, MapPin, Tag, Globe, Star, ExternalLink, FileCode, Check, Sparkles, Home, ChevronRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface StoreItem {
@@ -89,6 +89,16 @@ const Sitemap = () => {
       <Header />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Top Breadcrumb Navigation */}
+        <nav aria-label="Breadcrumb" className="mb-6 flex items-center gap-2 text-xs text-muted-foreground/80 font-medium">
+          <Link to="/" className="hover:text-amber-500 transition-colors flex items-center gap-1">
+            <Home className="w-3.5 h-3.5" />
+            <span>Home</span>
+          </Link>
+          <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/40" />
+          <span className="text-foreground font-semibold">Sitemap Directory</span>
+        </nav>
+
         {/* Banner Header */}
         <div className="glass rounded-3xl p-6 sm:p-8 mb-8 border border-white/20 shadow-xl bg-gradient-to-r from-amber-500/10 via-yellow-500/5 to-amber-500/10">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
