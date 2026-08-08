@@ -244,13 +244,12 @@ export const Footer: React.FC<FooterProps> = ({ currentStore, nearbyStores = [] 
           </h4>
           <div className="flex flex-wrap gap-1.5">
             {[...AP_CITIES, ...TELANGANA_CITIES, ...INDIA_METROS].map(c => (
-              <a
+              <span
                 key={c}
-                href={`/city/${generateSlug(c)}`}
-                className="px-2.5 py-1 rounded-full bg-[#18181b] hover:bg-amber-500/20 text-[11px] text-slate-300 hover:text-amber-300 border border-white/10 hover:border-amber-500/30 transition-all font-medium"
+                className="px-2.5 py-1 rounded-full bg-[#18181b] text-[11px] text-amber-200/80 border border-white/10 font-medium"
               >
                 #{c}
-              </a>
+              </span>
             ))}
           </div>
         </div>
