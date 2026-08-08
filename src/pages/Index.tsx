@@ -554,7 +554,8 @@ const Index = () => {
             <h3 className="font-bold text-foreground mb-4">Support</h3>
             <ul className="space-y-2">
               <li><Link to="/about" className="text-sm text-muted-foreground hover:text-primary transition-colors">About Us</Link></li>
-              <li><Link to="/careers" className="text-sm text-muted-foreground hover:text-primary transition-colors">Careers</Link></li>
+              <li><Link to="/sitemap" className="text-sm text-amber-500 font-semibold hover:underline flex items-center gap-1">Full Store Directory (Sitemap)</Link></li>
+              <li><a href="/sitemap.xml" className="text-xs text-muted-foreground hover:text-primary transition-colors font-mono">sitemap.xml Feed</a></li>
               <li><Link to="/privacy" className="text-sm text-muted-foreground hover:text-primary transition-colors">Privacy Policy</Link></li>
               <li><Link to="/terms" className="text-sm text-muted-foreground hover:text-primary transition-colors">Terms & Conditions</Link></li>
               <li><Link to="/auth" className="text-sm text-muted-foreground hover:text-primary transition-colors">Sign In</Link></li>

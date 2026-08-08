@@ -33,31 +33,27 @@ export interface StoreSEOInput {
  */
 export const generateSEOContent = (store: StoreSEOInput): string => {
   const name = store.name || "This store";
-  const city = store.city || "your local area";
+  const city = store.city || "Kakinada";
   const category = store.category || "business";
-  const address = store.address || `${city}`;
+  const address = store.address || `${city}, India`;
   const rating = store.rating ? `${store.rating.toFixed(1)} stars` : "highly rated";
   const reviews = store.reviewCount ? `${store.reviewCount} customer reviews` : "verified ratings";
 
-  if (store.description && store.description.trim().length >= 250) {
-    return store.description;
-  }
+  const existingDesc = store.description?.trim() ? `Store Highlights: ${store.description.trim()}\n\n` : "";
 
-  const existingDesc = store.description?.trim() ? `${store.description.trim()}\n\n` : "";
+  return `${existingDesc}Welcome to ${name}, a top-rated ${category.toLowerCase()} storefront serving customers across ${city}. Conveniently operating at ${address}, ${name} is committed to offering high-quality products, reliable community service, and quick digital ordering for neighborhood shoppers.
 
-  return `${existingDesc}Welcome to ${name}, a premier ${category.toLowerCase()} destination located right in the heart of ${city}. Operating at ${address}, ${name} is dedicated to offering top-tier products, exceptional customer assistance, and reliable service tailored to meet the needs of the local community.
+About ${name} in ${city}
+${name} has built a trusted reputation as a leading ${category.toLowerCase()} destination in ${city}. Whether you are shopping for daily essentials, fresh inventory, specialized items, or local services, ${name} guarantees an authentic and seamless shopping experience. Rated ${rating} based on ${reviews}, this business is known for customer satisfaction, fair pricing, and dependable local fulfillment.
 
-### About ${name} in ${city}
-${name} has built a strong reputation as a trusted ${category.toLowerCase()} provider in ${city}. Whether you are looking for high-quality items, quick daily conveniences, or specialized services, ${name} ensures every customer receives an outstanding experience. Rated ${rating} based on ${reviews}, this store stands out for its commitment to customer satisfaction, clean environment, and transparent pricing.
+Services & Product Offerings
+At ${name}, customers in ${city} can explore a curated selection of ${category.toLowerCase()} offerings. Shoppers can conveniently browse updated product catalogs, check real-time item availability, compare prices, and order items for instant store pickup or local delivery via BellBasket.
 
-### Services & Specialties
-At ${name}, customers can explore a diverse selection of products and specialized solutions. Popular offerings include top-rated options in ${category.toLowerCase()}, prompt customer support, and seamless digital ordering options through BellBasket. Visitors can conveniently browse store menus, check product availability, request instant quotes, or place orders for home delivery and store pick-up.
+Location, Operating Hours & Contact Info
+Visiting ${name} in ${city} is simple. Situated at ${address}, the store welcomes local shoppers throughout standard operating hours. For direct inquiries, order support, or stock availability, connect with ${name} via BellBasket or call ${store.phone || "the store hotline"}.
 
-### Location, Hours & Contact Details
-Finding ${name} in ${city} is easy. Conveniently situated at ${address}, the store welcomes visitors throughout standard operating hours. For direct inquiries, customer reservations, or phone support, you can reach out via BellBasket or contact them at ${store.phone || "the store hotline"}. 
-
-### Why Choose ${name} on BellBasket?
-By featuring on BellBasket, ${name} offers verified business details, updated operating hours, direct directions via Google Maps, customer photos, and real-time review updates. Discover the latest deals, view genuine customer ratings, and connect with ${name} today!`;
+Why Shop from ${name} on BellBasket?
+Shopping from ${name} on BellBasket connects you directly with trusted local neighborhood vendors in ${city}. Enjoy verified store profiles, genuine customer ratings, direct contact details, live catalog updates, and exclusive community discounts.`;
 };
 
 /**

@@ -440,7 +440,7 @@ const VendorSetup = () => {
                 id: user.id,
                 name: storeName,
                 category: category,
-                city: storeAddress.split(',')[0] || district || 'Geelong',
+                city: district || mandal || storeAddress.split(',')[0] || 'Kakinada',
                 address: storeAddress,
                 phone: phone,
                 website: website

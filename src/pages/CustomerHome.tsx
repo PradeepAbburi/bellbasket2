@@ -17,6 +17,7 @@ import { collection, query as firestoreQuery, where, getDocs } from 'firebase/fi
 import SortOptions from '@/components/SortOptions';
 import Loader from '@/components/ui/loader-animation';
 import Header from '@/components/Header';
+import Footer from '@/components/Footer';
 import PullToRefresh from '@/components/ui/PullToRefresh';
 import { Store, Product } from '@/types';
 import { CATEGORY_METADATA } from '@/constants/categories';
@@ -1721,7 +1722,7 @@ const CustomerHome = () => {
                                 setActiveSearch('');
                                 setSelectedCategory(null);
                                 setSelectedStoreId(null);
-                                setSearchResultType('all');
+                                setSearchResultType('products');
                               }}
                               className="text-primary font-black uppercase tracking-widest text-xs hover:underline mt-4 block mx-auto"
                             >
@@ -1941,6 +1942,8 @@ const CustomerHome = () => {
           </>
         )}
       </AnimatePresence>
+
+      <Footer />
     </div>
   );
 };

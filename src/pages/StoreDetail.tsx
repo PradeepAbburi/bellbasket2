@@ -34,8 +34,10 @@ import { Helmet } from 'react-helmet';
 import PageLoading from '@/components/PageLoading';
 import SEOInternalLinks from '@/components/SEOInternalLinks';
 import StoreReviewSection from '@/components/StoreReviewSection';
-import { generateSEOContent, generateStoreMetadata } from '@/utils/seo';
+import { generateSEOContent, generateStoreMetadata, pingSearchEngines } from '@/utils/seo';
 import { buildStoreJsonLd } from '@/utils/jsonLd';
+import Footer from '@/components/Footer';
+import StoreSEOFooter from '@/components/StoreSEOFooter';
 
 const CountdownTimer = ({ endTime }: { endTime: string }) => {
   const [timeLeft, setTimeLeft] = useState<{h:number, m:number, s:number} | null>(null);
@@ -152,6 +154,7 @@ const StoreDetail = () => {
     const unsub = onSnapshot(q, (snap) => {
       setActiveJobsCount(snap.docs.length);
     });
+    pingSearchEngines();
     return () => unsub();
   }, [store?.id, store?.name, store?.district, store?.mandal, store?.address]);
 
@@ -668,14 +671,17 @@ const StoreDetail = () => {
   return (
     <div className="min-h-screen gradient-warm">
       <Helmet>
-        <title>{`${store.name}${store.district || store.mandal || (store.address ? store.address.split(',')[0] : '') ? `, ${store.district || store.mandal || store.address.split(',')[0]}` : ''} - Contact Details, Address, Products, Timings & Reviews | BellBasket`}</title>
-        <meta name="description" content={`Find ${store.name} in ${store.district || store.mandal || (store.address ? store.address.split(',')[0] : 'your locality')}. View store contact details, phone number (${store.phone || 'N/A'}), full address (${store.address || ''}), products, prices & customer ratings on BellBasket.`} />
-        <meta name="keywords" content={`${store.name}, ${store.name} contact number, ${store.name} address, ${store.name} products, ${store.category} in ${store.district || store.mandal || 'local'}, stores near me, shop online BellBasket`} />
+        <title>{`${store.name}${store.district || store.mandal || store.city || (store.address ? store.address.split(',')[0] : '') ? `, ${store.city || store.district || store.mandal || store.address.split(',')[0]}` : ''} - Contact Details, Address, Products, Timings & Reviews | BellBasket`}</title>
+        <meta name="description" content={`Find ${store.name} in ${store.city || store.district || store.mandal || (store.address ? store.address.split(',')[0] : 'your locality')}. View store contact details, phone number (${store.phone || 'N/A'}), full address (${store.address || ''}), products, prices & customer ratings on BellBasket.`} />
+        <meta name="keywords" content={`${store.name}, ${store.name} contact number, ${store.name} address, ${store.name} products, ${store.category} in ${store.city || store.district || store.mandal || 'local'}, stores near me, shop online BellBasket`} />
+        <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+        <meta name="googlebot" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+        <meta name="bingbot" content="index, follow" />
 
-        <meta property="og:title" content={`${store.name}${store.district ? `, ${store.district}` : ''} - Contact Details, Address & Products | BellBasket`} />
-        <meta property="og:description" content={`Find ${store.name} in ${store.district || (store.address ? store.address.split(',')[0] : 'your neighborhood')}. View contact details, full address, products & prices on BellBasket.`} />
+        <meta property="og:title" content={`${store.name}${store.city || store.district ? `, ${store.city || store.district}` : ''} - Contact Details, Address & Products | BellBasket`} />
+        <meta property="og:description" content={`Find ${store.name} in ${store.city || store.district || (store.address ? store.address.split(',')[0] : 'your neighborhood')}. View contact details, full address, products & prices on BellBasket.`} />
         <meta property="og:image" content={store.image} />
-        <meta property="og:url" content={window.location.href} />
+        <meta property="og:url" content={store.slug ? `https://bellbasket.com/stores/${store.slug}` : `https://bellbasket.com/store/${store.id}`} />
 
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content={`${store.name} - Contact Details & Address | BellBasket`} />
@@ -2320,8 +2326,10 @@ const StoreDetail = () => {
         )}
       </AnimatePresence>
 
-
-
+      <StoreSEOFooter 
+        store={store} 
+        nearbyStores={stores || []} 
+      />
     </div>
   );
 };

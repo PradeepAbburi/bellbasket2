@@ -7,6 +7,8 @@ Allow: /city/*
 Allow: /category/*
 Allow: /best-*
 Allow: /*-near-me
+Allow: /sitemap
+Allow: /sitemap.xml
 
 Disallow: /admin/
 Disallow: /vendor/
