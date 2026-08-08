@@ -94,7 +94,7 @@ export const StoreSEOFooter: React.FC<StoreSEOFooterProps> = ({ store, nearbySto
     .filter(Boolean);
 
   return (
-    <div className="w-full bg-ambient-pattern text-slate-200 border-t border-amber-500/20 shadow-2xl pt-12 pb-12 transition-all relative overflow-hidden">
+    <div className="w-full bg-[#202020] text-slate-200 border-t border-amber-500/20 shadow-2xl pt-12 pb-12 transition-all relative overflow-hidden">
       {/* Top Ambient Glow Bar */}
       <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500/40 via-yellow-400/50 to-emerald-500/40 shadow-md" />
 

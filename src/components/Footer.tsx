@@ -68,7 +68,7 @@ export const Footer: React.FC<FooterProps> = ({ currentStore, nearbyStores = [] 
   const catSlug = generateSlug(category);
 
   return (
-    <footer className="mt-16 bg-ambient-pattern text-slate-300 border-t border-amber-500/20 shadow-2xl relative z-10 transition-colors duration-300">
+    <footer className="mt-16 bg-[#202020] text-slate-300 border-t border-slate-800 shadow-2xl relative z-10 transition-colors duration-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-12">
 
         {/* Dynamic Section: Store Town / Place Tags & Nearby Stores in that town */}
