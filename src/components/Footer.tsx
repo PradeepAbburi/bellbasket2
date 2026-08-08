@@ -237,69 +237,21 @@ export const Footer: React.FC<FooterProps> = ({ currentStore, nearbyStores = [] 
           </div>
         </div>
 
-        {/* Extensive Regional City Marketplace Directory: Andhra Pradesh & Telangana */}
-        <div className="p-6 rounded-3xl bg-[#18181b]/80 border border-white/10 space-y-6">
-          <div className="flex items-center gap-2 border-b border-white/10 pb-3">
-            <Building2 className="w-5 h-5 text-amber-400" />
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider">
-              City Marketplaces - Andhra Pradesh, Telangana & India
-            </h3>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs">
-            {/* Andhra Pradesh */}
-            <div className="space-y-2">
-              <h4 className="font-bold text-amber-400 text-xs flex items-center gap-1">
-                <MapPin className="w-3.5 h-3.5" /> Andhra Pradesh Marketplaces
-              </h4>
-              <div className="flex flex-wrap gap-1.5">
-                {AP_CITIES.map(c => (
-                  <a
-                    key={c}
-                    href={`/city/${generateSlug(c)}`}
-                    className="px-2.5 py-1 rounded-lg bg-[#09090b] hover:bg-amber-500/20 text-slate-300 hover:text-amber-300 border border-white/10 transition-colors"
-                  >
-                    {c}
-                  </a>
-                ))}
-              </div>
-            </div>
-
-            {/* Telangana */}
-            <div className="space-y-2">
-              <h4 className="font-bold text-emerald-400 text-xs flex items-center gap-1">
-                <MapPin className="w-3.5 h-3.5" /> Telangana Marketplaces
-              </h4>
-              <div className="flex flex-wrap gap-1.5">
-                {TELANGANA_CITIES.map(c => (
-                  <a
-                    key={c}
-                    href={`/city/${generateSlug(c)}`}
-                    className="px-2.5 py-1 rounded-lg bg-[#09090b] hover:bg-emerald-500/20 text-slate-300 hover:text-emerald-300 border border-white/10 transition-colors"
-                  >
-                    {c}
-                  </a>
-                ))}
-              </div>
-            </div>
-
-            {/* India & Major Metros */}
-            <div className="space-y-2">
-              <h4 className="font-bold text-slate-200 text-xs flex items-center gap-1">
-                <Globe className="w-3.5 h-3.5 text-amber-400" /> Major Indian Metros & Cities
-              </h4>
-              <div className="flex flex-wrap gap-1.5">
-                {INDIA_METROS.map(c => (
-                  <a
-                    key={c}
-                    href={`/city/${generateSlug(c)}`}
-                    className="px-2.5 py-1 rounded-lg bg-[#09090b] hover:bg-slate-700 text-slate-300 hover:text-white border border-white/10 transition-colors"
-                  >
-                    {c}
-                  </a>
-                ))}
-              </div>
-            </div>
+        {/* Compact City Marketplace Tags Pill Section */}
+        <div className="pt-6 border-t border-white/10 space-y-3">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+            <MapPin className="w-3.5 h-3.5 text-amber-400" /> City Marketplaces (AP, Telangana & India)
+          </h4>
+          <div className="flex flex-wrap gap-1.5">
+            {[...AP_CITIES, ...TELANGANA_CITIES, ...INDIA_METROS].map(c => (
+              <a
+                key={c}
+                href={`/city/${generateSlug(c)}`}
+                className="px-2.5 py-1 rounded-full bg-[#18181b] hover:bg-amber-500/20 text-[11px] text-slate-300 hover:text-amber-300 border border-white/10 hover:border-amber-500/30 transition-all font-medium"
+              >
+                #{c}
+              </a>
+            ))}
           </div>
         </div>
 
