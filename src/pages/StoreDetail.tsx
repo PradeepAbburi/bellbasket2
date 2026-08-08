@@ -34,7 +34,7 @@ import { Helmet } from 'react-helmet';
 import PageLoading from '@/components/PageLoading';
 import SEOInternalLinks from '@/components/SEOInternalLinks';
 import StoreReviewSection from '@/components/StoreReviewSection';
-import { generateSEOContent, generateStoreMetadata, pingSearchEngines } from '@/utils/seo';
+import { generateSEOContent, generateStoreMetadata, pingSearchEngines, generateSlug } from '@/utils/seo';
 import { buildStoreJsonLd } from '@/utils/jsonLd';
 import Footer from '@/components/Footer';
 import StoreSEOFooter from '@/components/StoreSEOFooter';
